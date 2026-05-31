@@ -8,6 +8,16 @@ Keep recent entries concise. If older entries no longer affect the next action, 
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
 
+## 2026-05-31 (S56) — APS 0.2.15 release shipped
+
+- **ID:** S56
+- **Summary:** Adam explicitly authorized continuing from the completed local 0.2.15 candidate through push, tag, GitHub release, and npm publish in one run.
+- **Changed:** Pushed local 0.2.15 commits to `origin/main`; created and pushed tag `v0.2.15`; created GitHub release `Agent Public Squares v0.2.15` as Latest; published npm package `@adamchanadam/aps@0.2.15`. Post-release governance state was updated in `README.md`, `dev/release-notes/v0.2.15.md`, `dev/SESSION_HANDOFF.md`, `dev/PROJECT_INDEX.md`, and this log.
+- **Done:** Final pre-publish checks passed: `node --check bin\aps.js`, `node --check dev\qc\check_context_index.cjs`, `npm test`, `git diff --check`, `node bin\aps.js --help`, and `npm pack --dry-run --json`. npm account readback was `adamchanadam`; preflight confirmed npm latest was still 0.2.14, remote `v0.2.15` tag was absent, and GitHub release `v0.2.15` was absent. Release body wording was cleaned before public release.
+- **QC:** Post-publish readbacks passed: npm version/latest 0.2.15 with 15 files and bin `aps`; npm time records `0.2.15` at `2026-05-31T20:51:26.905Z`; `npx --yes @adamchanadam/aps@latest --help` shows v0.2.15; remote `main` points to `1329107`; remote tag `v0.2.15` points to `8f3dee7`; GitHub release `v0.2.15` is not draft, not prerelease, is listed as Latest, and its body says "This release adds..." rather than candidate wording; GitHub Pages entry and joiner page both return HTTP 200.
+- **Boundary:** `v0.2.15` tag was pushed before the final one-word GitHub release body source cleanup commit. To avoid rewriting an already-pushed tag, the tag remains at `8f3dee7`; `origin/main` is `1329107`. The package contents are unaffected because `dev/release-notes/**` is not included in npm files.
+- **Pending:** Monitor real cross-machine Google Drive sync and new-user daily dashboard use. No further external action is authorized after this release.
+
 ## 2026-05-31 (S55) — Project Context Index design consolidated and read-only CLI started
 
 - **ID:** S55

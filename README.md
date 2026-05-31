@@ -6,7 +6,7 @@
 >
 > 本工具仍處於早期建構期,以 npm `@latest` 為準。已發布主線是 Reliable Peer Handoff:同一個項目可以邀請多位協作對象,但每個交接包仍只發給一位。主安裝路徑是互動式 `npx aps init`,並保留既有項目 `npx aps upgrade`、長正文 `--body-file` 發佈 / 修訂、APS 品牌與版本分流、繁體中文 help、發送前確認、收件總覽、摘要式人類通知、更安全的對方通知文字,以及收件對象選擇(`peers` / `publish --to` / `inbox --from` / `status`)。CLI 已通過最小發佈、收件、消化、回覆、收結往返測試,並沿用一次維護者真實 Google Drive 跨機往返驗證作為協定證據。自然語言日常操作與補救流程仍未完整產品化。確切版本號請以 `npm view @adamchanadam/aps version` 或 `npx aps --help` 為準。
 >
-> 版本提示:目前公開版本是 npm `@adamchanadam/aps@0.2.14`,GitHub Latest release 是 `v0.2.14`。版本已公開,但產品仍屬早期測試階段,不建議用於不可中斷的重要流程。
+> 版本提示:目前公開版本是 npm `@adamchanadam/aps@0.2.15`,GitHub Latest release 是 `v0.2.15`。版本已公開,但產品仍屬早期測試階段,不建議用於不可中斷的重要流程。
 >
 > 最新產品決策是 Reliable Peer Handoff：一個 project 可以有多位 peers,但每次仍是單收件交接包。真正多人平台、多收件人 packet、群組 lane、自動通知與 `watch` 仍不屬目前主路徑。核心方向是不要求額外雲端開發者專案、外部服務憑證或密鑰設定。
 >
