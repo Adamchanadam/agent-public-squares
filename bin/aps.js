@@ -819,11 +819,27 @@ function clipWithEllipsis(value, maxLength) {
   return `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-function packetScopeFromBody(body, fallback) {
-  const meaningful = String(body || '')
+function isBodySectionLabel(line) {
+  const text = String(line || '').trim();
+  if (!text || text.length > 80) return false;
+  return /^(common goal|own-side task|counterpart task|crossing point|requested action|do not misunderstand|evidence|risks and open items|共同目標|本方任務|對方任務|交叉點|請對方做的事|不應誤解|證據|風險|未決|摘要|目標|注意事項)\s*[:：]$/i.test(text);
+}
+
+function firstBodyContentLine(body) {
+  return String(body || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .find((line) => line && !line.startsWith('#'));
+    .find((line) => line
+      && !line.startsWith('#')
+      && !line.startsWith('---')
+      && !line.startsWith('|')
+      && !isBodySectionLabel(line));
+}
+
+function packetScopeFromBody(body, fallback) {
+  const meaningful = firstLineAfterHeading(body, /(請對方做的事|請.*做|requested action|action requested)/i)
+    || firstLineAfterHeading(body, /(共同目標|摘要|目標|common goal|summary|goal)/i)
+    || firstBodyContentLine(body);
   return yamlDoubleQuote(clipWithEllipsis(meaningful || fallback, 120));
 }
 
@@ -836,10 +852,7 @@ function compactNoticeText(value, fallback, maxLength = 220) {
 }
 
 function firstMeaningfulBodyLine(body) {
-  return String(body || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find((line) => line && !line.startsWith('#') && !line.startsWith('---') && !line.startsWith('|'));
+  return firstBodyContentLine(body);
 }
 
 function firstLineAfterHeading(body, headingPattern) {
@@ -851,6 +864,10 @@ function firstLineAfterHeading(body, headingPattern) {
       inside = headingPattern.test(trimmed);
       continue;
     }
+    if (isBodySectionLabel(trimmed)) {
+      inside = headingPattern.test(trimmed);
+      continue;
+    }
     if (inside && trimmed && !trimmed.startsWith('|')) return trimmed;
   }
   return null;
@@ -859,7 +876,7 @@ function firstLineAfterHeading(body, headingPattern) {
 function noticeSummaryFromBody(body, fallback) {
   return compactNoticeText(
     firstLineAfterHeading(body, /(請對方做的事|請.*做|requested action|action requested)/i)
-      || firstLineAfterHeading(body, /(共同目標|摘要|目標)/)
+      || firstLineAfterHeading(body, /(共同目標|摘要|目標|common goal|summary|goal)/i)
       || firstMeaningfulBodyLine(body),
     fallback
   );
@@ -867,7 +884,7 @@ function noticeSummaryFromBody(body, fallback) {
 
 function noticeAttentionFromBody(body) {
   return compactNoticeText(
-    firstLineAfterHeading(body, /(注意|不應誤解|風險|未決)/),
+    firstLineAfterHeading(body, /(注意|不應誤解|風險|未決|do not misunderstand|risks|open items)/i),
     '請先由收件人確認時間、工作目錄與資料狀態已準備好,再叫 AI 介入。'
   );
 }
@@ -925,7 +942,7 @@ function readOutboxEvents(outboxPath) {
 function readPacketSummary(hubRoot, projectSlug, senderId, packetId, version) {
   const packetPath = path.join(projectDir(hubRoot, projectSlug), `from_${senderId}`, 'packets', `${packetId}__v${version}`, 'packet.md');
   if (!fs.existsSync(packetPath)) {
-    return { packetPath, scope: '(packet.md not found)', items: [] };
+    return { packetPath, scope: '(packet.md not found)', items: [], body: '' };
   }
   const text = fs.readFileSync(packetPath, 'utf8');
   let header = {};
@@ -943,7 +960,66 @@ function readPacketSummary(hubRoot, projectSlug, senderId, packetId, version) {
     project: header.project,
     scope: scopeMatch ? scopeMatch[1] : '(scope not found)',
     items: itemMatches,
+    body: packetBodyText(text),
   };
+}
+
+function packetBodyText(packetText) {
+  let body = String(packetText || '').replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+  body = body.replace(/^# .*(?:\r?\n)+/, '');
+  return body.trim();
+}
+
+function inboxWhatSummary(item) {
+  const summary = firstLineAfterHeading(item.body, /(請對方做的事|請.*做|requested action|action requested)/i)
+    || firstLineAfterHeading(item.body, /(共同目標|摘要|目標|common goal|summary|goal)/i)
+    || firstBodyContentLine(item.body)
+    || item.scope
+    || item.packetId;
+  return compactNoticeText(summary, item.packetId, 260);
+}
+
+function inboxActionLines(item) {
+  if (item.items && item.items.length > 0) {
+    return item.items.map((action) => `- ${action}`);
+  }
+  const action = firstLineAfterHeading(item.body, /(請對方做的事|請.*做|requested action|action requested)/i);
+  if (action) return [`- ${compactNoticeText(action, action, 220)}`];
+  return ['- 對方未用 `--items` 明確列出待辦。請先讀完整內容,再決定是否需要對方補交。'];
+}
+
+function inboxAttentionText(item) {
+  return noticeAttentionFromBody(item.body);
+}
+
+function renderHumanInboxItem(item, sourceId, index, total) {
+  const heading = total > 1 ? `📦 新交接 ${index}/${total}` : '📦 新交接';
+  return [
+    heading,
+    '',
+    '🔎 對方交了甚麼',
+    inboxWhatSummary(item),
+    '',
+    '📌 對方請你做',
+    ...inboxActionLines(item),
+    '',
+    '✅ 我該不該做',
+    '可以先讀,但不要因為看到這件交接就立即開工或標記已處理。',
+    '先確認內容齊全、證據位置能在本機對上、要求沒有和目前任務衝突。',
+    '',
+    '⚠️ 需要留意',
+    inboxAttentionText(item),
+    '',
+    '🚀 建議下一步',
+    '先讓 AI 讀完整交接內容,做完整性預檢與本機對接檢查。通過後,再標記已處理或整理回覆。',
+    '',
+    '📄 技術細節',
+    `來源: ${sourceId}`,
+    `主題: ${item.packetId.replace(/^\d{8}T\d{6}Z__/, '')}`,
+    `版本: v${item.version}`,
+    `packet id: ${item.packetId}`,
+    `交接包: ${item.packetPath}`,
+  ].join('\n');
 }
 
 function parsePacketHeader(packetPath) {
@@ -994,14 +1070,14 @@ function parseFrontmatterItems(text) {
   return items;
 }
 
-function latestOwnPacketVersion({ hubRoot, projectSlug, agentId, packetId }) {
+function latestOwnPacketVersion({ hubRoot, projectSlug, agentId, packetId, allowClosed = false }) {
   const outboxPath = path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'outbox.log.md');
   ensureExistingFile(outboxPath, `from_${agentId} outbox`);
   const events = readOutboxEvents(outboxPath).filter((event) => event.packetId === packetId);
   if (events.length === 0) {
     throw new Error(`packet ${packetId} was not found in from_${agentId}/outbox.log.md`);
   }
-  if (events.some((event) => event.verb === 'close')) {
+  if (!allowClosed && events.some((event) => event.verb === 'close')) {
     throw new Error(`packet ${packetId} is already closed in from_${agentId}/outbox.log.md`);
   }
   const candidates = events.filter((event) => event.verb === 'publish' || event.verb === 'revise');
@@ -1083,7 +1159,7 @@ function pendingPacketsFromAllPeers({ hubRoot, projectSlug, agentId, config }) {
 }
 
 function packetStatus({ hubRoot, projectSlug, agentId, packetId }) {
-  const { outboxPath, events, latest } = latestOwnPacketVersion({ hubRoot, projectSlug, agentId, packetId });
+  const { outboxPath, events, latest } = latestOwnPacketVersion({ hubRoot, projectSlug, agentId, packetId, allowClosed: true });
   const packetPath = path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'packets', `${packetId}__v${latest.version}`, 'packet.md');
   ensureExistingFile(packetPath, `packet ${packetId} v${latest.version}`);
   const header = parsePacketHeader(packetPath);
@@ -2136,17 +2212,24 @@ if (subcommand === 'inbox') {
       console.log(`📭 APS 共用 Drive 資料夾: ${agentId} 沒有待處理項目`);
     } else {
       console.log(`📬 APS 共用 Drive 資料夾: ${agentId} 有 ${total} 個待處理項目`);
+      console.log('');
+      console.log('🔎 收件總覽');
+      let index = 1;
       for (const group of groups) {
-        if (allSources) console.log(`\n👤 來源: ${group.from} (${group.pending.length})`);
         for (const item of group.pending) {
-          console.log(`- 📦 ${item.packetId} v${item.version} | 摘要:${item.scope} | 項目:${item.items.join(',') || '(無)'}`);
-          console.log(`  來源: ${group.from}`);
-          console.log(`  📄 交接包: ${item.packetPath}`);
-          console.log('  🔎 請先在 AI 工具輸入「check Drive」取得完整收件報告,再決定是否標記已處理。');
+          console.log(`${index}. ${group.from} / ${item.packetId.replace(/^\d{8}T\d{6}Z__/, '')} / v${item.version}`);
+          index += 1;
         }
       }
       console.log('');
-      console.log('🚀 下一步:請先讓 AI 產生收件報告,摘要交接重點,再做完整性預檢與本機對接檢查。只有在內容齊全且與本機任務狀態一致後,才標記已處理;若資料不足或不一致,應先請對方補交或確認共識。');
+      index = 1;
+      for (const group of groups) {
+        for (const item of group.pending) {
+          console.log(renderHumanInboxItem(item, group.from, index, total));
+          console.log('');
+          index += 1;
+        }
+      }
       console.log('✅ 通過檢查後的備用命令:npx aps consume --packet-id <id> --version <n> --result "<具體處理結果>"');
     }
     process.exit(0);

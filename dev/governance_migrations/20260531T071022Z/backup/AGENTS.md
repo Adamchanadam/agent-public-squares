@@ -99,7 +99,7 @@ At full closeout:
 7. Run the handoff sufficiency check: the next AI should be able to continue from `AGENTS.md`, `dev/SESSION_HANDOFF.md`, `dev/PROJECT_INDEX.md`, and needed rule packs without searching old log history.
 8. If either check fails, fix `dev/SESSION_HANDOFF.md` first; do not push current-state responsibility into `dev/SESSION_LOG.md`.
 9. Regenerate `START_NEXT_SESSION_PROMPT.txt` from the fenced opening message in `dev/SESSION_HANDOFF.md`, then read it back or run the project's prompt mirror check before declaring closeout ready. `dev/SESSION_HANDOFF.md` is authoritative; `START_NEXT_SESSION_PROMPT.txt` is the stateful startup prompt that the next local agent must read. During an active session, do not regenerate it just to silence `doctor`; normal `doctor` may warn about drift, but closeout must make the copy match before handoff is declared ready.
-10. Show a short closeout card, then provide the next-session startup entry in a fenced `text` code block. Primary entry, when the next local AI agent is already opened at this project root: `Start Agent Handoff` / `開工`. Fallback entry, when the next AI agent is not yet pointed at the project root: `Work in <project root>. Read AGENTS.md first, then Start Agent Handoff. Before changing anything, tell me the current state and your recommended next step.` Do not compose a separate stateful final-response prompt; the final response points to the persisted prompt file, not a third source of truth.
+10. Show a short closeout card, then provide the stable bootstrap sentence for the next local-agent session in a fenced `text` code block: `Work in <project root>. Read AGENTS.md first. Then open START_NEXT_SESSION_PROMPT.txt and follow the opening message inside. If START_NEXT_SESSION_PROMPT.txt is missing or seems stale, read dev/SESSION_HANDOFF.md instead. Before changing anything, tell me the current state and your recommended next step.` Do not compose a separate stateful final-response prompt; the final response points to the persisted prompt file, not a third source of truth.
 11. Advance the SESSION_LOG N-rule (R-010 SESSION_LOG handoff-role discipline). After prepending the new closeout entry, count `## YYYY-MM-DD` H2 entries in `dev/SESSION_LOG.md`. Any entry now at position N ≥ 11 (oldest end) must be moved into `dev/SESSION_LOG_archive/archive_<batch>_<low_date>_to_<high_date>.md` with raw content preserved. Maintain `dev/SESSION_LOG_archive/INDEX.md` (master index of all archive batches; create on first archive). Entries at N=4–10 whose core facts are already absorbed into HANDOFF / PROJECT_INDEX / requirements / decision records collapse to a short-index line using structural anchors, not line numbers. Entries with unique narrative not yet absorbed must first be ported into the relevant durable source, then collapsed. This is mandatory; do not skip. Handoff capability rests on `dev/SESSION_HANDOFF.md`; `dev/SESSION_LOG.md` is trace-back / audit trail and does not carry handoff responsibility.
 
 12. Maintain `dev/PROJECT_DECISIONS.md` per R-028 project narrative discipline. Each closeout must run the following checks with equal mechanical rigor as the SESSION_LOG N-rule (step 11):
@@ -133,10 +133,10 @@ Use this closeout card:
 ⚠️ Boundary: <important boundary or none>
 ```
 
-In `dev/SESSION_HANDOFF.md`, immediately before the fenced `Next Session Opening Message` content, write:
+Immediately before the fenced opening message, write:
 
 ```text
-📋 Next session: agent-managed startup content below
+📋 Next session: copy and paste the whole block below
 ```
 
 Record only work actually performed in the current session. Do not copy old completed work forward as new work.

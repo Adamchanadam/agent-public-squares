@@ -14,13 +14,9 @@ After this core is loaded, read in order:
 
 Then classify the user's task and read only the required rule pack(s). State which pack(s) you loaded and why, using plain language so the user understands the working mode without needing to know pack names.
 
-Before classifying the task, detect first-time-user signals (R-029): if the user's first message in this session is short, vague, or contains onboarding signal keywords (e.g. "新手", "I'm new", "教我用", "help me start", "first time", "我剛安裝", "點開始", "show me how", "agent handoff kit 可幫我做甚麼", "我想做 [type] project", "點用", "能力"), or if the session is a fresh installation (HANDOFF Active Objective empty + Session count 1), load `dev/rules/onboarding.md` proactively BEFORE doing the regular task loop. The onboarding pack surfaces the AI's role and offers Scenario A-F selection (instead of immediately diving into task execution). Onboarding is a transient pack: after the user completes their first-task walk-through, unload it and load the regular scenario pack (coding / research / writing / knowledge / etc) for ongoing work.
+Before classifying the task, detect first-time-user signals (R-029): if the user's first message in this session is short, vague, or contains onboarding signal keywords (e.g. "新手", "I'm new", "教我用", "help me start", "first time", "我啱啱安裝", "點開始", "show me how", "agent handoff kit 可幫我做甚麼", "我想做 [type] project", "點用", "能力"), or if the session is a fresh installation (HANDOFF Active Objective empty + Session count 1), load `dev/rules/onboarding.md` proactively BEFORE doing the regular task loop. The onboarding pack surfaces the AI's role and offers Scenario A-E selection (instead of immediately diving into task execution). Onboarding is a transient pack: after the user completes their first-task walk-through, unload it and load the regular scenario pack (coding / research / writing / knowledge / etc) for ongoing work.
 
 If the user did not paste the previous opening message but the current project root is clear, read `AGENTS.md` first as fallback entry, then use this read order. If the root is unclear or mismatched, stop and ask for the intended project root before reading or editing project state.
-
-Detect clear startup / handoff-start intent in natural language, such as "開工", "Start Agent Handoff", "開始接力", or "continue handoff". When that intent is clear and the current project root is clear, open `START_NEXT_SESSION_PROMPT.txt` and follow the opening message inside. If `START_NEXT_SESSION_PROMPT.txt` is missing or seems stale, read `dev/SESSION_HANDOFF.md` instead. Before changing anything, tell the user the current state and your recommended next step.
-
-Ambiguous startup phrases need one concise confirmation question before treating them as Agent Handoff Kit startup. In particular, if the user says "<something> 開工", "<something> start", or similar wording that may refer to a real-world shift, event, project phase, or another context, ask whether they mean to start Agent Handoff Kit continuity for this project.
 
 If a required file is missing, create the smallest useful version only after confirming the target project root.
 
@@ -33,20 +29,20 @@ After reading `dev/PROJECT_INDEX.md`, if `## Installed Integrations` is non-empt
 - If probe fails (current AI tool lacks the Connector / auth expired / network issue): print warning in the startup card (`⚠️ Boundary` line) noting which Integration is declared-but-unavailable + that this session will fallback to paste flow when that external surface is touched. Do not attempt to auto-fix auth or credential issues; surface to the user to handle via the AI tool's own settings interface.
 - Credential separation: AI must never request, log, or persist credential values (API keys / OAuth tokens / app secrets / refresh tokens). Credentials live in OS-level secure storage or AI-tool-specific config, never in `dev/*` files. Recognize common credential prefixes (`sk-`, `sk-ant-`, `ntn_`, `secret_`, `ya29.`, `1//`, `xoxp-`, `xoxb-`, `ghp_`, `gho_`, `ghs_`, `github_pat_`, `sl.`, `AKIA`, `AIza`) and redact + warn the user to rotate the token if accidentally pasted.
 
-After startup reads are complete, show one short startup card. If onboarding is loaded, combine this card and the onboarding choice list into one first response. Do not print any standalone startup card before the onboarding rule has been read. Do not print a partial card. Do not print the cat banner twice. If you started drafting a card and then discovered onboarding applies, discard the draft and output only the final combined response.
+After startup reads are complete, show a short startup card:
 
 ```text
    /\_/\   Agent Handoff Kit v<version>
   ( o.o )  continuity ready
    > ^ <
 
-🔎 交接狀態：<loaded / new install / resumed>
-📌 目前目標：<current objective>
-⚠️ 注意事項：<important boundary or none>
-🚀 下一步：<next action>
+🔎 Handoff: loaded
+📌 Objective: <current objective>
+⚠️ Boundary: <important boundary or none>
+🚀 Next: <next action>
 ```
 
-Keep the card short. Use plain Traditional Chinese labels in user-facing output. Use the full product name, not an abbreviation. If the installed template or CLI version is unknown, write `version unverified` instead of guessing.
+Keep the card short. Use the full product name, not an abbreviation. If the installed template or CLI version is unknown, write `version unverified` instead of guessing.
 
 ## 2. Work Loop
 
@@ -56,7 +52,7 @@ Use this loop for every task:
 2. READ: inspect relevant files from `PROJECT_INDEX.md` and search for related definitions before editing.
 3. CHANGE: make focused changes only.
 4. QC: run available checks or state why they cannot run.
-5. PERSIST: classify durable facts before writing them. Current state belongs in handoff, chronological evidence in log, file / command / reference maps in project index, sync obligations in doc sync registry, and reusable operating procedure in the relevant rule pack or registered reference. Do not store reusable procedure knowledge only in handoff or log.
+5. PERSIST: update handoff/log and any affected project index or sync registry.
 
 External skill flows, subagents, task plans, or another tool's "finish" step do not replace this loop. If you use any of them, the PLAN must include a final Agent Handoff Kit persistence step for the active project root, and completion cannot be claimed until that root's `dev/SESSION_HANDOFF.md`, `dev/SESSION_LOG.md`, `dev/PROJECT_INDEX.md`, and `dev/DOC_SYNC_REGISTRY.md` have been inspected and updated or explicitly marked not applicable.
 
@@ -67,7 +63,7 @@ For high-risk work, pause after PLAN. High-risk means destructive operations, am
 `agent-handoff-kit upgrade` is considered complete only when all of the following hold. The CLI enforces this contract; do not declare upgrade success without it.
 
 1. `AGENTS.md` health state is `clean`: exactly one `# Agent Handoff Kit Core Runtime` heading, exactly one paired managed-core marker block, and no unmarked stale core ranges. Sandwich states (managed marker plus an unmarked stale core) are not clean; the installer must replace the stale ranges, not skip.
-2. The CLI runs `doctor` automatically against the upgraded root after writes complete. `doctor` must report `status: passed` across required files, anchors, schema checks, handoff lifecycle checks, and credential separation checks. A `START_NEXT_SESSION_PROMPT.txt` convenience-copy warning does not block upgrade health; that file is regenerated at full closeout.
+2. The CLI runs `doctor` automatically against the upgraded root after writes complete. `doctor` must report `status: passed` across required files, anchors, schema checks, and prompt mirror checks.
 3. The migration report records every action taken, with backup paths for merged files.
 
 If any check fails, the upgrade did not finish; resolve the failure (or hand the failure output to the user) before reporting completion. This contract is the single source of truth for upgrade success; downstream QA scripts and release-grade QA derive their assertions from it.
@@ -84,9 +80,7 @@ Do not claim completion without evidence from checks, inspection, or a clear exp
 
 ## 4. Closeout And Handoff
 
-Detect end-of-session or handoff intent in natural language, such as "收工", "Wrap up Agent Handoff", "closeout", "wrap up", or "handoff". If intent is ambiguous, ask one concise confirmation question.
-
-Ambiguous closeout phrases need one concise confirmation question before full closeout. In particular, if the user says "<something> 收工", "<something> close", or similar wording that may refer to a real-world shift, event, project phase, or another context, ask whether they mean to wrap up Agent Handoff Kit and write the project handoff.
+Detect end-of-session or handoff intent in natural language, such as "收工", "wrap up", or "handoff". If intent is ambiguous, ask one concise confirmation question.
 
 At full closeout:
 
@@ -98,8 +92,8 @@ At full closeout:
 6. Complete the `State Reconciliation Check`: it must state when reconciliation happened, which state sections were rewritten or confirmed current, whether stale snapshots remain, whether completed / pending / risk / opening-message lifecycle conflicts were resolved, and whether the opening message matches current state. In the same step, run the handoff lifecycle consistency check before declaring handoff ready: compare `Completed This Session`, `Validation / QC`, `Next Priorities`, `Risks / Blockers`, and `Next Session Opening Message`. A completed or verified item must not remain as an unresolved next priority, active risk, or startup instruction unless it is explicitly reclassified as monitor-only, follow-up scope, blocked, or reopened with the missing evidence or trigger condition stated.
 7. Run the handoff sufficiency check: the next AI should be able to continue from `AGENTS.md`, `dev/SESSION_HANDOFF.md`, `dev/PROJECT_INDEX.md`, and needed rule packs without searching old log history.
 8. If either check fails, fix `dev/SESSION_HANDOFF.md` first; do not push current-state responsibility into `dev/SESSION_LOG.md`.
-9. Regenerate `START_NEXT_SESSION_PROMPT.txt` from the fenced opening message in `dev/SESSION_HANDOFF.md`, then read it back or run the project's prompt mirror check before declaring closeout ready. `dev/SESSION_HANDOFF.md` is authoritative; `START_NEXT_SESSION_PROMPT.txt` is the stateful startup prompt that the next local agent must read. During an active session, do not regenerate it just to silence `doctor`; normal `doctor` may warn about drift, but closeout must make the copy match before handoff is declared ready.
-10. Show a short closeout card, then provide the next-session startup entry in a fenced `text` code block. Primary entry, when the next local AI agent is already opened at this project root: `Start Agent Handoff` / `開工`. Fallback entry, when the next AI agent is not yet pointed at the project root: `Work in <project root>. Read AGENTS.md first, then Start Agent Handoff. Before changing anything, tell me the current state and your recommended next step.` Do not compose a separate stateful final-response prompt; the final response points to the persisted prompt file, not a third source of truth.
+9. Show a short closeout card, then provide a copy-paste-ready next-session opening message inside a fenced `text` code block, so the user can clearly copy and paste it into the next session.
+10. Regenerate `START_NEXT_SESSION_PROMPT.txt` from the fenced opening message in `dev/SESSION_HANDOFF.md`. `dev/SESSION_HANDOFF.md` is authoritative; `START_NEXT_SESSION_PROMPT.txt` is only a convenience copy for the user to paste at the next startup.
 11. Advance the SESSION_LOG N-rule (R-010 SESSION_LOG handoff-role discipline). After prepending the new closeout entry, count `## YYYY-MM-DD` H2 entries in `dev/SESSION_LOG.md`. Any entry now at position N ≥ 11 (oldest end) must be moved into `dev/SESSION_LOG_archive/archive_<batch>_<low_date>_to_<high_date>.md` with raw content preserved. Maintain `dev/SESSION_LOG_archive/INDEX.md` (master index of all archive batches; create on first archive). Entries at N=4–10 whose core facts are already absorbed into HANDOFF / PROJECT_INDEX / requirements / decision records collapse to a short-index line using structural anchors, not line numbers. Entries with unique narrative not yet absorbed must first be ported into the relevant durable source, then collapsed. This is mandatory; do not skip. Handoff capability rests on `dev/SESSION_HANDOFF.md`; `dev/SESSION_LOG.md` is trace-back / audit trail and does not carry handoff responsibility.
 
 12. Maintain `dev/PROJECT_DECISIONS.md` per R-028 project narrative discipline. Each closeout must run the following checks with equal mechanical rigor as the SESSION_LOG N-rule (step 11):
@@ -133,10 +127,10 @@ Use this closeout card:
 ⚠️ Boundary: <important boundary or none>
 ```
 
-In `dev/SESSION_HANDOFF.md`, immediately before the fenced `Next Session Opening Message` content, write:
+Immediately before the fenced opening message, write:
 
 ```text
-📋 Next session: agent-managed startup content below
+📋 Next session: copy and paste the whole block below
 ```
 
 Record only work actually performed in the current session. Do not copy old completed work forward as new work.
@@ -151,7 +145,7 @@ A pack may add task-specific requirements. A pack cannot weaken core safety. If 
 
 When a task references external tools (Notion / Google Drive / Slack / Linear / GitHub / Dropbox / HubSpot / Atlassian / etc.) or `dev/PROJECT_INDEX.md` `## Installed Integrations` is non-empty, load `dev/rules/integrations.md` together with the relevant domain pack. The integrations pack covers Connector-first defaults, credential separation, multi-layer source-of-truth architecture, and cross-session resilience for declared integrations.
 
-After the task, persist durable facts into the correct home: handoff for current state, log for trace evidence, project index for file / command / reference maps, doc sync registry for sync obligations, and rule packs or registered references for reusable operating procedures. Do not assume the next session remembers pack context unless it is recorded, and do not treat handoff/log persistence as sufficient for reusable procedure knowledge.
+After the task, persist durable facts into handoff/log/index/registry. Do not assume the next session remembers pack context unless it is recorded.
 
 If a pack, skill, subagent plan, demo workspace, or external workflow produces its own closeout, treat it as subordinate evidence. The active project root still needs Agent Handoff Kit persistence before the task is complete.
 
