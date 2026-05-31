@@ -1,15 +1,17 @@
 {
   "name": "@adamchanadam/aps",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Install APS skills for Claude Code and Codex, then set up AI agents to exchange one-to-one packets over a shared Google Drive folder. Cantonese / English aware.",
   "bin": {
     "aps": "bin/aps.js"
   },
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "node dev/qc/check_context_index.cjs",
+    "test:context": "node dev/qc/check_context_index.cjs"
   },
   "files": [
     "bin/",
+    "dev/qc/check_context_index.cjs",
     "skills/",
     "examples/",
     "resources/",

@@ -13,7 +13,10 @@ const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
 
-const subcommand = process.argv[2];
+const rawSubcommand = process.argv[2];
+const subcommand = rawSubcommand === 'check-drive' || rawSubcommand === 'check-hub'
+  ? 'inbox'
+  : rawSubcommand;
 const args = process.argv.slice(3);
 const packageJson = require('../package.json');
 const packageVersion = packageJson.version || 'version unknown';
@@ -90,6 +93,23 @@ function readItemsInput() {
     return { provided: true, items };
   }
   return { provided: false, items: [] };
+}
+
+function contextActionFromArgs(argv) {
+  const positional = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg.startsWith('--')) {
+      if (argv[index + 1] && !argv[index + 1].startsWith('--')) index += 1;
+      continue;
+    }
+    positional.push(arg);
+  }
+  if (positional.length === 0) return 'summary';
+  if (positional.length === 1 && positional[0] === 'check') return 'check';
+  if (positional.length === 1 && positional[0] === 'add') return 'add';
+  if (positional.length === 1 && positional[0] === 'html') return 'html';
+  return null;
 }
 
 function configPath() {
@@ -587,8 +607,8 @@ function packetTimestamp(date = new Date()) {
   return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 }
 
-function isoNow() {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+function isoNow(date = new Date()) {
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 function validateTopic(topic) {
@@ -615,6 +635,19 @@ function requireFlags(names) {
 
 function projectDir(hubRoot, projectSlug) {
   return path.join(hubRoot, projectSlug);
+}
+
+function contextDir(hubRoot, projectSlug) {
+  return path.join(projectDir(hubRoot, projectSlug), '_context');
+}
+
+function contextLogPath(hubRoot, projectSlug, agentId) {
+  return path.join(contextDir(hubRoot, projectSlug), `from_${agentId}`, 'context.log.md');
+}
+
+function pathWithinDir(candidatePath, parentDir) {
+  const relative = path.relative(path.resolve(parentDir), path.resolve(candidatePath));
+  return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function peerAgentsDir(hubRoot, projectSlug) {
@@ -992,6 +1025,48 @@ function inboxAttentionText(item) {
   return noticeAttentionFromBody(item.body);
 }
 
+function contextInboxBrief(report) {
+  if (!report || !report.exists || report.entries.length === 0) return [];
+  const errors = report.issues.filter((issue) => issue.severity === 'error').length;
+  const warnings = report.issues.length - errors;
+  const lines = [
+    '🧭 項目背景索引',
+    '只作理解背景;真正要處理的內容仍以上面的交接為準。',
+  ];
+  if (errors > 0) {
+    lines.push(`背景索引有 ${errors} 個來源錯誤,本次不可把它當成事實。`);
+  } else if (warnings > 0) {
+    lines.push(`背景索引有 ${warnings} 個提醒,閱讀時要先核對最新交接。`);
+  } else {
+    lines.push('背景索引來源檢查未見阻塞錯誤。');
+  }
+  for (const entry of report.entries.slice(0, 3)) {
+    const title = entry.workstream || entry.current_focus || entry.source_packet || `entry ${entry.blockIndex}`;
+    lines.push(`- ${entry.lane_agent}: ${title} (${entry.freshness})`);
+  }
+  if (report.entries.length > 3) lines.push(`- 另有 ${report.entries.length - 3} 條背景索引未在此展開。`);
+  return lines;
+}
+
+function renderInboxDailyBrief({ agentId, total, groups, contextReport }) {
+  const activeSources = groups.filter((group) => group.pending.length > 0).map((group) => group.from);
+  const sourceText = activeSources.length > 0 ? activeSources.join(', ') : '暫時沒有';
+  const lines = [
+    '🔎 今日收件報告',
+    total === 0
+      ? `${agentId} 目前沒有新的交接要處理。`
+      : `${agentId} 收到 ${total} 個新交接,來源: ${sourceText}。`,
+  ];
+  if (total > 0) {
+    lines.push('先讀摘要與下一步,確認本機資料能對上後,才叫 AI 標記已處理。');
+  }
+  const contextLines = contextInboxBrief(contextReport);
+  if (contextLines.length > 0) {
+    lines.push('', ...contextLines);
+  }
+  return lines.join('\n');
+}
+
 function renderHumanInboxItem(item, sourceId, index, total) {
   const heading = total > 1 ? `📦 新交接 ${index}/${total}` : '📦 新交接';
   return [
@@ -1013,7 +1088,7 @@ function renderHumanInboxItem(item, sourceId, index, total) {
     '🚀 建議下一步',
     '先讓 AI 讀完整交接內容,做完整性預檢與本機對接檢查。通過後,再標記已處理或整理回覆。',
     '',
-    '📄 技術細節',
+    '📄 排錯時才需要的細節',
     `來源: ${sourceId}`,
     `主題: ${item.packetId.replace(/^\d{8}T\d{6}Z__/, '')}`,
     `版本: v${item.version}`,
@@ -1156,6 +1231,825 @@ function pendingPacketsFromAllPeers({ hubRoot, projectSlug, agentId, config }) {
     });
   }
   return grouped;
+}
+
+function contextSourcePath({ hubRoot, projectSlug, sourceRef, entry }) {
+  const ref = String(sourceRef || '').trim();
+  const packetAgent = /^[a-z][a-z0-9_]*$/.test(entry.source_agent || '') ? entry.source_agent : null;
+  if (/^packet:[a-z][a-z0-9_]*:\d{8}T\d{6}Z__[a-z][a-z0-9_]{0,39}:v\d+$/.test(ref)) {
+    const [, agentId, packetId, versionText] = ref.split(':');
+    return path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'packets', `${packetId}__${versionText}`, 'packet.md');
+  }
+  if (/^outbox:[a-z][a-z0-9_]*$/.test(ref)) {
+    const [, agentId] = ref.split(':');
+    return path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'outbox.log.md');
+  }
+  if (/^ack:[a-z][a-z0-9_]*$/.test(ref)) {
+    const [, agentId] = ref.split(':');
+    return path.join(projectDir(hubRoot, projectSlug), '_ack', `${agentId}.ack.json`);
+  }
+  if (/^peer:[a-z][a-z0-9_]*$/.test(ref)) {
+    const [, agentId] = ref.split(':');
+    return peerCardPath(hubRoot, projectSlug, agentId);
+  }
+  if (/^file:.+/.test(ref)) {
+    const rel = ref.slice('file:'.length).trim();
+    return path.resolve(projectDir(hubRoot, projectSlug), rel);
+  }
+  if (entry.source_packet && entry.source_version && packetAgent) {
+    return path.join(projectDir(hubRoot, projectSlug), `from_${packetAgent}`, 'packets', `${entry.source_packet}__v${entry.source_version}`, 'packet.md');
+  }
+  return null;
+}
+
+function isContextUrlRef(sourceRef) {
+  const ref = String(sourceRef || '').trim();
+  if (!ref.startsWith('url:')) return false;
+  try {
+    const url = new URL(ref.slice('url:'.length));
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch (_) {
+    return false;
+  }
+}
+
+function contextUrlFromRef(sourceRef) {
+  return String(sourceRef || '').trim().slice('url:'.length);
+}
+
+function contextIssue(severity, filePath, message) {
+  return { severity, filePath, message };
+}
+
+function htmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeSourceRefs(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  return [String(value).trim()].filter(Boolean);
+}
+
+const CONTEXT_FORBIDDEN_FIELDS = [
+  'assignee',
+  'assigned_to',
+  'due_date',
+  'deadline',
+  'kanban',
+  'kanban_status',
+  'priority',
+  'auto_priority',
+  'reminder_time',
+  'reminder_at',
+  'responsibility_score',
+  'notification_status',
+  'platform_notification_status',
+];
+
+function parseContextJsonBlocks(text) {
+  const blocks = [];
+  const regex = /```json\s*([\s\S]*?)```/g;
+  let match;
+  while ((match = regex.exec(String(text || '')))) {
+    try {
+      blocks.push(JSON.parse(match[1]));
+    } catch (_) {
+      // Invalid blocks are reported by parseContextLog; source-ref lookup just ignores them.
+    }
+  }
+  return blocks;
+}
+
+function contextLogHasSourceRef(filePath, sourceRef) {
+  if (!fs.existsSync(filePath)) return false;
+  return parseContextJsonBlocks(fs.readFileSync(filePath, 'utf8'))
+    .some((entry) => normalizeSourceRefs(entry.source_refs).includes(sourceRef));
+}
+
+function packetTopic(packetId) {
+  return String(packetId || '').replace(/^\d{8}T\d{6}Z__/, '');
+}
+
+function parsePacketSourceRef(sourceRef) {
+  const match = String(sourceRef || '').trim()
+    .match(/^packet:([a-z][a-z0-9_]*):(\d{8}T\d{6}Z__[a-z][a-z0-9_]{0,39}):v(\d+)$/);
+  if (!match) return null;
+  return { agentId: match[1], packetId: match[2], version: Number(match[3]) };
+}
+
+function packetRefsForContextEntry(entry) {
+  const refs = normalizeSourceRefs(entry.source_refs)
+    .map(parsePacketSourceRef)
+    .filter(Boolean);
+  const packetAgent = /^[a-z][a-z0-9_]*$/.test(entry.source_agent || '') ? entry.source_agent : null;
+  if (entry.source_packet && entry.source_version && packetAgent) {
+    refs.push({
+      agentId: packetAgent,
+      packetId: entry.source_packet,
+      version: Number(entry.source_version),
+    });
+  }
+  return refs;
+}
+
+function latestPacketVersionInLane({ hubRoot, projectSlug, agentId, packetId }) {
+  const packetsDir = path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'packets');
+  let latest = 0;
+  if (fs.existsSync(packetsDir)) {
+    for (const entry of fs.readdirSync(packetsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const match = entry.name.match(new RegExp(`^${packetId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}__v(\\d+)$`));
+      if (match) latest = Math.max(latest, Number(match[1]));
+    }
+  }
+  const outboxPath = path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'outbox.log.md');
+  if (fs.existsSync(outboxPath)) {
+    try {
+      for (const event of readOutboxEvents(outboxPath)) {
+        if (event.packetId === packetId) latest = Math.max(latest, Number(event.version) || 0);
+      }
+    } catch (_) {
+      // A malformed outbox is reported elsewhere if it is a declared source.
+    }
+  }
+  return latest;
+}
+
+function hasNewerPacketActivity({ hubRoot, projectSlug, entry, updatedAt }) {
+  for (const ref of packetRefsForContextEntry(entry)) {
+    if (latestPacketVersionInLane({ hubRoot, projectSlug, agentId: ref.agentId, packetId: ref.packetId }) > ref.version) {
+      return true;
+    }
+    const ackDir = path.join(projectDir(hubRoot, projectSlug), '_ack');
+    if (!Number.isFinite(updatedAt) || !fs.existsSync(ackDir)) continue;
+    for (const ackFile of fs.readdirSync(ackDir, { withFileTypes: true })) {
+      if (!ackFile.isFile() || !ackFile.name.endsWith('.ack.json')) continue;
+      const ackPath = path.join(ackDir, ackFile.name);
+      try {
+        const ack = readJson(ackPath);
+        const consumed = Array.isArray(ack.consumed) ? ack.consumed : [];
+        const related = consumed.some((item) => item.packet_id === ref.packetId && Number(item.version) >= ref.version);
+        if (related && fs.statSync(ackPath).mtime.getTime() > updatedAt) return true;
+      } catch (_) {
+        // Unreadable ack only affects freshness if it is explicitly listed in source_refs.
+      }
+    }
+  }
+  return false;
+}
+
+function findContextPacket({ hubRoot, projectSlug, agentId, packetId, version }) {
+  const projectPath = projectDir(hubRoot, projectSlug);
+  ensureExistingDir(projectPath, 'project directory');
+  const lanes = fs.readdirSync(projectPath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith('from_'));
+  const matches = [];
+  for (const lane of lanes) {
+    const senderId = lane.name.slice('from_'.length);
+    const packetPath = path.join(projectPath, lane.name, 'packets', `${packetId}__v${version}`, 'packet.md');
+    if (!fs.existsSync(packetPath)) continue;
+    const header = parsePacketHeader(packetPath);
+    matches.push({ senderId, packetPath, header });
+  }
+  if (matches.length === 0) {
+    throw new Error(`${packetId} v${version} was not found in this project.`);
+  }
+  const related = matches.find((match) => match.header.to === agentId)
+    || matches.find((match) => match.header.from === agentId || match.senderId === agentId);
+  if (!related) {
+    const endpoints = matches.map((match) => `${match.header.from || match.senderId}->${match.header.to || '(missing to)'}`).join(', ');
+    throw new Error(`${packetId} v${version} is not connected to ${agentId}. Found: ${endpoints}.`);
+  }
+  return related;
+}
+
+function appendContextEntryFromPacket({ hubRoot, projectSlug, agentId, packetId, version }) {
+  const source = findContextPacket({ hubRoot, projectSlug, agentId, packetId, version });
+  const summary = readPacketSummary(hubRoot, projectSlug, source.senderId, packetId, version);
+  const sourceRef = `packet:${source.senderId}:${packetId}:v${version}`;
+  const filePath = contextLogPath(hubRoot, projectSlug, agentId);
+  const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+  if (contextLogHasSourceRef(filePath, sourceRef)) {
+    return { filePath, sourceRef, entry: null, skipped: true };
+  }
+  const sourceMtime = fs.statSync(source.packetPath).mtime.getTime();
+  const updatedAt = isoNow(new Date(Math.max(Date.now(), sourceMtime + 1000)));
+  const entry = {
+    updated_at: updatedAt,
+    source_agent: agentId,
+    source_refs: [sourceRef],
+    status: 'background_only',
+    workstream: packetTopic(packetId),
+    current_focus: inboxWhatSummary({
+      packetId,
+      scope: summary.scope,
+      body: summary.body,
+      items: summary.items,
+    }),
+  };
+  const heading = `## ${entry.updated_at} ${entry.workstream}`;
+  const block = `${heading}\n\n\`\`\`json\n${JSON.stringify(entry, null, 2)}\n\`\`\`\n\n`;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (!existing) {
+    fs.writeFileSync(filePath, `# Context log\n\n${block}`, 'utf8');
+  } else {
+    fs.writeFileSync(filePath, `${existing.replace(/\s*$/, '\n\n')}${block}`, 'utf8');
+  }
+  return { filePath, sourceRef, entry, skipped: false };
+}
+
+function contextEntryFreshness({ entry, sourcePaths, issues, hubRoot, projectSlug }) {
+  if (issues.some((issue) => issue.severity === 'error' && /source|來源|not found|不存在/i.test(issue.message))) {
+    return 'unverified_source';
+  }
+  if (entry.freshness === 'conflict_packet_wins' || entry.conflict_with_packet === true) {
+    return 'conflict_packet_wins';
+  }
+  const updatedAt = Date.parse(entry.updated_at || '');
+  if (hasNewerPacketActivity({ hubRoot, projectSlug, entry, updatedAt })) {
+    return 'possibly_stale';
+  }
+  if (Number.isFinite(updatedAt)) {
+    for (const sourcePath of sourcePaths) {
+      if (!sourcePath || !fs.existsSync(sourcePath)) continue;
+      const mtime = fs.statSync(sourcePath).mtime.getTime();
+      if (mtime > updatedAt) return 'possibly_stale';
+    }
+  }
+  return 'current_by_sources';
+}
+
+function parseContextLog({ filePath, laneAgentId, hubRoot, projectSlug }) {
+  const text = fs.readFileSync(filePath, 'utf8');
+  const entries = [];
+  const issues = [];
+  const regex = /```json\s*([\s\S]*?)```/g;
+  let match;
+  let blockIndex = 0;
+  while ((match = regex.exec(text))) {
+    blockIndex += 1;
+    let entry;
+    try {
+      entry = JSON.parse(match[1]);
+    } catch (err) {
+      issues.push(contextIssue('error', filePath, `第 ${blockIndex} 個 JSON metadata 無法解析: ${err.message}`));
+      continue;
+    }
+    const entryIssues = [];
+    for (const key of ['updated_at', 'source_agent', 'status']) {
+      if (!entry[key]) entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條缺少必要欄位: ${key}`));
+    }
+    if (entry.status && entry.status !== 'background_only') {
+      entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 status 必須是 background_only，目前是 ${entry.status}`));
+    }
+    if (entry.updated_at && Number.isNaN(Date.parse(entry.updated_at))) {
+      entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 updated_at 不是可解析時間: ${entry.updated_at}`));
+    }
+    if (entry.source_agent && validateSnakeCase('source_agent', entry.source_agent)) {
+      entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 source_agent 格式不正確: ${entry.source_agent}`));
+    }
+    if (entry.source_agent && entry.source_agent !== laneAgentId) {
+      entryIssues.push(contextIssue('warn', filePath, `第 ${blockIndex} 條 source_agent (${entry.source_agent}) 與 lane (${laneAgentId}) 不一致`));
+    }
+    if (entry.source_packet && validatePacketId(entry.source_packet)) {
+      entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 source_packet 格式不正確: ${entry.source_packet}`));
+    }
+    if (entry.source_version && !/^[1-9]\d*$/.test(String(entry.source_version))) {
+      entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 source_version 必須是正整數: ${entry.source_version}`));
+    }
+    for (const field of CONTEXT_FORBIDDEN_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(entry, field)) {
+        entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條含禁止欄位: ${field}`));
+      }
+    }
+    const sourceRefs = normalizeSourceRefs(entry.source_refs);
+    if ((!entry.source_packet || !entry.source_version) && sourceRefs.length === 0) {
+      entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條缺少可追溯來源: source_packet/source_version 或 source_refs`));
+    }
+    const sourcePaths = [];
+    const sourceUrls = [];
+    const refsToCheck = sourceRefs.length > 0 ? sourceRefs : [''];
+    const projectPath = projectDir(hubRoot, projectSlug);
+    for (const ref of refsToCheck) {
+      if (isContextUrlRef(ref)) {
+        sourceUrls.push(contextUrlFromRef(ref));
+        continue;
+      }
+      const sourcePath = contextSourcePath({ hubRoot, projectSlug, sourceRef: ref, entry });
+      if (!sourcePath) {
+        entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 source_refs 格式未能識別: ${ref || '(empty)'}`));
+        continue;
+      }
+      if (String(ref || '').trim().startsWith('file:') && !pathWithinDir(sourcePath, projectPath)) {
+        entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條 file 來源必須留在 project 內: ${ref}`));
+        continue;
+      }
+      sourcePaths.push(sourcePath);
+      if (!fs.existsSync(sourcePath)) {
+        entryIssues.push(contextIssue('error', filePath, `第 ${blockIndex} 條來源不存在: ${ref || `${entry.source_packet} v${entry.source_version}`} -> ${sourcePath}`));
+      }
+    }
+    const freshness = contextEntryFreshness({ entry, sourcePaths, issues: entryIssues, hubRoot, projectSlug });
+    if (freshness === 'possibly_stale') {
+      entryIssues.push(contextIssue('warn', filePath, `第 ${blockIndex} 條可能過期:發現較新的相關 packet / outbox / ack，或來源比 context 更新時間新`));
+    }
+    if (freshness === 'conflict_packet_wins') {
+      entryIssues.push(contextIssue('warn', filePath, `第 ${blockIndex} 條標示與 packet 衝突:必須以 packet / outbox / ack 為準`));
+    }
+    entries.push({
+      ...entry,
+      lane_agent: laneAgentId,
+      filePath,
+      blockIndex,
+      sourceRefs,
+      sourcePaths,
+      sourceUrls,
+      freshness,
+      issues: entryIssues,
+    });
+    issues.push(...entryIssues);
+  }
+  if (blockIndex === 0 && text.trim()) {
+    issues.push(contextIssue('error', filePath, 'context.log.md 沒有任何 ```json metadata``` 區塊'));
+  }
+  return { entries, issues };
+}
+
+function readProjectContext({ hubRoot, projectSlug }) {
+  const root = contextDir(hubRoot, projectSlug);
+  if (!fs.existsSync(root)) {
+    return { root, exists: false, entries: [], issues: [] };
+  }
+  const entries = [];
+  const issues = [];
+  for (const dirent of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!dirent.isDirectory() || !dirent.name.startsWith('from_')) continue;
+    const laneAgentId = dirent.name.slice('from_'.length);
+    const filePath = contextLogPath(hubRoot, projectSlug, laneAgentId);
+    if (!fs.existsSync(filePath)) {
+      issues.push(contextIssue('warn', filePath, `缺少 ${dirent.name}/context.log.md`));
+      continue;
+    }
+    const parsed = parseContextLog({ filePath, laneAgentId, hubRoot, projectSlug });
+    entries.push(...parsed.entries);
+    issues.push(...parsed.issues);
+  }
+  return { root, exists: true, entries, issues };
+}
+
+function printContextReport(report, mode) {
+  console.log('🔎 APS Project Context Index');
+  console.log('📌 性質:背景索引,不是執行真相。packet / outbox / ack 仍然作準。');
+  console.log(`📄 位置: ${report.root}`);
+  if (!report.exists) {
+    console.log('📭 目前未建立 `_context/`。這不是錯誤;舊項目可繼續使用 APS。');
+    return;
+  }
+  console.log(`📚 索引條目: ${report.entries.length}`);
+  const errors = report.issues.filter((issue) => issue.severity === 'error');
+  const warnings = report.issues.filter((issue) => issue.severity !== 'error');
+  console.log(`✅ 檢查結果: ${errors.length === 0 ? '未見阻塞錯誤' : `${errors.length} 個錯誤`}${warnings.length ? `, ${warnings.length} 個提醒` : ''}`);
+  if (report.entries.length > 0) {
+    console.log('');
+    console.log('📌 背景摘要');
+    for (const entry of report.entries) {
+      const title = entry.workstream || entry.current_focus || entry.source_packet || `entry ${entry.blockIndex}`;
+      console.log(`- ${entry.lane_agent}: ${title}`);
+      console.log(`  更新: ${entry.updated_at || '(未記錄)'} / 新鮮度: ${entry.freshness}`);
+      if (entry.waiting_on) console.log(`  等待: ${entry.waiting_on}`);
+      if (entry.current_focus && entry.current_focus !== title) console.log(`  焦點: ${entry.current_focus}`);
+      if (entry.source_packet) console.log(`  來源 packet: ${entry.source_packet} v${entry.source_version || '?'}`);
+    }
+  }
+  if (report.issues.length > 0) {
+    console.log('');
+    console.log(mode === 'check' ? '⚠️ 檢查項' : '⚠️ 需要留意');
+    for (const issue of report.issues) {
+      const icon = issue.severity === 'error' ? '❌' : '⚠️';
+      console.log(`${icon} ${issue.message}`);
+      console.log(`   ${issue.filePath}`);
+    }
+  }
+  console.log('');
+  console.log('🚀 下一步:若要開工,先讀最新 packet / outbox / ack;context 只用來理解背景。');
+}
+
+function contextFreshnessLabel(freshness) {
+  if (freshness === 'current_by_sources') return '來源可核對';
+  if (freshness === 'possibly_stale') return '可能過期';
+  if (freshness === 'unverified_source') return '來源未核實';
+  if (freshness === 'conflict_packet_wins') return '與 packet 衝突';
+  return freshness || '未知';
+}
+
+function contextFreshnessBadgeClass(freshness) {
+  if (freshness === 'current_by_sources') return 'ok';
+  if (freshness === 'unverified_source' || freshness === 'conflict_packet_wins') return 'bad';
+  return 'warn';
+}
+
+function allProjectPeerIds({ hubRoot, projectSlug, agentId, config }) {
+  const ids = new Set();
+  for (const peer of listProjectPeers({ hubRoot, projectSlug, config }).peers) {
+    if (peer.agent_id && peer.agent_id !== agentId) ids.add(peer.agent_id);
+  }
+  if (config.otherAgentId && config.otherAgentId !== agentId) ids.add(config.otherAgentId);
+  const projectPath = projectDir(hubRoot, projectSlug);
+  if (fs.existsSync(projectPath)) {
+    for (const entry of fs.readdirSync(projectPath, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith('from_')) {
+        const id = entry.name.slice('from_'.length);
+        if (id && id !== agentId) ids.add(id);
+      }
+    }
+  }
+  return [...ids].sort();
+}
+
+function dashboardIncomingGroups({ hubRoot, projectSlug, agentId, config }) {
+  const groups = [];
+  for (const peerId of allProjectPeerIds({ hubRoot, projectSlug, agentId, config })) {
+    try {
+      groups.push({
+        from: peerId,
+        pending: pendingPackets({ hubRoot, projectSlug, agentId, otherAgentId: peerId }),
+      });
+    } catch (err) {
+      groups.push({ from: peerId, pending: [], error: err.message });
+    }
+  }
+  return groups;
+}
+
+function ownOutgoingPackets({ hubRoot, projectSlug, agentId }) {
+  const outboxPath = path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'outbox.log.md');
+  if (!fs.existsSync(outboxPath)) return [];
+  const groups = new Map();
+  for (const event of readOutboxEvents(outboxPath)) {
+    if (!groups.has(event.packetId)) groups.set(event.packetId, []);
+    groups.get(event.packetId).push(event);
+  }
+  const items = [];
+  for (const [packetId, events] of groups.entries()) {
+    const candidates = events.filter((event) => event.verb === 'publish' || event.verb === 'revise');
+    if (candidates.length === 0) continue;
+    candidates.sort((a, b) => b.version - a.version);
+    const latest = candidates[0];
+    const summary = readPacketSummary(hubRoot, projectSlug, agentId, packetId, latest.version);
+    const toId = summary.to || latest.kv.to;
+    const ackPath = toId ? path.join(projectDir(hubRoot, projectSlug), '_ack', `${toId}.ack.json`) : null;
+    const ack = ackPath && fs.existsSync(ackPath) ? readJson(ackPath) : { consumed: [] };
+    const consumed = (ack.consumed || []).find((entry) => entry.packet_id === packetId && Number(entry.version) === Number(latest.version));
+    const closed = events.find((event) => event.verb === 'close');
+    const withdrawn = events.find((event) => event.verb === 'withdraw' && Number(event.version) === Number(latest.version));
+    let state = 'waiting';
+    let label = '尚未看到對方標記處理';
+    if (withdrawn) {
+      state = 'withdrawn';
+      label = '已撤回';
+    } else if (closed) {
+      state = 'closed';
+      label = '已收結';
+    } else if (consumed) {
+      state = 'consumed';
+      label = '對方已標記處理（ack 已記錄）';
+    }
+    items.push({
+      packetId,
+      version: latest.version,
+      toId,
+      summary,
+      state,
+      label,
+      consumed,
+      closed,
+      withdrawn,
+    });
+  }
+  items.sort((a, b) => String(b.packetId).localeCompare(String(a.packetId)));
+  return items;
+}
+
+function packetSourceRef(agentId, packetId, version) {
+  return `packet:${agentId}:${packetId}:v${version}`;
+}
+
+function sourceRefDisplay(ref) {
+  const value = String(ref || '').trim();
+  if (isContextUrlRef(value)) {
+    const url = contextUrlFromRef(value);
+    let label = url;
+    try {
+      const parsed = new URL(url);
+      label = parsed.hostname.includes('docs.google.com') ? 'Google Docs' : parsed.hostname;
+    } catch (_) { /* keep raw URL */ }
+    return `<a href="${htmlEscape(url)}" target="_blank" rel="noopener noreferrer">${htmlEscape(label)}</a>`;
+  }
+  return `<code>${htmlEscape(value)}</code>`;
+}
+
+function collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport }) {
+  const reads = [];
+  for (const group of incomingGroups) {
+    for (const item of group.pending) {
+      reads.push({
+        title: `${packetTopic(item.packetId)} v${item.version}`,
+        type: '新交接',
+        why: '這是目前待你處理的交接，應先讀正文再決定是否標記處理。',
+        ref: packetSourceRef(group.from, item.packetId, item.version),
+      });
+    }
+  }
+  for (const entry of contextReport.entries || []) {
+    const refs = normalizeSourceRefs(entry.sourceRefs.length > 0 ? entry.sourceRefs : entry.source_refs);
+    for (const ref of refs) {
+      reads.push({
+        title: entry.workstream || entry.current_focus || ref,
+        type: isContextUrlRef(ref) ? '延伸文檔' : '背景來源',
+        why: entry.freshness === 'current_by_sources'
+          ? '背景索引引用的來源，可用來補足上下文。'
+          : `此來源狀態是「${contextFreshnessLabel(entry.freshness)}」，閱讀前先核對最新 packet。`,
+        ref,
+      });
+    }
+  }
+  for (const item of outgoingPackets.slice(0, 3)) {
+    reads.push({
+      title: `${packetTopic(item.packetId)} v${item.version}`,
+      type: '已發出',
+      why: '這是你發出去的交接，可用來核對對方是否已標記處理。',
+      ref: packetSourceRef(item.summary.from || '', item.packetId, item.version),
+    });
+  }
+  const seen = new Set();
+  return reads.filter((item) => {
+    const key = `${item.type}::${item.ref}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 12);
+}
+
+function buildDashboardData({ hubRoot, projectSlug, agentId, config }) {
+  const contextReport = readProjectContext({ hubRoot, projectSlug });
+  const incomingGroups = dashboardIncomingGroups({ hubRoot, projectSlug, agentId, config });
+  const outgoingPackets = ownOutgoingPackets({ hubRoot, projectSlug, agentId });
+  const peers = listProjectPeers({ hubRoot, projectSlug, config }).peers;
+  const suggestedReads = collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport });
+  return { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads };
+}
+
+function renderContextOverviewHtml({ report, projectSlug, dashboard = null }) {
+  if (dashboard) return renderProjectDashboardHtml(dashboard);
+  const generatedAt = isoNow();
+  const errors = report.issues.filter((issue) => issue.severity === 'error');
+  const warnings = report.issues.filter((issue) => issue.severity !== 'error');
+  const rows = report.entries.map((entry) => {
+    const title = entry.workstream || entry.current_focus || entry.source_packet || `entry ${entry.blockIndex}`;
+    const sourceRefs = normalizeSourceRefs(entry.sourceRefs.length > 0 ? entry.sourceRefs : entry.source_refs);
+    return `<tr>
+      <td>${htmlEscape(entry.lane_agent)}</td>
+      <td>${htmlEscape(title)}</td>
+      <td><span class="badge ${contextFreshnessBadgeClass(entry.freshness)}">${htmlEscape(contextFreshnessLabel(entry.freshness))}</span></td>
+      <td>${htmlEscape(entry.updated_at || '(未記錄)')}</td>
+      <td>${sourceRefs.map((ref) => `<code>${htmlEscape(ref)}</code>`).join('<br>') || '<span class="muted">未列明</span>'}</td>
+    </tr>`;
+  }).join('\n') || '<tr><td colspan="5" class="muted">目前沒有背景索引條目。</td></tr>';
+  const issueRows = report.issues.map((issue) => `<li><strong>${issue.severity === 'error' ? '錯誤' : '提醒'}:</strong> ${htmlEscape(issue.message)}</li>`).join('\n')
+    || '<li>未見阻塞錯誤或提醒。</li>';
+  return `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${htmlEscape(projectSlug)} 項目大局速覽 - Agent Public Squares</title>
+<style>
+  :root { --ink:#1b2230; --soft:#4b5568; --bg:#f6f3ec; --paper:#fffdf7; --line:#d8d1c0; --accent:#2f5d7c; --ok:#2e7d4f; --warn:#a55d1f; --bad:#b94a3a; --mono:ui-monospace, "Cascadia Code", Consolas, monospace; --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; --serif:"Noto Serif TC","PMingLiU",Georgia,serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.75; padding:28px 16px 56px; }
+  main { max-width:920px; margin:0 auto; }
+  nav, section, .callout { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
+  nav { display:flex; flex-wrap:wrap; gap:8px 18px; padding:10px 14px; margin-bottom:22px; font-size:14px; }
+  .brand { font-family:var(--serif); font-weight:700; }
+  header { padding:24px 0; border-bottom:1px solid var(--line); margin-bottom:22px; }
+  h1 { font-family:var(--serif); font-size:clamp(30px,6vw,48px); line-height:1.1; margin:0 0 10px; }
+  h2 { font-family:var(--serif); font-size:24px; margin:0 0 8px; }
+  p { margin:0 0 12px; color:var(--soft); }
+  section { padding:22px 24px; margin-bottom:20px; }
+  .callout { border-left:4px solid var(--bad); padding:14px 16px; margin-bottom:20px; color:var(--soft); }
+  .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .badge { display:inline-flex; border:1px solid currentColor; border-radius:999px; padding:2px 9px; font-size:12px; font-weight:700; }
+  .ok { color:var(--ok); }
+  .warn { color:var(--warn); }
+  .bad { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:10px 12px; }
+  th { background:#e2edf3; color:var(--accent); }
+  code { font-family:var(--mono); font-size:12px; background:#ece6d3; border-radius:3px; padding:1px 5px; word-break:break-word; }
+  .muted { color:#7c8798; }
+  footer { text-align:center; color:#7c8798; font-size:12px; margin-top:28px; }
+</style>
+</head>
+<body>
+<main>
+<nav><span class="brand">Agent Public Squares</span><span>Project Context Index</span><span class="muted">唯讀衍生快照</span></nav>
+<header>
+  <p class="muted">項目大局速覽</p>
+  <h1>${htmlEscape(projectSlug)}</h1>
+  <p>先用這頁理解背景，再讀具體 packet。這頁不是執行真相，不會自動刷新。</p>
+  <div class="meta">
+    <span class="badge">生成 ${htmlEscape(generatedAt)}</span>
+    <span class="badge ${errors.length ? 'bad' : 'ok'}">${errors.length ? `${errors.length} 個錯誤` : '未見阻塞錯誤'}</span>
+    <span class="badge ${warnings.length ? 'warn' : 'ok'}">${warnings.length ? `${warnings.length} 個提醒` : '沒有提醒'}</span>
+  </div>
+</header>
+<div class="callout">
+  <strong>執行真相一律以 packet / outbox / ack 為準。</strong>
+  本頁只由 <code>_context/from_*/context.log.md</code> 派生，供人快速閱讀；若與 packet 不一致，以 packet / outbox / ack 為準。
+</div>
+<section>
+  <h2>背景索引</h2>
+  <p>每條背景都必須有來源引用與新鮮度狀態。</p>
+  <table>
+    <thead><tr><th>來源 agent</th><th>工作流</th><th>新鮮度</th><th>更新時間</th><th>來源引用</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</section>
+<section>
+  <h2>檢查結果</h2>
+  <ul>${issueRows}</ul>
+</section>
+<footer>Generated by <code>npx aps context html</code>. This page is read-only and generated on demand.</footer>
+</main>
+</body>
+</html>
+`;
+}
+
+function writeContextOverviewHtml({ hubRoot, projectSlug, report }) {
+  const outputPath = path.join(contextDir(hubRoot, projectSlug), 'overview.html');
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const config = loadConfig();
+  const agentId = flagOrConfig('--agent-id', 'agentId', config);
+  const dashboard = agentId ? buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } }) : null;
+  fs.writeFileSync(outputPath, renderContextOverviewHtml({ report, projectSlug, dashboard }), 'utf8');
+  return outputPath;
+}
+
+function renderProjectDashboardHtml(dashboard) {
+  const { projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads } = dashboard;
+  const generatedAt = isoNow();
+  const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const contextErrors = contextReport.issues.filter((issue) => issue.severity === 'error');
+  const contextWarnings = contextReport.issues.filter((issue) => issue.severity !== 'error');
+  const incomingRows = pendingItems.map((item) => `<tr>
+      <td>${htmlEscape(item.from)}</td>
+      <td>${htmlEscape(packetTopic(item.packetId))}</td>
+      <td>v${htmlEscape(item.version)}</td>
+      <td>${htmlEscape(inboxWhatSummary(item))}</td>
+      <td>${inboxActionLines(item).map((line) => htmlEscape(line.replace(/^- /, ''))).join('<br>')}</td>
+      <td><code>${htmlEscape(packetSourceRef(item.from, item.packetId, item.version))}</code></td>
+    </tr>`).join('\n') || '<tr><td colspan="6" class="muted">目前沒有待你處理的新交接。</td></tr>';
+  const outgoingRows = outgoingPackets.map((item) => `<tr>
+      <td>${htmlEscape(item.toId || '(未記錄)')}</td>
+      <td>${htmlEscape(packetTopic(item.packetId))}</td>
+      <td>v${htmlEscape(item.version)}</td>
+      <td><span class="badge ${item.state === 'waiting' ? 'warn' : item.state === 'withdrawn' ? 'bad' : 'ok'}">${htmlEscape(item.label)}</span></td>
+      <td>${htmlEscape(inboxWhatSummary(item.summary))}</td>
+      <td><code>${htmlEscape(packetSourceRef(agentId, item.packetId, item.version))}</code></td>
+    </tr>`).join('\n') || '<tr><td colspan="6" class="muted">目前沒有由你發出的交接紀錄。</td></tr>';
+  const readRows = suggestedReads.map((item) => `<tr>
+      <td>${htmlEscape(item.title)}</td>
+      <td>${htmlEscape(item.type)}</td>
+      <td>${htmlEscape(item.why)}</td>
+      <td>${sourceRefDisplay(item.ref)}</td>
+    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">目前沒有額外建議閱讀來源。</td></tr>';
+  const contextRows = contextReport.entries.map((entry) => {
+    const title = entry.workstream || entry.current_focus || entry.source_packet || `entry ${entry.blockIndex}`;
+    const refs = normalizeSourceRefs(entry.sourceRefs.length > 0 ? entry.sourceRefs : entry.source_refs);
+    return `<tr>
+      <td>${htmlEscape(entry.lane_agent)}</td>
+      <td>${htmlEscape(title)}</td>
+      <td><span class="badge ${contextFreshnessBadgeClass(entry.freshness)}">${htmlEscape(contextFreshnessLabel(entry.freshness))}</span></td>
+      <td>${htmlEscape(entry.current_focus || '(未記錄)')}</td>
+      <td>${refs.map(sourceRefDisplay).join('<br>') || '<span class="muted">未列明</span>'}</td>
+    </tr>`;
+  }).join('\n') || '<tr><td colspan="5" class="muted">目前沒有背景索引條目。</td></tr>';
+  const peerRows = peers.map((peer) => `<tr>
+      <td>${htmlEscape(peer.agent_id)}</td>
+      <td>${htmlEscape(peer.display_name || peer.agent_id)}</td>
+      <td><span class="badge ${peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn'}">${htmlEscape(peer.peer_state || peer.status || 'unknown')}</span></td>
+      <td>${peer.is_self ? '本機 agent' : peer.is_default_peer ? '預設 peer' : 'project peer'}</td>
+    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見 peer card；舊二人設定仍可透過本機設定運作。</td></tr>';
+  const riskItems = [
+    ...incomingGroups.filter((group) => group.error).map((group) => `未能讀取 ${group.from} 的 outbox: ${group.error}`),
+    ...contextReport.issues.map((issue) => issue.message),
+    ...peers.filter((peer) => peer.peer_state && peer.peer_state !== 'confirmed').map((peer) => `${peer.agent_id} 尚未 confirmed；正式交接前先確認對方已完成設置。`),
+  ];
+  const riskRows = riskItems.map((item) => `<li>${htmlEscape(item)}</li>`).join('\n') || '<li>未見阻塞風險。仍須以最新 packet / outbox / ack 作準。</li>';
+  return `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${htmlEscape(projectSlug)} Daily Index - Agent Public Squares</title>
+<style>
+  :root { --ink:#1d2430; --soft:#566174; --bg:#f4f0e7; --paper:#fffdf8; --line:#d7cdbc; --accent:#285d74; --ok:#2e7d4f; --warn:#9a5a1b; --bad:#b64234; --mono:ui-monospace, "Cascadia Code", Consolas, monospace; --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; --serif:"Noto Serif TC","PMingLiU",Georgia,serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.68; padding:24px 16px 52px; }
+  main { max-width:1120px; margin:0 auto; }
+  nav, section, .callout, .metric { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
+  nav { display:flex; flex-wrap:wrap; gap:8px 18px; padding:10px 14px; margin-bottom:20px; font-size:14px; }
+  .brand { font-family:var(--serif); font-weight:700; }
+  header { padding:22px 0; border-bottom:1px solid var(--line); margin-bottom:18px; }
+  h1 { font-family:var(--serif); font-size:42px; line-height:1.12; margin:0 0 8px; }
+  h2 { font-family:var(--serif); font-size:24px; margin:0 0 6px; }
+  p { margin:0 0 12px; color:var(--soft); }
+  section { padding:20px 22px; margin-bottom:18px; overflow:auto; }
+  .callout { border-left:4px solid var(--bad); padding:13px 15px; margin-bottom:18px; color:var(--soft); }
+  .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0 20px; }
+  .metric { padding:14px 15px; }
+  .metric strong { display:block; font-size:28px; line-height:1.1; }
+  .metric span { color:var(--soft); font-size:13px; }
+  .badge { display:inline-flex; border:1px solid currentColor; border-radius:999px; padding:2px 9px; font-size:12px; font-weight:700; white-space:nowrap; }
+  .ok { color:var(--ok); }
+  .warn { color:var(--warn); }
+  .bad { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 10px; }
+  th { background:#e4edf0; color:var(--accent); white-space:nowrap; }
+  code { font-family:var(--mono); font-size:12px; background:#ece5d4; border-radius:3px; padding:1px 5px; word-break:break-word; }
+  a { color:var(--accent); font-weight:700; }
+  .muted { color:#7a8493; }
+  ul { margin:8px 0 0; padding-left:20px; }
+  footer { text-align:center; color:#7a8493; font-size:12px; margin-top:26px; }
+  @media (max-width: 760px) { h1 { font-size:32px; } .metrics { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<nav><span class="brand">Agent Public Squares</span><span>Project Dashboard</span><span class="muted">Daily Index</span></nav>
+<header>
+  <p class="muted">今日項目索引</p>
+  <h1>${htmlEscape(projectSlug)}</h1>
+  <p>${htmlEscape(agentId)} 的唯讀日常索引：先看未處理交接，再看自己發出的狀態，最後讀背景與延伸文檔。</p>
+  <div class="metrics">
+    <div class="metric"><strong>${pendingItems.length}</strong><span>待你處理</span></div>
+    <div class="metric"><strong>${outgoingPackets.length}</strong><span>你發出的交接</span></div>
+    <div class="metric"><strong>${waitingOutgoing.length}</strong><span>尚未看到對方處理</span></div>
+    <div class="metric"><strong>${contextErrors.length + contextWarnings.length}</strong><span>背景索引提醒</span></div>
+  </div>
+  <p class="muted">生成時間：${htmlEscape(generatedAt)}</p>
+</header>
+<div class="callout"><strong>執行真相一律以 packet / outbox / ack 為準。</strong> Dashboard 只讀共用 Drive 資料夾內已同步的資料，可以反映已存在的 ack / close / withdraw 狀態；但它本身不會自動通知、不會替任何人標記處理、不會收結交接。</div>
+<section>
+  <h2>今日要看</h2>
+  <p>這裡等同把日常「check Drive」結果放在首屏。</p>
+  <table><thead><tr><th>來源</th><th>主題</th><th>版本</th><th>交了甚麼</th><th>請你做</th><th>來源</th></tr></thead><tbody>${incomingRows}</tbody></table>
+</section>
+<section>
+  <h2>我發出的交接</h2>
+  <p>這裡不推斷對方是否已看到通知；只顯示共用 Drive 資料夾內可讀到的明確狀態，例如 ack 已記錄、已收結或已撤回。</p>
+  <table><thead><tr><th>收件人</th><th>主題</th><th>版本</th><th>狀態</th><th>摘要</th><th>來源</th></tr></thead><tbody>${outgoingRows}</tbody></table>
+</section>
+<section>
+  <h2>建議先讀</h2>
+  <p>先讀這些來源，再決定是否處理、回覆或收結。</p>
+  <table><thead><tr><th>標題</th><th>類型</th><th>為甚麼要讀</th><th>連結 / 來源</th></tr></thead><tbody>${readRows}</tbody></table>
+</section>
+<section>
+  <h2>項目背景</h2>
+  <p>Project Context Index 只作背景，不可覆蓋最新交接要求。</p>
+  <table><thead><tr><th>Agent</th><th>工作流</th><th>新鮮度</th><th>目前焦點</th><th>來源</th></tr></thead><tbody>${contextRows}</tbody></table>
+</section>
+<section>
+  <h2>協作對象</h2>
+  <table><thead><tr><th>Agent</th><th>顯示名稱</th><th>狀態</th><th>備註</th></tr></thead><tbody>${peerRows}</tbody></table>
+</section>
+<section>
+  <h2>風險與未決</h2>
+  <ul>${riskRows}</ul>
+</section>
+<footer>Generated by <code>npx aps dashboard</code>. Read-only Daily Index.</footer>
+</main>
+</body>
+</html>
+`;
+}
+
+function writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config, fileName = 'dashboard.html' }) {
+  const outputPath = path.join(contextDir(hubRoot, projectSlug), fileName);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } });
+  fs.writeFileSync(outputPath, renderProjectDashboardHtml(dashboard), 'utf8');
+  return outputPath;
 }
 
 function packetStatus({ hubRoot, projectSlug, agentId, packetId }) {
@@ -1570,8 +2464,17 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps inbox --all
   npx aps inbox --from <agent_id>
                                   查看對方交來而本機尚未處理的項目
+  npx aps check-drive
+                                  同 inbox;給「check Drive」日常收件流程使用
+  npx aps dashboard
+                                  生成唯讀 Project Dashboard / Daily Index HTML
   npx aps status --packet-id <id>
                                   查看自己發出的交接包目前狀態
+  npx aps context
+  npx aps context check
+  npx aps context add --from-packet <id> --version <n>
+  npx aps context html
+                                  檢查或生成 Project Context Index;不寫 packet / outbox / ack
   npx aps consume --packet-id <id> --version <n> --result <text>
                                   在自己的 ack 檔標記某版本已處理
   npx aps withdraw --packet-id <id> --reason <text>
@@ -1595,7 +2498,7 @@ init 保存 .aps/config.json 後,日常命令可省略 --hub-root、--project、
 --agent-id 與 --other-agent-id。需要臨時覆蓋設定時,仍可傳入這些參數。
 
 狀態:已可使用 bridge-pack、skill 安裝、初始共用 Drive 資料夾設置、既有項目升級、
-本機設定保存、peers / peer starter、publish / revise / inbox / status / consume / withdraw / close,
+本機設定保存、peers / peer starter、publish / revise / inbox / check-drive / dashboard / status / context / consume / withdraw / close,
 以及只讀 doctor。
 這個預發布版本已有一次維護者真實 Google Drive 往返驗證;每個真實項目
 仍需要各自做項目級同步驗證。
@@ -2203,11 +3106,20 @@ if (subcommand === 'inbox') {
     for (const error of errors) console.error(error);
     process.exit(1);
   }
+  let exitCode = 0;
   try {
     const groups = allSources
       ? pendingPacketsFromAllPeers({ hubRoot, projectSlug, agentId, config: { ...config, agentId } })
       : [{ from: otherAgentId, pending: pendingPackets({ hubRoot, projectSlug, agentId, otherAgentId }) }];
+    let contextReport = null;
+    try {
+      contextReport = readProjectContext({ hubRoot, projectSlug });
+    } catch (_) {
+      contextReport = null;
+    }
     const total = groups.reduce((count, group) => count + group.pending.length, 0);
+    console.log(renderInboxDailyBrief({ agentId, total, groups, contextReport }));
+    console.log('');
     if (total === 0) {
       console.log(`📭 APS 共用 Drive 資料夾: ${agentId} 沒有待處理項目`);
     } else {
@@ -2230,13 +3142,13 @@ if (subcommand === 'inbox') {
           index += 1;
         }
       }
-      console.log('✅ 通過檢查後的備用命令:npx aps consume --packet-id <id> --version <n> --result "<具體處理結果>"');
+      console.log('✅ 通過檢查後,可以叫 AI 標記已處理。排錯時才需要用命令:npx aps consume --packet-id <id> --version <n> --result "<具體處理結果>"');
     }
-    process.exit(0);
   } catch (err) {
     console.error(`❌ 收件檢查失敗:${err.message}`);
     process.exit(1);
   }
+  process.exit(exitCode);
 }
 
 if (subcommand === 'status') {
@@ -2287,6 +3199,116 @@ if (subcommand === 'status') {
     }
     process.exit(1);
   }
+}
+
+if (subcommand === 'dashboard') {
+  const config = loadConfigOrExit();
+  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
+  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
+  const agentId = flagOrConfig('--agent-id', 'agentId', config);
+  const otherAgentId = flagOrConfig('--other-agent-id', 'otherAgentId', config);
+  requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--agent-id': agentId });
+  const dashboardConfig = { ...config, hubRoot, projectSlug, agentId, otherAgentId };
+  const errors = [
+    validateSnakeCase('--project', projectSlug),
+    validateSnakeCase('--agent-id', agentId),
+    otherAgentId ? validateSnakeCase('--other-agent-id', otherAgentId) : null,
+  ].filter(Boolean);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(error);
+    process.exit(1);
+  }
+  try {
+    const outputPath = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
+    console.log('🧭 APS Project Dashboard');
+    console.log('✅ 已生成唯讀 Daily Index。');
+    console.log(`📄 HTML: ${outputPath}`);
+    console.log('⚠️ 注意:Dashboard 只作日常索引;真正執行仍以 packet / outbox / ack 為準。');
+  } catch (err) {
+    console.error(`❌ dashboard 生成失敗:${err.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (subcommand === 'context') {
+  const action = contextActionFromArgs(args);
+  if (!action) {
+    console.error('❌ context 子命令只支援 `check`、`add` 或 `html`;不加子命令時顯示唯讀摘要。');
+    console.error('💡 例子: npx aps context check');
+    console.error('💡 例子: npx aps context add --from-packet <id> --version <n>');
+    console.error('💡 例子: npx aps context html');
+    process.exit(1);
+  }
+  const config = loadConfigOrExit();
+  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
+  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
+  const agentId = flagOrConfig('--agent-id', 'agentId', config);
+  requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--agent-id': agentId });
+  const errors = [
+    validateSnakeCase('--project', projectSlug),
+    validateSnakeCase('--agent-id', agentId),
+  ].filter(Boolean);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(error);
+    process.exit(1);
+  }
+  if (action === 'add') {
+    requireFlags(['--from-packet', '--version']);
+    const packetId = getRequiredFlagValue('--from-packet');
+    const version = Number(getRequiredFlagValue('--version'));
+    const addErrors = [
+      validatePacketId(packetId),
+      Number.isInteger(version) && version > 0 ? null : '--version must be a positive integer.',
+    ].filter(Boolean);
+    if (addErrors.length > 0) {
+      for (const error of addErrors) console.error(error);
+      process.exit(1);
+    }
+    let addExitCode = 0;
+    try {
+      const result = appendContextEntryFromPacket({ hubRoot, projectSlug, agentId, packetId, version });
+      console.log('🧭 APS Project Context Index');
+      if (result.skipped) {
+        console.log('✅ 背景索引已存在,未重複新增。');
+      } else {
+        console.log('✅ 已從 packet 生成背景索引。');
+      }
+      console.log(`📄 context log: ${result.filePath}`);
+      console.log(`🔗 來源: ${result.sourceRef}`);
+      console.log('⚠️ 注意:context 只作背景索引;真正執行仍以 packet / outbox / ack 為準。');
+    } catch (err) {
+      console.error(`❌ context add 失敗:${err.message}`);
+      process.exit(1);
+    }
+    process.exit(addExitCode);
+  }
+  if (action === 'html') {
+    let htmlExitCode = 0;
+    try {
+      const report = readProjectContext({ hubRoot, projectSlug });
+      const outputPath = writeContextOverviewHtml({ hubRoot, projectSlug, report });
+      console.log('🧭 APS Project Context Index');
+      console.log('✅ 已生成唯讀 HTML 大局速覽。');
+      console.log(`📄 HTML: ${outputPath}`);
+      console.log('⚠️ 注意:HTML 只作人類閱讀快照;真正執行仍以 packet / outbox / ack 為準。');
+    } catch (err) {
+      console.error(`❌ context html 失敗:${err.message}`);
+      process.exit(1);
+    }
+    process.exit(htmlExitCode);
+  }
+  let exitCode = 0;
+  try {
+    const report = readProjectContext({ hubRoot, projectSlug });
+    printContextReport(report, action === 'check' ? 'check' : 'summary');
+    const hasErrors = report.issues.some((issue) => issue.severity === 'error');
+    exitCode = action === 'check' && hasErrors ? 1 : 0;
+  } catch (err) {
+    console.error(`❌ context 檢查失敗:${err.message}`);
+    process.exit(1);
+  }
+  process.exit(exitCode);
 }
 
 if (subcommand === 'consume') {

@@ -43,7 +43,7 @@
 
 主要架構取捨與 rationale。AI 在 plan 涉及 multi-option trade-off 時 append，並等用戶 confirm。
 
-- 2026-05-30 (S48) — Project Context Index 人類呈現層取捨。揀「來源 markdown(`_context/*.md`,AI 讀寫)→ CLI 按需生成唯讀 HTML 速覽(人類睇)」兩層分開,而非(a)淨係叫人揭 markdown(唔夠專業、難睇大局)或(b)叫 AI 直接維護 HTML(會撞 memory `feedback-no-hardcode-ai-content-parsing`,標籤一亂就讀錯)。HTML 呈現層守三條界線:衍生唯讀 + 時間戳 + 以 packet 為準(每項指返來源);按需生成、不自動刷新(背景自動刷新屬非 APS 範圍);永遠唯讀總覽,不可長出看板 / 排程 / 指派(防膨脹)。沿用 docs/ 視覺語言。已整參考樣板(假資料、gitignored)`dev/qc/evidence/2026-05-30-context-index-mock/`,render 過、同公開頁同一家族。落地仍延後(核心驗證後先做);記入 roadmap §4.5。
+- 2026-05-30 (S48) — Project Context Index 人類呈現層取捨。揀「來源 markdown(`_context/*.md`,AI 讀寫)→ CLI 按需生成唯讀 HTML 速覽(人類睇)」兩層分開,而非(a)淨係叫人揭 markdown(唔夠專業、難睇大局)或(b)叫 AI 直接維護 HTML(會撞 memory `feedback-no-hardcode-ai-content-parsing`,標籤一亂就讀錯)。HTML 呈現層守三條界線:衍生唯讀 + 時間戳 + 以 packet 為準(每項指返來源);按需生成、不自動刷新(背景自動刷新屬非 APS 範圍);永遠唯讀總覽,不可長出看板 / 排程 / 指派(防膨脹)。沿用 docs/ 視覺語言。已整參考樣板(假資料、gitignored)`dev/qc/evidence/2026-05-30-context-index-mock/`,render 過、同公開頁同一家族。落地仍延後(核心驗證後先做);現已併入 roadmap §4.4 作單一設計真源。
 
 - 2026-05-29 (S47) — 四個架構/產品取捨,starter-pack 設計嗰個經 codex 只讀覆核。(1) **共用資料夾預設名統一做 `Agent_Public_Squares`**(Adam 拍板)而非沿用舊 `AI_Public_Squares`(同產品名撞、必中坑)或維持用戶自填(無統一):只改新安裝預設 + scrub 用戶面舊名,既有資料夾 / config 相容,`docs/plans/*.md` 記錄嘅真實 hub 路徑當事實保留;本機 dev folder + 真 Drive hub 改名延後(live cwd / 共享外部風險,唔喺 session 內做)。(2) **starter pack = 可轉發短訊 + 連去 HTML 教學頁**,而非「命令塞入 pack / 叫對方開 Drive 個檔照做」:訊息短、命令同排錯放教學頁;codex 指出全新加入者部 AI 未必預載 APS skill,所以教學頁要有真實三條安裝命令,唔可以淨係「叫你個 AI 教我用 APS」。(3) **工作資料夾維持本機獨立**,唔可以做共用 Drive hub 嘅 sub-folder(否則本機 repo 全 sync 上雲 + 兩邊改撞,正正係 APS 要解決嘅問題)。(4) **呢批摺入 0.2.13** 而非另開版本:starter pack 既然係「人性化上手」核心,出緊呢個 build 但邀請信仲技術化係自打嘴巴。
 

@@ -23,13 +23,13 @@ APS 0.2.x 已完成二人最小交接路徑：安裝、初始化、Hub skeleton�
 | 決策 | 內容 |
 |---|---|
 | 近期主線是 Reliable Peer Handoff | 一個 project 可有多個 peers；每次 packet 仍只發給一個 peer。先解決 Jay / Fanny / Jackie 這種長任務分段交接，不跳到真正多人平台。 |
-| Project Peers 是下一版必要層 | `peers` / `peer add` / `peer starter` / `publish --to` / `inbox --from` / `inbox --all` / `status` 屬 v0.2.9 候選主線。它不是群聊、不是多收件人 packet、不是權限系統。 |
+| Project Peers 是已發佈基線 | `peers` / `peer add` / `peer starter` / `publish --to` / `inbox --from` / `inbox --all` / `status` 已屬 Reliable Peer Handoff 基線。它不是群聊、不是多收件人 packet、不是權限系統。 |
 | Project Context Index 是後續背景索引 | 它只整理 project-level 脈絡、最近 packet 線索、工作流分段、未決問題與風險；不可覆寫 packet / outbox / ack，不可變成任務管理系統或自動分派機制。 |
 | 共享層仍用同步資料夾 | 核心只依賴使用者已掛載到本機的 Google Drive、Dropbox、OneDrive 或其他同步資料夾。 |
 | 不把雲端 API 作為核心依賴 | 不要求 Google Drive API、Dropbox API、OneDrive API、OAuth app、雲端 token 或平台開發者設定。 |
 | Google Drive 是已驗證路徑 | 目前維護者實測與文件主要驗證 Google Drive for Desktop；其他同步資料夾可作實驗路徑，不能先寫成正式支援。 |
 | 真正多人協作延後 | 多人只是長線方向；近期不做多方共用收件箱、不做多人同一 packet、不做聊天室式公共目錄。 |
-| 摘要式人類通知屬主流程 | 每次交接後必須產生 copy-ready 摘要式通知與手動 `check Hub` 下一步；通知可以經 Telegram、WhatsApp、Email 或其他渠道由人傳送,但只通知人,不自動觸發對方 AI。 |
+| 摘要式人類通知屬主流程 | 每次交接後必須產生 copy-ready 摘要式通知與手動 `check Drive` 下一步；`check Hub` 只作舊稱相容。通知可以經 Telegram、WhatsApp、Email 或其他渠道由人傳送,但只通知人,不自動觸發對方 AI。 |
 | 自動化／背景通知／排程非 APS 範圍 | 檔案式 `_notify`、`aps watch`、桌面通知、OS／AI 平台排程、背景檢查與 Telegram bot 自動代發都不屬 APS,亦非延後路線,而係明確劃出範圍以外(見第五節)。若日後需要,屬 AI 工具／OS／通訊軟件或另一項產品。 |
 | 人類可保留打斷控制權 | 通知必須讓收件人先讀懂重點與注意事項,再由收件人本人決定何時叫 AI 介入;不得因通知自動 consume、close、revise 或 withdraw。 |
 | 群組只是發送別名 | 群組不等於一個可寫 lane，除非它真是一個獨立 agent。向群組發送時，工具應展開成個別 agent 收件對象或要求使用者選擇。 |
@@ -58,19 +58,19 @@ AI 應完成以下事情：
 7. 做發送前完整性預檢。
 8. 向使用者顯示摘要、收件人、topic、寫入位置與預檢結果。
 9. 取得明確確認後才用單收件 packet 寫入 Hub。
-10. 寫入後產生 copy-ready 通知文字，包含項目、來源、收件人、主題、交接編號、重點摘要、注意事項與 `check Hub` 下一步，讓使用者透過既有渠道通知 Fanny。
+10. 寫入後產生 copy-ready 通知文字，包含項目、來源、收件人、主題、交接編號、重點摘要、注意事項與 `check Drive` 下一步，讓使用者透過既有渠道通知 Fanny。
 
-若使用者輸入的是群組名稱，例如 `launch_team`，v0.2.9 不應直接建立 `from_launch_team`，也不應建立多收件人 packet。正確做法是提醒群組發送尚未支援，要求使用者選擇一位 peer，或在後續版本才由群組展開成多個單收件 packet。
+若使用者輸入的是群組名稱，例如 `launch_team`，目前不應直接建立 `from_launch_team`，也不應建立多收件人 packet。正確做法是提醒群組發送尚未支援，要求使用者選擇一位 peer，或在後續版本才由群組展開成多個單收件 packet。
 
 接收方的理想流程應是：
 
 ```text
-check Hub
+check Drive
 ```
 
 AI 應先顯示所有本機可見來源的總覽，再列細節；不完整或不一致時，先要求補交或共識確認，不預設 consume。背景自動通知、桌面通知、排程不屬 APS 範圍(見第五節)。
 
-收件方輸入 `check Hub` 後,AI 不應只列出交接包 ID。它要產生一份可快速閱讀的收件報告:先摘要交接重點,再做完整性預檢與本機對接檢查,核對本機 `.aps/config.json`、任務要求、已讀文件、證據位置與版本狀態是否能接上。只有交接內容完整、與收件方本機狀態一致,才建議開工或標記已消化;否則先發補交需求或共識確認包。
+收件方輸入 `check Drive` 後,AI 不應只列出交接包 ID。它要產生一份可快速閱讀的收件報告:先摘要交接重點,再做完整性預檢與本機對接檢查,核對本機 `.aps/config.json`、任務要求、已讀文件、證據位置與版本狀態是否能接上。只有交接內容完整、與收件方本機狀態一致,才建議開工或標記已消化;否則先發補交需求或共識確認包。
 
 ### 3.1 發送方 UX：從一句話到可交出的包
 
@@ -94,12 +94,12 @@ AI 應先顯示所有本機可見來源的總覽，再列細節；不完整或�
 📦 交接包: <packet_id> v<N>
 🔎 重點摘要: <一至三句>
 ⚠️ 注意事項: <風險 / 未決 / 不應誤解>
-🚀 下一步: 把下方通知貼給對方,由對方本人決定何時 check Hub
+🚀 下一步: 把下方通知貼給對方,由對方本人決定何時 check Drive
 ```
 
 ### 3.2 收件方 UX：從通知到可開工判斷
 
-收件方的核心體驗不是「看到新包就照做」,而是「AI 先對接本機現況,人再批准開工」。Jay / Fanny / Jackie 等任何收件方收到 Telegram、WhatsApp 或 Email 後,只需要在自己的 AI 工具輸入 `check Hub`;之後由 AI 負責檢查。
+收件方的核心體驗不是「看到新包就照做」,而是「AI 先對接本機現況,人再批准開工」。Jay / Fanny / Jackie 等任何收件方收到 Telegram、WhatsApp 或 Email 後,只需要在自己的 AI 工具輸入 `check Drive`;之後由 AI 負責檢查。
 
 收件流程應固定為:
 
@@ -135,7 +135,7 @@ AI 應先顯示所有本機可見來源的總覽，再列細節；不完整或�
 <開始處理 / 補交需求 / 共識確認 / 稍後再讀 / 標記已讀>
 ```
 
-此流程的驗收點是:收件方可以在三十秒內理解對方交來甚麼、自己應否開工、哪裡有風險、下一步選項是甚麼。AI 不得把 `check Hub` 簡化成 `npx aps inbox` 的原始輸出。
+此流程的驗收點是:收件方可以在三十秒內理解對方交來甚麼、自己應否開工、哪裡有風險、下一步選項是甚麼。AI 不得把 `check Drive` 簡化成 `npx aps inbox` 的原始輸出。
 
 ---
 
@@ -252,15 +252,19 @@ Project Peers 發送的收件計算仍以 `(packet_id, version)`、`to`、ack �
 
 `aps inbox --all` 不是權限功能。它只表示「本機同步資料夾目前可讀到的 lane 總覽」。若雲端共享資料夾本身讓使用者看見某些檔案，APS 不應聲稱可以在工具層阻止閱讀；真正權限仍由雲端資料夾分享設定與作業系統檔案權限決定。
 
-### 4.4 後續新增的 Project Context Index
+### 4.4 Project Context Index 設計真源
 
-Project Context Index 的目的，是讓同一個 project 內多位 peer 分段交接時，AI 能先掌握高層背景，再讀具體 packet。它不是新真源，也不是共享任務板。權威順序必須固定為：
+本節是 Project Context Index 的唯一設計真源。其他文件、技能、公開頁、交接紀錄或檢查清單只可引用本節、摘要本節的目前發佈狀態，或記錄已驗證結果；不得另立一套欄位、權威順序、新鮮度規則、更新規則或 HTML 行為規則。若本節內容改變，先合併或退役其他位置的重複描述，避免一條規則多處維護。
+
+Project Context Index 的目的，是讓同一個 project 內多位 peer 分段交接時，AI 能先掌握高層背景，再讀具體 packet。它降低理解成本，但不提高事實權威。權威順序固定如下：
 
 1. packet、outbox、ack：唯一執行真相。
 2. peer cards：身份、lane 與 peer 狀態真相。
 3. Project Context Index：背景索引與閱讀導航，只能輔助理解。
 
-建議資料位置：
+#### 4.4.1 資料位置與寫入邊界
+
+資料位置固定為：
 
 ```text
 <hub_root>/<project_slug>/_context/
@@ -268,21 +272,13 @@ Project Context Index 的目的，是讓同一個 project 內多位 peer 分段�
     context.log.md
 ```
 
-每個 agent 只追加或更新自己名下的 context log。工具可以讀取整個 `_context/` 形成總覽，但不得要求多人共同改同一個大型檔案。若日後需要生成總覽檔，應標明為派生索引，並能追溯回原始 packet / outbox / ack；不得把總覽檔當成可執行命令來源。
+每個 agent 只可追加或更新自己名下的 `context.log.md`。工具可以讀取整個 `_context/` 形成總覽，但不得要求多人共同改同一個大型檔案。任何總覽檔、HTML、終端摘要或報告都是派生視圖，必須能追溯回原始 packet / outbox / ack / peer card / 明確文件來源；不得把派生視圖當成可執行命令來源。
 
-Project Context Index 可包含的欄位：
+第一版不承諾背景自動刷新。更新只可由明確事件或明確指令觸發，例如 AI 在完成收件摘要、發包預檢、回覆整理或使用者要求重新整理背景索引時，根據可追溯來源更新自己名下的 context log。若沒有更新動作，索引不會自動變新；介面必須如實顯示最後更新時間與可能過期狀態。
 
-| 欄位 | 用途 | 限制 |
-|---|---|---|
-| `workstream` | 標示長任務分段，例如 research、design、release、review。 | 只作背景分類，不代表權限或責任分派。 |
-| `current_focus` | 說明本 agent 最近處理的方向。 | 不可覆蓋最新 packet 要求。 |
-| `waiting_on` | 標示目前等待哪位 peer、哪個 packet 或哪份證據。 | 不可自動催促對方或觸發通知。 |
-| `decision_refs` | 指向已確認決策的 packet / outbox / 文件位置。 | 每項都要有來源，不可寫無根據結論。 |
-| `open_questions` | 記錄跨 peer 仍未釐清的問題。 | 不可把問題包裝成已定案事項。 |
-| `risk_notes` | 記錄本機路徑、版本、同步延遲、資料不一致等風險。 | 不可包含 credentials 或把某台電腦路徑寫成所有人通用。 |
-| `recent_packet_refs` | 列出近期重要 packet id、版本、來源與收件人。 | 只作索引；狀態仍以 outbox / ack 計算。 |
+#### 4.4.2 內容欄位
 
-每條索引項至少要有：
+Project Context Index 每條索引項至少要有以下機器可讀 metadata：
 
 ```json
 {
@@ -294,31 +290,75 @@ Project Context Index 可包含的欄位：
 }
 ```
 
-輕量項目管理視角可以加入，但只限於「幫 AI 檢視交接是否可接上」：
+可用欄位與限制如下：
 
-- 分清工作流分段、目前焦點、等待資料、已定案決策與未決問題。
-- 在 `check Hub` 報告中提醒「這個 packet 似乎接在哪條工作流之後」。
-- 在發包前提醒「這次交接是否缺少決策來源、風險說明或本機路徑警告」。
-- 不做自動排程、截止日期管理、任務分派、催辦、看板、進度評分或責任裁決。
+| 欄位 | 用途 | 限制 |
+|---|---|---|
+| `workstream` | 標示長任務分段，例如 research、design、release、review。 | 只作背景分類，不代表權限或責任分派。 |
+| `current_focus` | 說明本 agent 最近處理的方向。 | 不可覆蓋最新 packet 要求。 |
+| `waiting_on` | 標示目前等待哪位 peer、哪個 packet 或哪份證據。 | 不可自動催促對方或觸發通知。 |
+| `decision_refs` | 指向已確認決策的 packet / outbox / 文件位置。 | 每項都要有來源，不可寫無根據結論。 |
+| `open_questions` | 記錄跨 peer 仍未釐清的問題。 | 不可把問題包裝成已定案事項。 |
+| `risk_notes` | 記錄本機路徑、版本、同步延遲、資料不一致等風險。 | 不可包含 credentials 或把某台電腦路徑寫成所有人通用。 |
+| `recent_packet_refs` | 列出近期重要 packet id、版本、來源與收件人。 | 只作索引；狀態仍以 outbox / ack 計算。 |
+| `source_refs` | 列出本條內容引用的 packet / outbox / ack / peer card / 文件來源。 | 缺來源即不得當成事實；來源失效時必須標示未能核實；`file:` 來源只可指向同一 project 內的檔案。 |
 
-Project Context Index 的驗收點是：AI 可用它減少誤讀，但所有開工、補交、共識確認、consume、close、revise 仍必須回到 packet / outbox / ack 與使用者確認。若 context 與 packet 不一致，AI 必須以 packet 為準並把 context 標示為可能過期。
+禁止欄位：`assignee`、`due_date`、kanban 狀態、自動優先級、提醒時間、責任評分、平台通知狀態。這些欄位會把背景索引推向任務管理系統，不屬 APS 第一版 Project Context Index。
 
-### 4.5 人類呈現層：衍生唯讀 HTML 速覽（方向已定，落地仍延後）
+#### 4.4.3 新鮮度與防漂移
 
-決定（2026-05-30 S48，與 Adam 傾定）：Project Context Index 分兩層，不可撈埋。
+Project Context Index 不保證自動最新，只保證「有來源、有時間、可檢查」。讀取或呈現時必須導出以下狀態之一：
 
-- **來源層 = `_context/from_<agent_id>/context.log.md`（plain markdown）。** AI 讀同寫呢層；保持明示欄位（上表 §4.4），不可叫 AI 逆向解析 HTML（與 memory `feedback-no-hardcode-ai-content-parsing` 一致：機器要讀的資料走明示契約，不靠標籤逆向估）。
-- **人類呈現層 = 由來源層派生的唯讀 HTML「項目大局速覽」。** 一版清爽 dashboard 讓人一眼睇大局，比叫人揭 markdown 專業；沿用 `docs/` 既有視覺語言（同一套色 / 字體 / site-nav / badge / 卡片），與公開頁同一家族。
+| 狀態 | 判斷 | 對用戶呈現 |
+|---|---|---|
+| `current_by_sources` | 來源存在，未發現更新的 packet / outbox / ack 與本條內容衝突。 | 可作背景理解，但仍不是執行真相。 |
+| `possibly_stale` | 發現較新的相關 packet / outbox / ack，或 context 更新時間早於關鍵來源。 | 提醒可能過期，先讀最新 packet。 |
+| `unverified_source` | `source_refs` 指向的來源不存在、不可讀或未同步。 | 標示未能核實，不可當成事實。 |
+| `conflict_packet_wins` | context 與 packet / outbox / ack 不一致。 | 明確以 packet / outbox / ack 為準，context 只作過期背景。 |
 
-此 HTML 呈現層必須守三條界線（與 APS 核心原則一致）：
+任何 `check Drive`、`aps context`、HTML 速覽或發包預檢若引用 Project Context Index，必須先顯示或內部檢查新鮮度狀態。若無法檢查，結果只能標示為未核實；不得用「索引存在」推斷「索引新齊」。
 
-1. **衍生唯讀快照，明示可能過期。** 頁頂固定一條橫額：執行真相一律以 packet / outbox / ack 為準；附生成時間戳；若與 packet 不一致以 packet 為準。每條呈現項要指得返來源 packet / outbox / ack。
-2. **按需生成，不自動刷新。** 由 CLI 一個指令（例如 `aps context`，或 `check Drive` 順手）即時由 `_context/*.md` 渲染；不加 build step、不做背景定時更新——背景自動刷新屬非 APS 範圍（§5）。
-3. **永遠唯讀總覽，不可長出互動。** 不加打剔 / 改狀態 / 拖卡 / 死線——一加互動即由「速覽」變成任務板，正是本節禁止的產品膨脹。
+#### 4.4.4 使用者流程位置
 
-參考樣板（假資料、不接生成邏輯、gitignored）：`dev/qc/evidence/2026-05-30-context-index-mock/index.html`（連 `render-fullpage.png`）。樣板示範了工作流分段表、已定案決策 / 等待資料 / 未決問題 / 風險、最近封包線索，以及頁頂的唯讀＋可能過期橫額。
+收件側流程：收到人手通知 → 執行 `check Drive` → AI 讀本機設定與健康狀態 → 讀 Project Context Index 作背景 → 讀最新 packet / outbox / ack 作執行真相 → 顯示「對方交了甚麼、我該不該做、下一步是甚麼」→ 使用者決定處理、補問、對齊或稍後再看。
 
-落地次序：此呈現層仍屬延後，等核心（Reliable Peer Handoff）在真實使用驗證後才做；真正動手前先 brainstorming 釐清需求，再由樣板演進為「markdown 來源 → CLI 按需生成」的實作。
+發件側流程：整理交接前可讀 Project Context Index，檢查本次 packet 是否缺少工作流背景、決策來源、等待事項或風險說明；但是否發送、發給誰、內容是否正確，仍以使用者確認與 packet 寫入為準。
+
+#### 4.4.5 人類呈現層與 Daily Index
+
+人類呈現層是唯讀 `Project Dashboard / Daily Index`。它不只顯示 `_context/from_<agent_id>/context.log.md` 背景索引，也要讀取本機可見的 packet / outbox / ack / peer cards，讓用戶每日回到項目時先知道「我有沒有要處理、我發出去的交接對方有沒有標記處理、應先讀哪些來源」。Dashboard 可以反映已同步到共用 Drive 資料夾的明確狀態，例如 `_ack/<peer>.ack.json` 已記錄對方標記處理、outbox 已有 close 或 withdraw；但不得把「已寫入共用 Drive 資料夾」推斷成「對方已收到通知」或「對方已閱讀」。不可由 AI 逆向解析 HTML 來取得機器資料；機器資料仍以原始 packet / outbox / ack / context log 為準。
+
+標準命令為 `aps dashboard`，輸出 `_context/dashboard.html`。`aps context html` 可保留作技術入口或相容入口，但不應再只輸出純背景表；它可以沿用 Daily Index 的視圖或生成同等唯讀速覽。
+
+HTML 沿用 `docs/` 既有視覺語言，但必須守以下界線：
+
+1. 頁頂固定顯示：執行真相一律以 packet / outbox / ack 為準；Dashboard 只讀已同步資料，可以反映已存在的 ack / close / withdraw 狀態，但本身不會通知、不會標記處理、不會收結。
+2. 首屏顯示待本機 agent 處理的新交接、由本機 agent 發出的交接狀態、尚未看到對方處理的數量，以及背景索引提醒數。
+3. 顯示「建議先讀」清單：packet、Google Drive / Google Docs URL、同一 project 內的相對檔案或其他可追溯來源。Google Drive / Docs 連結可以是 `url:https://...` 來源；本機 `G:\...` 或 `C:\...` 路徑不可當成跨機通用連結。
+4. 顯示來源 agent、來源引用與新鮮度狀態。
+5. 顯示 peer 狀態與風險 / 未決事項，例如 peer 未 confirmed、context 來源過期、context 與 packet 衝突、outbox 不可讀。
+6. 按需生成，不做背景自動刷新、不加 build step、不承諾即時更新。
+7. 永遠唯讀，不加打剔、改狀態、拖卡、截止日期、提醒或責任分派。
+
+參考樣板（假資料、不接生成邏輯、gitignored）：`dev/qc/evidence/2026-05-30-context-index-mock/index.html`。樣板只示範視覺方向，不是資料契約；資料契約以本節為準。
+
+#### 4.4.6 驗收
+
+第一版落地前至少通過以下驗收：
+
+- 沒有多人共同寫同一個 context 大檔。
+- 舊 project 沒有 `_context/` 時，`publish`、`inbox`、`status`、`consume`、`close`、`doctor` 仍正常。
+- 每條 context entry 都有 `updated_at`、`source_agent`、`status: background_only` 與可追溯來源。
+- `source_agent` 必須是合法 agent 名稱；`file:` 來源不可跳出同一 project。
+- 禁止欄位必須由 `context check` 阻塞，而不是只留在文件警告。
+- 來源不存在、來源較新或內容衝突時，報告能標示未核實、可能過期或以 packet / outbox / ack 為準。
+- 若 context 指向舊 packet 版本，而同一 packet 已有較新版本，必須標示可能過期；`context add` 的去重必須精準比較來源引用，不能把 `v1` 誤認成 `v11`。
+- `aps context`、`aps context check`、`aps context add`、`aps context html`、`aps dashboard` 不會寫 outbox、ack、packet，不會 consume、close、revise 或 withdraw；`context add` 只可寫執行者自己名下的 context log；`context html` 與 `dashboard` 只可生成唯讀衍生快照。
+- context 與 HTML 不含 credentials，不把某台電腦的本機 Drive 路徑寫成其他人通用路徑。
+- `check Drive` 報告可用 context 輔助說明背景，但仍先以 packet 摘要、完整性預檢與本機對接檢查作決策入口。
+- `dashboard` 首屏必須回答「待你處理」「你發出的交接狀態」「建議先讀」「風險與未決」四件事；即使沒有 `_context/`，仍應能顯示 packet / outbox / ack 讀到的日常狀態。
+- `dashboard` 顯示已發出交接時，只可用明確狀態文字：`尚未看到對方標記處理`、`對方已標記處理（ack 已記錄）`、`已收結`、`已撤回`。不得寫成「對方已收到」，除非協定日後新增可核實的接收事件。
+- 不新增自動分派、排程、催辦、看板或項目管理承諾。
 
 ---
 
@@ -432,18 +472,14 @@ APS 的價值是「靠同步資料夾交換結構化交接包 + 人手通知」,
 
 目標：
 
-- 新增 `_context/from_<agent_id>/context.log.md` 或等效 per-agent 背景索引。
-- 讓 `check Hub` 和發包前預檢可讀 project-level 脈絡，但不把 context 當成執行真相。
-- 每條 context entry 都能指回 packet / outbox / ack / peer card 或明確文件來源。
-- 納入輕量項目管理視角：工作流分段、等待資料、已定案決策、未決問題與風險提示。
+- 依第 4.4 的唯一設計真源新增 `_context/from_<agent_id>/context.log.md` 背景索引。
+- 讓 `check Drive` 和發包前預檢可讀 project-level 脈絡，但不把 context 當成執行真相。
+- 所有欄位、新鮮度、漂移防線、人類呈現層與驗收規則只在第 4.4 定義；本段只記開發分期。
 
 驗收：
 
-- 沒有多人共同寫同一個 context 大檔。
-- context 與 packet 不一致時，AI 明確以 packet / outbox / ack 為準。
-- context 不包含 credentials，不把某台電腦的 Google Drive 本機路徑寫成對方也可用。
-- `check Hub` 報告可用 context 輔助說明上下文，但仍先列 packet 摘要、完整性預檢與本機對接檢查。
-- 不新增自動分派、排程、催辦、看板或項目管理承諾。
+- 通過第 4.4 的驗收清單。
+- 未新增自動分派、排程、催辦、看板或項目管理承諾。
 
 ### 第四段：群組別名與批次追蹤
 
@@ -489,9 +525,9 @@ APS 的價值是「靠同步資料夾交換結構化交接包 + 人手通知」,
 | 舊二人項目升級時破壞資料 | 升級只可新增 `_peers/`、lane / ack 骨架與 starter pack，不可覆寫 packet、outbox、ack 或 Hub 協定檔。 |
 | starter pack 漏掉 Agent Handoff Kit 前置 | starter pack 必須先列 Agent Handoff Kit init；否則乾淨目錄會缺少 `AGENTS.md`、`dev/RULE_PACKS.md` 與 `dev/PROJECT_INDEX.md`,導致 APS init 拒絕接入。 |
 | 誤把 `inbox --all` 當權限功能 | `inbox --all` 只表示本機可見資料總覽；真正權限由雲端分享設定與本機檔案權限決定。 |
-| Project Context Index 變成新真源 | 明確權威順序：packet / outbox / ack 高於 peer cards，高於 context；context 只作背景索引與閱讀導航。 |
-| 背景索引過期或與 packet 衝突 | 每條 context entry 必須有來源與時間；衝突時以 packet / outbox / ack 為準，並把 context 標示為可能過期。 |
-| 輕量項目管理變成產品膨脹 | 只允許工作流分段、等待資料、決策引用、未決問題與風險提示；不做看板、排程、催辦、責任評分或自動分派。 |
+| Project Context Index 變成新真源 | 依第 4.4 權威順序與防漂移規則處理；不得在本表另立規格。 |
+| 背景索引過期或與 packet 衝突 | 依第 4.4 新鮮度狀態處理；不得用索引存在推斷索引新齊。 |
+| 輕量項目管理變成產品膨脹 | 依第 4.4 禁止欄位與不做事項處理；不得新增看板、排程、催辦、責任評分或自動分派。 |
 
 ---
 
@@ -517,7 +553,7 @@ APS 的價值是「靠同步資料夾交換結構化交接包 + 人手通知」,
 
 1. `_peers/` 是否完全遵守單寫道？
 2. group alias 是否只是收件對象展開，不會變成多人共寫 lane？
-3. Project Peers 是否被標示為 v0.2.9 候選主線，而不是已發佈功能？
+3. Project Peers 是否仍按已發佈基線與舊二人相容要求處理？
 4. Reliable Pair 基線的補交、共識確認、回覆、收結是否仍能穩定 UAT？
 5. `publish --to` 是否只接受單一 confirmed peer？
 6. starter pack 是否先列 Agent Handoff Kit init,再列 APS 安裝與 `npx aps init`？
@@ -525,13 +561,10 @@ APS 的價值是「靠同步資料夾交換結構化交接包 + 人手通知」,
 8. `status --packet-id` 的每個狀態是否都能由 packet / outbox / ack 推導？
 9. 舊版二人 project 沒有 `_peers/` 時，AI 如何向使用者解釋？
 10. `inbox --all` 的文案是否清楚表明只代表本機可見資料？
-11. Project Context Index 是否只作背景索引，不會覆寫 packet / outbox / ack？
-12. 每條 context entry 是否有來源、時間與可追溯 packet / outbox / ack / peer card？
-13. context 與 packet 衝突時，AI 是否明確以 packet 為準並提醒 context 可能過期？
-14. context 是否只做工作流分段、等待資料、決策引用、未決問題與風險提示，而不變成看板、排程或自動分派？
-15. `check Hub` 是否先讀 context 輔助理解，但報告仍以 packet 摘要、完整性預檢與本機對接檢查為主？
-16. Dropbox / OneDrive 的本機同步行為是否已用實機驗證？
-17. 公開頁是否清楚標示真正多人、多收件人是延後路線，而 notify、watch、平台排程、桌面通知是非 APS 範圍，兩者都不是已支援功能？
+11. Project Context Index 是否完整符合第 4.4 的唯一設計真源，包括權威順序、寫入邊界、內容欄位、新鮮度、防漂移、人類呈現層與驗收？
+12. `check Drive` 是否只用 context 輔助理解，而報告仍以 packet 摘要、完整性預檢與本機對接檢查為主？
+13. Dropbox / OneDrive 的本機同步行為是否已用實機驗證？
+14. 公開頁是否清楚標示真正多人、多收件人是延後路線，而 notify、watch、平台排程、桌面通知是非 APS 範圍，兩者都不是已支援功能？
 
 ---
 
@@ -539,10 +572,9 @@ APS 的價值是「靠同步資料夾交換結構化交接包 + 人手通知」,
 
 本文件完成後，下一個開發步驟應保持保守：
 
-1. 先完成本地 v0.2.9 Project Peers + Sent Status 的 focused UAT：舊二人流、`peers`、`peer add`、`peer starter`、provisional block、confirmed peer `publish --to`、`inbox --all/from`、`status --packet-id`、skill UX。
-2. 若 v0.2.9 UAT 無阻塞，再把 Project Context Index 拆成下一候選設計：資料位置、entry schema、權威順序、`check Hub` 讀取行為、衝突提示與不做項目管理工具的邊界。
-3. 後續如要動 CLI / skill，先以本文件作需求真源，逐項拆成小版本。
-4. 任何公開文檔只可按實際發佈狀態描述目前二人 / Project Peers 基線；Project Context Index 是 Project Peers 之後的背景索引方向；真正多人、多收件人是延後路線；notify、watch、平台排程、桌面通知是非 APS 範圍;以上都不可寫成已支援。
+1. Project Context Index 實作只可按第 4.4 拆小版本：schema / check 先行，packet → context 生成器次之，終端摘要再次，按需 HTML 最後；不要先做自動刷新或任務管理。S55 之後的本地候選已先加入 `aps context` / `aps context check` / `aps context add` / `aps context html`。
+2. 後續如要動 CLI / skill，先以本文件第 4.4 作需求真源，逐項拆成小版本。
+3. 任何公開文檔只可按實際發佈狀態描述目前 Reliable Peer Handoff 基線；Project Context Index 是 Project Peers 之後的背景索引方向；真正多人、多收件人是延後路線；notify、watch、平台排程、桌面通知是非 APS 範圍;以上都不可寫成已支援。
 
 ---
 

@@ -5,7 +5,7 @@ description: Sets up and runs cross-machine collaboration between AI agents on t
 
 # Agent Public Squares — 跨機合作 skill
 
-> **狀態:** npm package `@adamchanadam/aps` 屬前期測試版,確切版本以 `npx aps --help` 或 `npx aps doctor` 實測為準。套件提供 `bridge-pack`、互動式 `init` 技能安裝、既有項目 `upgrade`、初始共用 Drive 資料夾 skeleton、Bridge Pack、starter pack、最小 `publish` / `inbox` / `consume` / `close` 指令,以及 `revise`、`withdraw`、只讀 `doctor`、`config`、`.aps/config.json` 專案本地設定、`publish --body-file`、`revise --body-file` 與短命令日用流程。Project Peers + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 project 可有多位 peers、每次仍是一對一 packet。設置完成後日常命令可省略共用 Drive 資料夾 / project / agent 長參數。專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。此檔是可隨 npm package 發出的 skill runtime 規格草稿。設置對話 wording 的精簡隨包版本見 `references/setup-dialogue.md`;repo 內長版維護稿見 `docs/plans/2026-05-23-aps-skill-dialogue-script.md`。
+> **狀態:** npm package `@adamchanadam/aps` 屬前期測試版,確切版本以 `npx aps --help` 或 `npx aps doctor` 實測為準。套件提供 `bridge-pack`、互動式 `init` 技能安裝、既有項目 `upgrade`、初始共用 Drive 資料夾 skeleton、Bridge Pack、starter pack、最小 `publish` / `inbox` / `consume` / `close` 指令,以及 `revise`、`withdraw`、只讀 `doctor`、`context` / `context add` / `context html`、`dashboard`、`check-drive`、`config`、`.aps/config.json` 專案本地設定、`publish --body-file`、`revise --body-file` 與短命令日用流程。Project Peers + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 project 可有多位 peers、每次仍是一對一 packet。設置完成後日常命令可省略共用 Drive 資料夾 / project / agent 長參數。專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。此檔是可隨 npm package 發出的 skill runtime 規格草稿。設置對話 wording 的精簡隨包版本見 `references/setup-dialogue.md`;repo 內長版維護稿見 `docs/plans/2026-05-23-aps-skill-dialogue-script.md`。
 
 ## 1. 此 skill 的職責
 
@@ -127,16 +127,29 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    npx aps peers
    ```
    將結果整理為「本 project 可交接 peers」,列出 confirmed / provisional 狀態。若來源是 `_peers/agents`,不得只顯示 `.aps/config.json` 的 `otherAgentId`,也不得把整個 project 描述成只能與該預設對方合作。若來源是 `.aps/config.json compatibility`,才說明這是舊二人相容視圖,不代表 project 永久只能有一位對方。
-4. **順手看收件箱**:
+4. **背景索引只讀檢查**:
    ```text
-   npx aps inbox --all
+   npx aps context check
    ```
-   若沒有待處理項,說「目前沒有 peer 交來的新內容」。若有待處理項,不要立即 consume;轉入收件子流程,先用總覽表與摘要展示。
-5. **給三個自然下一步**:
+   若項目未建立 `_context/`,這不是錯誤,不要阻塞日常收發。若有 Project Context Index,只把它當背景索引:用來幫用戶理解工作流、等待事項與風險,不可把它當成最新執行真相。若 `context check` 標示來源未核實、可能過期或與 packet 衝突,回覆必須先講清楚限制,再以 packet / outbox / ack 為準。
+   需要把某個已讀 packet 轉成背景索引時,使用 `npx aps context add --from-packet <packet_id> --version <n>`。這只寫本機 agent 自己名下的 `_context/from_<agent_id>/context.log.md`,不寫 packet / outbox / ack,亦不標記已處理。
+   需要給人快速看項目大局時,使用 `npx aps context html` 生成 `_context/overview.html`。這是按需生成的唯讀快照,不可當成資料真源,不可由 AI 反向解析 HTML 取代 context log。
+   需要日常查看「自己有沒有未處理交接、自己發出的交接對方有沒有標記處理、應先讀哪些來源」時,使用:
+   ```text
+   npx aps dashboard
+   ```
+   它生成 `_context/dashboard.html`,只讀 packet / outbox / ack / peer cards / context log,不會自動通知、不會 consume、不會 close。
+   Dashboard 可以反映已同步資料內的明確狀態,例如對方 ack 已記錄、交接已收結或已撤回;但不得把「已寫入共用 Drive 資料夾」說成「對方已收到通知」。
+5. **順手看收件箱**:
+   ```text
+   npx aps check-drive
+   ```
+   `check-drive` 與 `inbox --all` 同底層;日常優先用 `check-drive`,排錯時才講 `inbox`。若沒有待處理項,說「目前沒有 peer 交來的新內容」。若有待處理項,不要立即 consume;轉入收件子流程,先用總覽表與摘要展示。
+6. **給三個自然下一步**:
    - 「發一個測試交接包給對方」(需先有 confirmed peer;若項目仲未有對方,先建議邀請):轉入發佈子流程,用 `--to <peer>`,topic 建議 `setup_test`,body 用一句測試文字。
    - 「邀請新 peer 加入這個 project」:轉入 Project Peers 子流程,用 `peer add` 生成 provisional peer 與 starter pack。
    - 「把目前任務整理成 APS 交接包」:轉入一語交接 / 發佈子流程,先做交接摘要與完整性預檢,經用戶確認後才 publish。
-6. **不要要求用戶記命令**:命令可放在括號或補充句,但主要表達應是「我可以替你檢查 / 發測試包 / 生成給對方的短訊」。若用戶不是在排錯,不要把 `npx aps publish`、`npx aps inbox`、`npx aps consume` 當成主操作指引。
+7. **不要要求用戶記命令**:命令可放在括號或補充句,但主要表達應是「我可以替你檢查 / 發測試包 / 生成給對方的短訊」。若用戶不是在排錯,不要把 `npx aps publish`、`npx aps inbox`、`npx aps consume` 當成主操作指引。
 
 ### 5.1 Project Peers 子流程
 
@@ -231,10 +244,15 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 1. **讀取接駁設定**:同發佈子流程,取得 `hub_root`、`project_slug`、`own_agent_id`、`other_agent_id`。
 2. **執行待辦檢查**:
    ```text
-   npx aps inbox --all
+   npx aps check-drive
    ```
-   若用戶明確只想看某一位 peer,使用 `npx aps inbox --from <agent_id>`。
-3. **呈現結果**:
+   若用戶明確只想看某一位 peer,使用 `npx aps check-drive --from <agent_id>`；`npx aps inbox --from <agent_id>` 是同一底層的排錯備用寫法。
+3. **讀背景索引但不當真相**:
+   ```text
+   npx aps context check
+   ```
+   沒有 `_context/` 時直接繼續;有資料時,只用來補充「這件交接可能接在哪條工作流後面」。若檢查結果不是 current,必須向用戶說明可能過期、來源未核實或 packet 優先。
+4. **呈現結果**:
    - 若 CLI 顯示「沒有待處理項目」,用一句話告訴用戶目前沒有新交接包。
    - 若 CLI 顯示「有 <n> 個待處理項目」,先顯示總覽表,再處理細節。不要只貼原始終端輸出;要轉成用戶可讀摘要。建議順序固定為:「總覽」→「摘要」→「預檢結果」→「細節」→「下一步」。
    - 多個新件時,先用總覽表列 `序號`、`來源`、`主題`、`版本`、`判斷`、`建議`,再推薦最應先處理的一件。只有用戶同意逐件處理後,才展開該件的細節。
@@ -242,18 +260,18 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    - 讀取交接包後,先做收件完整性預檢:共同目標、本方 / 對方任務邊界、交叉點、請本方做的事、不應誤解的事、證據位置、風險 / 未決事項是否足夠。預檢結果以表格顯示,欄位為 `檢查項`、`結果`、`說明`。若有缺漏或不足以回應,不要直接執行,先提醒用戶 B,並轉入補交需求流程。
    - 接著做「本機對接檢查報告」,用於判斷交接內容能否和收件方目前工作環境接上。報告必須方便快速閱讀,建議順序為:`🔎 交接重點`、`📌 本機已知狀態`、`✅ 可直接對接`、`⚠️ 需要確認`、`❌ 不可開工原因`、`🚀 建議下一步`。檢查範圍包括:本機 `.aps/config.json` 是否指向同一 project、交接包版本是否最新、交接要求是否與本機當前任務或已讀文件衝突、證據位置是否是本機可讀的相對位置或共用 Drive 資料夾標識、是否誤用了發送方本機路徑、是否缺少必要背景或檔案版本。不可因為收到 packet 就直接開工。
    - 若欄位齊全,再判斷共同目標、任務邊界、檔案版本、要求與本方已知狀態是否一致。若不一致,不要直接執行,轉入共識確認子流程。只有完整性預檢與本機對接檢查都通過,才可建議用戶開始處理、標記已消化或回覆。
-4. **補交需求流程**:
+5. **補交需求流程**:
    - 若交接包不完整,先向用戶 B 說明缺甚麼、為何影響回應、需要 A 補交甚麼。
    - 生成補交需求包,topic 可用 `<原 topic>_missing_info` 或 `aps_missing_info`。body 必須包含缺漏清單、需要補交的資料、為何需要、B 目前能否先做局部工作。
    - 生成可複製貼上的摘要式通知,請用戶 A / Agent A 補交資料。
    - 在 A 補交前,不要把原交接 close。預設不要 consume 原交接,讓它下次 `check Drive` 仍然可見。只有在用戶 B 明確想把它標為已讀 / 等待補交時,才可 consume,且 result 必須寫「已讀,等待補充資料」而不是 `done`;同時要提醒用戶 B:一旦 consume,原交接不會再以 pending 形式出現,後續要靠補交需求包與 A 的修訂 / 補充包追蹤。
    - A 補交時,若原交接尚未收結且仍由 A 擁有,優先請 A 用 `revise` 修訂原 packet,保留同一條交接線。若 A 的工具版本不支援 `revise`、原 packet 已不適合修訂、或補交內容屬新分支,才請 A 發一個 supplemental packet,topic 用 `<原 topic>_supplement` 或同等清楚名稱。
    - 收到 A 的修訂 / 補充包後,重新做收件完整性預檢;通過後才進入消化與回覆。
-5. **讓用戶決定是否消化**:
+6. **讓用戶決定是否消化**:
    - **讀取並消化**:先 Read 對應 `packet.md` 全文,顯示重點與原文位置;用戶確認後才寫入 ack。
    - **稍後再讀**:不寫 ack。告訴用戶下次再說「check Drive」仍會看到它。
    - **請對方撤回或修正**:不寫 ack。生成一段通知短訊,請原發包一方用 `npx aps revise ...` 或 `npx aps withdraw ...` 處理;若對方仍使用 0.2.0 或更舊版本而這兩條命令不存在,請原發包一方另發新包,不要手寫 outbox。
-6. **寫入消化記錄**:
+7. **寫入消化記錄**:
    ```text
    npx aps consume --packet-id <packet_id> --version <version> --result "<one-line result>"
    ```
