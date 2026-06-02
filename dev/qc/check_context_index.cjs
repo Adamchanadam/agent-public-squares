@@ -268,6 +268,47 @@ try {
     ['已發佈', '交接完整性檢查: 通過', '已申報項目'],
   );
 
+  publishReadyProject('strict_publish_without_items');
+  expectPublishCase(
+    'strict handoff blocks body-only action item',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_without_items',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'handoff_without_items',
+      '--body',
+      [
+        '## 共同目標',
+        '讓新手交接流程在資料不足時先補洞,再發正式 APS 交接包。',
+        '',
+        '## 本方任務',
+        '已完成發送方流程分析。',
+        '',
+        '## 對方任務',
+        'Jay 需要審閱交接定義卡。',
+        '',
+        '## 交叉點',
+        'Jay 只需審閱新手交接流程。',
+        '',
+        '## 請對方做的事',
+        '請確認三問補洞是否足夠。',
+        '',
+        '## 不應誤解',
+        '這不是要求 Jay 發佈版本。',
+        '',
+        '## 證據位置',
+        '參考 README 與 skills/aps/SKILL.md。',
+        '',
+        '## 風險 / 未決事項',
+        '仍需真實新手演練驗證。',
+      ].join('\n'),
+      '--strict-handoff',
+    ],
+    1,
+    ['交接資料未齊', '請對方做的事', '--items', '缺少'],
+  );
+
   packet('context_valid', 'adam', '20260531T120000Z__context_source');
   contextLog('context_valid', 'adam', {
     updated_at: '2999-01-01T00:00:00Z',

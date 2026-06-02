@@ -118,7 +118,7 @@ const handoffRequiredSections = [
   },
   {
     key: 'requested_action',
-    label: '請對方做的事',
+    label: '請對方做的事（--items）',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(請對方做的事|請.*做|requested action|action requested)\s*[:：]?/i,
   },
   {
@@ -143,13 +143,20 @@ function handoffReadinessReport(body, items) {
   const present = [];
   const missing = [];
   for (const section of handoffRequiredSections) {
-    const found = section.key === 'requested_action' && items.length > 0
-      ? true
-      : section.pattern.test(text);
+    const bodyHasSection = section.pattern.test(text);
+    const found = section.key === 'requested_action'
+      ? items.length > 0
+      : bodyHasSection;
     if (found) present.push(section.label);
     else missing.push(section.label);
   }
   const warnings = [];
+  const bodyHasRequestedAction = handoffRequiredSections
+    .find((section) => section.key === 'requested_action')
+    .pattern.test(text);
+  if (bodyHasRequestedAction && items.length === 0) {
+    warnings.push('正文有「請對方做的事」,但正式交接需要用 --items 或 --items-file 明示申報,讓收件方總覽可直接看到待辦。');
+  }
   const hasLocalPath = /[A-Za-z]:\\|(^|\s)\/(?:Users|home|mnt|Volumes)\//.test(text);
   const hasLocalPathBoundary = /本機路徑|只適用於本方|只適用於我方|對方不可直接使用|local path/i.test(text);
   if (hasLocalPath && !hasLocalPathBoundary) {
@@ -2544,7 +2551,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps publish --to <id> --topic <snake> --body <text>
   npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff]
                                   發佈 v1 交接包並追加 outbox;--items 由發送方申報「請對方做的事」,CLI 逐字記錄(分號分隔;項目本身含分號時改用 --items-file)
-                                  --strict-handoff 會阻止缺少共同目標、雙方任務、交叉點、證據或風險的正式交接
+                                  --strict-handoff 會阻止缺少共同目標、雙方任務、交叉點、--items、證據或風險的正式交接
   npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items]
                                   為自己發出的交接包建立下一個不可變版本;未指定 items 時沿用上一版
   npx aps inbox
@@ -3067,7 +3074,7 @@ if (subcommand === 'publish') {
   if (strictHandoff && !handoffReport.ready) {
     console.error('❌ 發佈失敗:交接資料未齊。');
     printHandoffReadiness(handoffReport, console.error);
-    console.error('請先補齊共同目標、雙方任務邊界、請對方做的事、證據位置與風險,再重試。');
+    console.error('請先補齊共同目標、雙方任務邊界、--items 待辦、證據位置與風險,再重試。');
     process.exit(1);
   }
   try {
