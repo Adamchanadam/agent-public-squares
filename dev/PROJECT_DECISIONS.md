@@ -13,6 +13,8 @@
 
 任務需求演進的長期 narrative。Newest first。AI 觀察到 substantive task evolution 時 append。
 
+- 2026-06-01 (S57) — APS 0.2.15 已由「候選功能」推到「公開 latest」後，工作重心轉為真實採用監察：Project Context Index / Daily Index / readable `check Drive` 已發佈並讀回，下一步不是再發版，而是看 Jay 或新加入者在真機上是否能用三問安裝、加入頁、收件摘要、read-only dashboard 完成日常流程。同日 Agent Handoff Kit 升級到 v0.3.22，closeout 把 0.3.21 / 0.3.22 漂移、prompt mirror、SESSION_LOG N-rule 一併清掉，避免下一位代理讀到舊治理狀態。
+
 - 2026-05-30 (S48) — 0.2.13「人性化上手」由「本機完成、未發佈」推到「公開已發佈」。第五段 gated release 行完整條線:升版 → 外發前檢 + 全面檢全綠 → `npm publish` → `git push` → GitHub Pages → GitHub pre-release,每個對外動作逐項授權,四個對外面(npm latest / repo main / Pages / GitHub release)逐項讀回對齊。產品正式對外提供三問安裝 + items 明示契約 + `Agent_Public_Squares` 預設 + 可轉發邀請訊息 + 加入教學頁。0.2.x 一條「人性化上手」主線(0.2.9 Reliable Peer Handoff → 0.2.12 正名與框架 → 0.2.13 人性化上手)告一段落。下一刀係治理工具升級(Agent Handoff Kit 0.3.14→0.3.17)同延後嘅本機 / Drive hub 改名、Project Context Index。
 
 - 2026-05-29 (S47) — 0.2.13「人性化上手」做到淨剩發佈:第三段公開頁全部對齊三問 / items(清咗 9(d) 公開頁 blocker);starter pack 由「填表 + 命令塞晒入去」重寫成一封可轉發嘅邀請訊息 + 一版專為「被邀請者」而設嘅教學頁(`docs/guides/aps-join-invite.html`),把 terminal / 命令 / 排錯嘅複雜度搬離訊息。同時把共用資料夾預設名由 `AI_Public_Squares` 統一做 `Agent_Public_Squares`(切走同產品改名撞嘅舊名陷阱;既有資料夾相容)。第四段 UAT 喺隔離沙盒行綠。產品由「協定可上手」推到「邀請體驗對非技術人都跟得到」。下一刀淨係 gated release(第五段)。

@@ -13,3 +13,4 @@
 | 009 | 2026-05-26 to 2026-05-28 | `archive_009_2026-05-26_to_2026-05-28.md` | S38-S19 v0.2.8 npm publish + GitHub pre-release, Project Peers + Project Context Index direction, 0.2.9 Project Peers UAT + starter-pack fix + receiver-isolation full audit, post-publish governance lessons, post-UAT blockers, 0.2.7 / 0.2.6 / 0.2.5 release-check history, HTML walkthrough correction, and internal alignment evidence |
 | 010 | 2026-05-28 to 2026-05-28 | `archive_010_2026-05-28_to_2026-05-28.md` | S39 Project Peers one-by-one handoff isolation short-index entry |
 | 011 | 2026-05-28 to 2026-05-28 | `archive_011_2026-05-28_to_2026-05-28.md` | S42-S40 closeout-only prompt rule and Agent Handoff Kit v0.3.12 doctor verification history |
+| 012 | 2026-05-28 to 2026-05-29 | `archive_012_2026-05-28_to_2026-05-29.md` | S47-S43 short-index entries for 0.2.13 public surfaces, CLI / skill build, Jay UAT feedback, 0.2.12 naming release, and Codex skill load-fix |

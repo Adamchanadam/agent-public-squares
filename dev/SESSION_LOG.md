@@ -8,6 +8,34 @@ Keep recent entries concise. If older entries no longer affect the next action, 
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
 
+## 2026-06-01 (S59) — README rewritten for zero-context new users
+
+- **ID:** S59
+- **Summary:** Adam asked to rewrite the latest README from start to finish for users who do not know APS, have no repo context, and should not see the old README framing.
+- **Changed:** `README.md`, `dev/PROJECT_INDEX.md`, and this log.
+- **Done:** Replaced the README with a new Traditional Chinese beginner entry that introduces Agent Public Squares from first principles, states the current public npm version `@adamchanadam/aps@0.2.15`, explains what is installable and usable today, gives new-project install order, existing-project upgrade path, daily natural-language use, command fallback, invite flow, and beginner FAQ. On 2026-06-02, Adam asked to put public entry links at the top; the README now starts with public entry page, teaching hub, first install walkthrough, and Agent Handoff Kit intro.
+- **QC:** Read back the whole README; checked the README no longer contains old README markers such as `AI Public Squares`, older version hints, old Drive path examples, `_notify`, `watch`, or old project-specific references; `git diff --check` initially found two README trailing-space lines, which were corrected, then passed with CRLF warnings only; Agent Handoff Kit doctor v0.3.22 passed with 45 checks and the expected SESSION_LOG N-rule warning.
+- **Boundary:** README only was rewritten for the public GitHub first impression. Public HTML docs were not rewritten in this task; no commit, push, tag, GitHub release, npm publish, or GitHub Pages change was performed.
+
+## 2026-06-01 (S58) — APS latest two-agent full audit
+
+- **ID:** S58
+- **Summary:** Adam asked Codex to create two agents and use the latest public APS version against the real Drive Hub for fresh-user install, upgrade, multi-scenario UAT, and full audit.
+- **Changed:** Added `dev/qc/2026-06-01-aps-full-audit-latest-two-agent.md`; wrote ignored evidence under `dev/qc/evidence/2026-06-01-latest-two-agent-full-audit/`; wrote test runtime data under `G:\我的雲端硬碟\Adam 工作目錄\AI_Projects\Agent_Public_Squares\aps_latest_full_audit_20260601\`; refreshed global APS skills after Adam confirmed upgrade (`C:\Users\adam\.claude\skills\aps.backup-20260601T192308Z`, `C:\Users\adam\.codex\skills\aps.backup-20260601T192308Z`).
+- **Done:** Verified npm latest `@adamchanadam/aps@0.2.15`; created `agent_adam_uat` and `agent_jay_uat`; installed Agent Handoff Kit v0.3.22 and APS latest; initialized both agents against the real Drive Hub; ran A→B publish / B check-drive / inbox / consume / A status; ran B→A reply / A check-drive / inbox --from / consume / B status; closed both packet lines; generated Project Context Index entries, `overview.html`, and `dashboard.html`; ran `aps upgrade --dry-run` for both agents and, after Adam's explicit confirmation, ran formal `aps upgrade` once in `agent_adam_uat`.
+- **QC:** A / B APS doctor passed after init and again after upgrade; both inboxes were empty after close; `npm test` passed; `git diff --check` had only CRLF warnings; Agent Handoff Kit doctor v0.3.22 passed with 45 checks. Full audit report result is scoped pass with two unresolved boundaries: Browser policy blocked `file://` render verification, and this is still one physical Windows machine rather than remote cross-machine sync latency.
+- **Boundary:** No commit, push, tag, GitHub release, npm publish, or GitHub Pages change was performed. One accidental root `package.json` devDependency / `package-lock.json` change from an early npm install attempt was reverted before final reporting.
+
+## 2026-06-01 (S57) — Agent Handoff Kit upgraded to v0.3.22 and closeout reconciled
+
+- **ID:** S57
+- **Summary:** Adam asked to upgrade Agent Handoff Kit for this root after APS 0.2.15 release.
+- **Changed:** `dev/SESSION_HANDOFF.md`, `START_NEXT_SESSION_PROMPT.txt`, `dev/PROJECT_INDEX.md`, `dev/SESSION_LOG.md`, `dev/SESSION_LOG_archive/INDEX.md`, `dev/SESSION_LOG_archive/archive_012_2026-05-28_to_2026-05-29.md`, `dev/PROJECT_DECISIONS.md`, and new migration evidence under `dev/governance_migrations/20260601T040152Z/` and `dev/governance_migrations/20260601T073843Z/`.
+- **Done:** Confirmed npm latest `@adamchanadam/agent-handoff-kit` is 0.3.22. Ran `npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root C:\Users\adam\_claude_desktop\Agent_Public_Squares --dry-run`; dry-run showed create 0 / merge 1 / skip 19 / conflict 0. Then ran the upgrade with explicit `yes` input. The first migration merged only `dev/SESSION_HANDOFF.md`, updated `dev/PROJECT_INDEX.md` metadata 0.3.20 → 0.3.21, and wrote report `dev/governance_migrations/20260601T040152Z/migration-report.md`. A later metadata-only migration updated `dev/PROJECT_INDEX.md` 0.3.21 → 0.3.22 and wrote `dev/governance_migrations/20260601T073843Z/migration-report.md`.
+- **QC:** Upgrade auto-doctor passed: 45 checks, 0 failed. Closeout then reconciled the 0.3.21 / 0.3.22 drift, regenerated `START_NEXT_SESSION_PROMPT.txt`, advanced the SESSION_LOG N-rule, and re-ran `npx --yes @adamchanadam/agent-handoff-kit@latest doctor --root C:\Users\adam\_claude_desktop\Agent_Public_Squares`: v0.3.22, 45 checks, `status: passed`, prompt mirror ok, SESSION_LOG discipline ok, credential sweep ok.
+- **Log maintenance:** Moved S47-S43 short-index entries into archive batch 012 with raw content preserved; hot log now keeps S57-S48.
+- **Boundary:** No APS package change, no npm publish, no GitHub release, no tag, and no push were performed.
+
 ## 2026-05-31 (S56) — APS 0.2.15 release shipped
 
 - **ID:** S56
@@ -89,26 +117,6 @@ Before closeout, check whether older log detail should be kept, summarized, or a
 ## 2026-05-30 (S48) — 0.2.13 gated release shipped
 
 - Short index: published npm `@adamchanadam/aps@0.2.13`, pushed release commit, verified Pages, and created GitHub release `v0.2.13`; release evidence lives in `dev/qc/2026-05-30-aps-full-audit-0.2.13-release-check.md`, release notes, and handoff validation.
-
-## 2026-05-29 (S47) — 0.2.13 public surfaces + UAT green
-
-- Short index: aligned public surfaces to the three-question / items / invite model, added joiner page, and completed isolated UAT; durable details live in `dev/PROJECT_DECISIONS.md`, `dev/PROJECT_INDEX.md`, and S48 release-check evidence.
-
-## 2026-05-29 (S46) — 0.2.13 CLI + skill build and QC behaviour-truth mechanism
-
-- Short index: built the three-question CLI model, explicit `--items` contract, skill alignment, and the QC behaviour-truth gate; durable details live in `dev/qc/triggers.md`, `dev/DOC_SYNC_REGISTRY.md`, and `dev/PROJECT_DECISIONS.md`.
-
-## 2026-05-29 (S45) — Jay real-machine UAT feedback and automation-scope prune
-
-- Short index: processed Jay's real-machine feedback, fixed truncation, deferred items to explicit contract, and locked automation / notification features out of APS scope; durable decisions live in `dev/PROJECT_DECISIONS.md`, roadmap §5, and handoff risks.
-
-## 2026-05-29 (S44) — 0.2.12 naming and framing release
-
-- Short index: renamed public product framing to Agent Public Squares, published 0.2.12, pushed repo rename updates, and cut the v0.2.12 pre-release; durable evidence lives in release notes, `dev/qc/2026-05-29-aps-full-audit-0.2.12-naming.md`, and archive history.
-
-## 2026-05-28 (S43) — Codex skill load-fix + Project Peers acceptance
-
-- Short index: fixed Codex skill frontmatter load failure, verified Project Peers acceptance against the real Hub, and recorded 0.2.9-0.2.11 release / UAT history; raw detail remains in prior logs and durable evidence under `dev/qc/evidence/2026-05-28-codex-skill-loadfix/`.
 
 ## Entry Template
 
