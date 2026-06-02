@@ -11,11 +11,12 @@ Scoped result: pass after one audit-time fix.
 
 The audit found one real product gap: before the fix, `publish --strict-handoff` allowed a formal packet whose body had a "請對方做的事" section but no `--items`. That left the packet's machine-readable `items` field empty, which is bad for receiver-side summaries and new-user reliability.
 
-Fix applied during audit:
+Fixes applied during audit:
 
 - `bin/aps.js` now treats `--items` / `--items-file` as mandatory for strict formal handoff.
 - Body headings no longer satisfy the strict "requested action" requirement by themselves.
-- `dev/qc/check_context_index.cjs` now includes `strict handoff blocks body-only action item`.
+- `bin/aps.js` now checks section content, not headings only. Empty headings and placeholder-only core fields such as `未確認`, `TBD`, or `N/A` do not pass for core required fields.
+- `dev/qc/check_context_index.cjs` now includes `strict handoff blocks body-only action item`, `strict handoff blocks empty headings`, and `strict handoff blocks placeholder core content`.
 - Help and governance wording now say strict mode blocks missing machine-readable `--items`.
 
 ## Coverage
@@ -25,6 +26,8 @@ Fix applied during audit:
 | Strict intake | User says only "請 Jay 接手下一步。" with `--strict-handoff` | exit 1, no formal publish | Pass |
 | Strict complete packet | Complete handoff body + `--items` | exit 0, packet written, readiness pass | Pass |
 | Strict body-only action | Complete body but no `--items` | exit 1 after audit fix | Pass |
+| Strict empty headings | Required headings exist but core content is empty / unknown | exit 1 after root-fix | Pass |
+| Strict placeholder content | Core fields contain `未確認`, `TBD`, or `N/A` only | exit 1 after root-fix | Pass |
 | Local path safety | Body contains local path without boundary wording | exit 1 | Pass |
 | Local path with boundary | Body contains local path and says it is sender-only | exit 0 | Pass |
 | Backward compatibility | Non-strict incomplete body | warning, still writes | Pass |
@@ -66,6 +69,8 @@ Important observed outputs:
 - Strict incomplete handoff exited 1 with `交接資料未齊`.
 - Strict complete handoff exited 0 with `交接完整性檢查: 通過`.
 - Strict body-only action item now exits 1 with missing `請對方做的事（--items）`.
+- Strict empty headings now exit 1 with `內容不足`.
+- Strict placeholder core content now exits 1 with `內容不足`.
 - Local path without sender-only boundary exits 1.
 - Local path with sender-only boundary exits 0.
 - Non-strict incomplete publish exits 0 but prints the incompleteness warning.

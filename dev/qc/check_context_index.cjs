@@ -309,6 +309,84 @@ try {
     ['交接資料未齊', '請對方做的事', '--items', '缺少'],
   );
 
+  publishReadyProject('strict_publish_empty_headings');
+  expectPublishCase(
+    'strict handoff blocks empty headings',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_empty_headings',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'empty_headings',
+      '--body',
+      [
+        '## 共同目標',
+        '',
+        '## 本方任務',
+        '',
+        '## 對方任務',
+        '未確認',
+        '',
+        '## 交叉點',
+        '',
+        '## 請對方做的事',
+        '',
+        '## 不應誤解',
+        '',
+        '## 證據位置',
+        '',
+        '## 風險 / 未決事項',
+        '未確認',
+      ].join('\n'),
+      '--items', '確認',
+      '--strict-handoff',
+    ],
+    1,
+    ['交接資料未齊', '內容不足', '共同目標', '證據位置'],
+  );
+
+  publishReadyProject('strict_publish_template_words');
+  expectPublishCase(
+    'strict handoff blocks placeholder core content',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_template_words',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'template_words',
+      '--body',
+      [
+        '## 共同目標',
+        '未確認',
+        '',
+        '## 本方任務',
+        '待確認',
+        '',
+        '## 對方任務',
+        '未確認',
+        '',
+        '## 交叉點',
+        'TBD',
+        '',
+        '## 請對方做的事',
+        '見 items。',
+        '',
+        '## 不應誤解',
+        '不是正式要求。',
+        '',
+        '## 證據位置',
+        'N/A',
+        '',
+        '## 風險 / 未決事項',
+        '未確認',
+      ].join('\n'),
+      '--items', '確認',
+      '--strict-handoff',
+    ],
+    1,
+    ['交接資料未齊', '內容不足', '共同目標', '本方任務', '證據位置'],
+  );
+
   packet('context_valid', 'adam', '20260531T120000Z__context_source');
   contextLog('context_valid', 'adam', {
     updated_at: '2999-01-01T00:00:00Z',

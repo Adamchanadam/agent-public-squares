@@ -100,54 +100,95 @@ const handoffRequiredSections = [
     key: 'common_goal',
     label: '共同目標',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(共同目標|common goal|goal)\s*[:：]?/i,
+    allowUnknown: false,
   },
   {
     key: 'own_task',
     label: '本方任務',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(本方任務|我方任務|發送方任務|own-side task|sender task)\s*[:：]?/i,
+    allowUnknown: false,
   },
   {
     key: 'counterpart_task',
     label: '對方任務',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(對方任務|收件方任務|counterpart task|receiver task)\s*[:：]?/i,
+    allowUnknown: true,
   },
   {
     key: 'crossing_point',
     label: '交叉點',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(交叉點|接手點|需要對方接手|crossing point|handoff point)\s*[:：]?/i,
+    allowUnknown: false,
   },
   {
     key: 'requested_action',
     label: '請對方做的事（--items）',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(請對方做的事|請.*做|requested action|action requested)\s*[:：]?/i,
+    allowUnknown: false,
   },
   {
     key: 'do_not_misunderstand',
     label: '不應誤解的事',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(不應誤解|不要誤解|不可誤解|不要做|不應做|do not misunderstand|out of scope|boundary)\s*[:：]?/i,
+    allowUnknown: false,
   },
   {
     key: 'evidence',
     label: '證據位置',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(證據位置|證據|關鍵檔案|檔案位置|版本|evidence|source|reference)\s*[:：]?/i,
+    allowUnknown: false,
   },
   {
     key: 'risks',
     label: '風險 / 未決事項',
     pattern: /(^|\n)\s*(#{1,6}\s*)?(風險|未決|注意事項|risks?|open items?|unknowns?)\s*[:：]?/i,
+    allowUnknown: true,
   },
 ];
+
+function sectionContent(text, section) {
+  const lines = String(text || '').split(/\r?\n/);
+  const start = lines.findIndex((line) => section.pattern.test(`\n${line}`));
+  if (start < 0) return null;
+  const collected = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^\s*#{1,6}\s+\S/.test(lines[index])) break;
+    collected.push(lines[index]);
+  }
+  return collected.join('\n').trim();
+}
+
+function hasSubstantiveContent(value, allowUnknown) {
+  const text = String(value || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[`*_~>#-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return false;
+  const weak = /^(未確認|未知|待確認|不確定|沒有|無|n\/a|na|none|unknown|tbd|to be confirmed|not sure)$/i;
+  if (!allowUnknown && weak.test(text)) return false;
+  if (text.length < 4 && !/[A-Za-z0-9]{2,}/.test(text)) return false;
+  return true;
+}
 
 function handoffReadinessReport(body, items) {
   const text = String(body || '');
   const present = [];
   const missing = [];
+  const weak = [];
   for (const section of handoffRequiredSections) {
     const bodyHasSection = section.pattern.test(text);
+    const content = sectionContent(text, section);
+    const sectionReady = bodyHasSection && hasSubstantiveContent(content, section.allowUnknown);
+    if (section.key === 'requested_action' && items.length === 0) {
+      missing.push(section.label);
+      continue;
+    }
     const found = section.key === 'requested_action'
       ? items.length > 0
-      : bodyHasSection;
+      : sectionReady;
     if (found) present.push(section.label);
+    else if (bodyHasSection) weak.push(section.label);
     else missing.push(section.label);
   }
   const warnings = [];
@@ -163,9 +204,10 @@ function handoffReadinessReport(body, items) {
     warnings.push('正文似乎包含本機路徑,但沒有標明只適用於本方電腦。');
   }
   return {
-    ready: missing.length === 0 && warnings.length === 0,
+    ready: missing.length === 0 && weak.length === 0 && warnings.length === 0,
     present,
     missing,
+    weak,
     warnings,
   };
 }
@@ -179,6 +221,7 @@ function formatHandoffReadiness(report) {
   }
   const lines = ['⚠️ 交接完整性檢查: 有缺口'];
   if (report.missing.length > 0) lines.push(`- 缺少: ${report.missing.join(' / ')}`);
+  if (report.weak && report.weak.length > 0) lines.push(`- 內容不足: ${report.weak.join(' / ')}`);
   for (const warning of report.warnings) lines.push(`- 注意: ${warning}`);
   lines.push('建議:先補齊交接定義卡,再發正式 APS 交接包。');
   return lines;
@@ -2551,7 +2594,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps publish --to <id> --topic <snake> --body <text>
   npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff]
                                   發佈 v1 交接包並追加 outbox;--items 由發送方申報「請對方做的事」,CLI 逐字記錄(分號分隔;項目本身含分號時改用 --items-file)
-                                  --strict-handoff 會阻止缺少共同目標、雙方任務、交叉點、--items、證據或風險的正式交接
+                                  --strict-handoff 會阻止缺少或內容不足的共同目標、雙方任務、交叉點、--items、證據或風險
   npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items]
                                   為自己發出的交接包建立下一個不可變版本;未指定 items 時沿用上一版
   npx aps inbox
