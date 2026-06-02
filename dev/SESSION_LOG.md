@@ -8,6 +8,14 @@ Keep recent entries concise. If older entries no longer affect the next action, 
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
 
+## 2026-06-02 (S61) — APS 0.2.16 release shipped
+
+- **Summary:** Adam explicitly authorized `push, release and publish` for the completed 0.2.16 strict handoff intake work.
+- **Changed:** Updated public release wording in `README.md`, `dev/release-notes/v0.2.16.md`, and `dev/release-notes/v0.2.16.github.md`; committed `6c06fc5` (`Prepare APS 0.2.16 release`); pushed `main`; created and pushed tag `v0.2.16`; created GitHub release `Agent Public Squares v0.2.16` as Latest; published npm package `@adamchanadam/aps@0.2.16`.
+- **QC:** Final pre-publish checks passed: `node --check bin\aps.js`; `node --check dev\qc\check_context_index.cjs`; `npm test`; `git diff --check` with LF-to-CRLF warnings only; `node bin\aps.js --help`; `npm pack --dry-run --json` reporting `@adamchanadam/aps@0.2.16`, 15 files.
+- **Readback:** npm registry reports version/latest `0.2.16`, bin `aps`, fileCount 15, and publish time `2026-06-02T13:27:04.139Z`; `npx --cache C:\tmp\npx-aps-0.2.16-readback --yes --offline=false @adamchanadam/aps@latest --help` shows `v0.2.16 pre-release`; remote `main` and tag `v0.2.16` both point to `6c06fc59da421ab77475f4b6598027ecc5ba528c`; `gh release view v0.2.16` reports not draft, not prerelease, published at `2026-06-02T13:26:52Z`, URL `https://github.com/Adamchanadam/agent-public-squares/releases/tag/v0.2.16`; `gh release list --limit 3` lists v0.2.16 as Latest.
+- **Boundary:** No GitHub Pages content change was made beyond pushing README / repo files to `main`. No Drive Hub runtime write was performed. No further external action is authorized after this release.
+
 ## 2026-06-02 (S60) — Strict handoff intake candidate
 
 - **ID:** S60
