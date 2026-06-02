@@ -8,6 +8,16 @@ Keep recent entries concise. If older entries no longer affect the next action, 
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
 
+## 2026-06-02 (S60) — Strict handoff intake candidate
+
+- **ID:** S60
+- **Summary:** Adam asked whether a new user can simply tell AI to prepare an APS handoff for Jay, and then agreed that AI must proactively assess, guide, fill gaps, optimize UX, and improve the actual function.
+- **Changed:** `bin/aps.js`, `dev/qc/check_context_index.cjs`, `skills/aps/SKILL.md`, `skills/aps/references/setup-dialogue.md`, `README.md`, `docs/index.html`, `docs/guides/aps-onboarding-walkthrough.html`, `package.json`, `dev/release-notes/v0.2.16.md`, `dev/release-notes/v0.2.16.github.md`, `dev/PROJECT_INDEX.md`, `dev/DOC_SYNC_REGISTRY.md`, `dev/SESSION_HANDOFF.md`, and this log.
+- **Done:** Added `publish --strict-handoff` as the formal handoff gate. In strict mode, APS publish now blocks packets missing common goal, sender task, receiver task, crossing point, requested action, evidence, or risk information. Non-strict publish still works for test / old flows but warns when the handoff body is incomplete. Updated APS skill, setup dialogue, README, entry page, and onboarding walkthrough so a one-sentence request such as "幫我用 APS 整理交接包給 Jay" triggers a handoff definition card, gap filling, and at most a few key questions before formal publish. Bumped local source to 0.2.16 candidate and added candidate release notes; public npm latest remains 0.2.15.
+- **QC:** `node --check bin\aps.js` passed; `node --check dev\qc\check_context_index.cjs` passed; `npm test` passed including strict handoff fail / pass cases plus existing Project Context Index, dashboard, and inbox daily-brief regressions; `git diff --check` passed with LF to CRLF warnings only; `node bin\aps.js --help` shows `v0.2.16 pre-release` and `--strict-handoff`; `npm pack --dry-run --json` reports `@adamchanadam/aps@0.2.16`, 15 files, and includes CLI, skill, resources, examples, README, and the packaged test file.
+- **Boundary:** No commit, push, tag, GitHub release, npm publish, GitHub Pages deploy, or Drive Hub runtime write was performed. 0.2.16 is local candidate source only until Adam explicitly authorizes external release actions.
+- **Sync:** `dev/PROJECT_INDEX.md` and `dev/DOC_SYNC_REGISTRY.md` now record the strict handoff intake rule and the public-latest versus local-candidate boundary.
+
 ## 2026-06-01 (S59) — README rewritten for zero-context new users
 
 - **ID:** S59

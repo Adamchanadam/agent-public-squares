@@ -95,6 +95,92 @@ function readItemsInput() {
   return { provided: false, items: [] };
 }
 
+const handoffRequiredSections = [
+  {
+    key: 'common_goal',
+    label: '共同目標',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(共同目標|common goal|goal)\s*[:：]?/i,
+  },
+  {
+    key: 'own_task',
+    label: '本方任務',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(本方任務|我方任務|發送方任務|own-side task|sender task)\s*[:：]?/i,
+  },
+  {
+    key: 'counterpart_task',
+    label: '對方任務',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(對方任務|收件方任務|counterpart task|receiver task)\s*[:：]?/i,
+  },
+  {
+    key: 'crossing_point',
+    label: '交叉點',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(交叉點|接手點|需要對方接手|crossing point|handoff point)\s*[:：]?/i,
+  },
+  {
+    key: 'requested_action',
+    label: '請對方做的事',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(請對方做的事|請.*做|requested action|action requested)\s*[:：]?/i,
+  },
+  {
+    key: 'do_not_misunderstand',
+    label: '不應誤解的事',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(不應誤解|不要誤解|不可誤解|不要做|不應做|do not misunderstand|out of scope|boundary)\s*[:：]?/i,
+  },
+  {
+    key: 'evidence',
+    label: '證據位置',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(證據位置|證據|關鍵檔案|檔案位置|版本|evidence|source|reference)\s*[:：]?/i,
+  },
+  {
+    key: 'risks',
+    label: '風險 / 未決事項',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(風險|未決|注意事項|risks?|open items?|unknowns?)\s*[:：]?/i,
+  },
+];
+
+function handoffReadinessReport(body, items) {
+  const text = String(body || '');
+  const present = [];
+  const missing = [];
+  for (const section of handoffRequiredSections) {
+    const found = section.key === 'requested_action' && items.length > 0
+      ? true
+      : section.pattern.test(text);
+    if (found) present.push(section.label);
+    else missing.push(section.label);
+  }
+  const warnings = [];
+  const hasLocalPath = /[A-Za-z]:\\|(^|\s)\/(?:Users|home|mnt|Volumes)\//.test(text);
+  const hasLocalPathBoundary = /本機路徑|只適用於本方|只適用於我方|對方不可直接使用|local path/i.test(text);
+  if (hasLocalPath && !hasLocalPathBoundary) {
+    warnings.push('正文似乎包含本機路徑,但沒有標明只適用於本方電腦。');
+  }
+  return {
+    ready: missing.length === 0 && warnings.length === 0,
+    present,
+    missing,
+    warnings,
+  };
+}
+
+function formatHandoffReadiness(report) {
+  if (report.ready) {
+    return [
+      '🔎 交接完整性檢查: 通過',
+      `✅ 已包含: ${report.present.join(' / ')}`,
+    ];
+  }
+  const lines = ['⚠️ 交接完整性檢查: 有缺口'];
+  if (report.missing.length > 0) lines.push(`- 缺少: ${report.missing.join(' / ')}`);
+  for (const warning of report.warnings) lines.push(`- 注意: ${warning}`);
+  lines.push('建議:先補齊交接定義卡,再發正式 APS 交接包。');
+  return lines;
+}
+
+function printHandoffReadiness(report, write = console.log) {
+  for (const line of formatHandoffReadiness(report)) write(line);
+}
+
 function contextActionFromArgs(argv) {
   const positional = [];
   for (let index = 0; index < argv.length; index += 1) {
@@ -2456,8 +2542,9 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps peer starter --agent-id <id>
                                   重新產生給指定 peer 的 starter pack
   npx aps publish --to <id> --topic <snake> --body <text>
-  npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>]
+  npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff]
                                   發佈 v1 交接包並追加 outbox;--items 由發送方申報「請對方做的事」,CLI 逐字記錄(分號分隔;項目本身含分號時改用 --items-file)
+                                  --strict-handoff 會阻止缺少共同目標、雙方任務、交叉點、證據或風險的正式交接
   npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items]
                                   為自己發出的交接包建立下一個不可變版本;未指定 items 時沿用上一版
   npx aps inbox
@@ -2946,6 +3033,8 @@ if (subcommand === 'publish') {
     process.exit(1);
   }
   const level = getFlagValue('--level', 'L2-aps-packet');
+  const strictHandoff = hasFlag('--strict-handoff');
+  const handoffReport = handoffReadinessReport(body, itemsInput.items);
   requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--from': fromId });
   if (!toId) {
     // No recipient resolved: actionable guidance, not a cryptic "Missing required values: --to".
@@ -2975,6 +3064,12 @@ if (subcommand === 'publish') {
     for (const error of errors) console.error(error);
     process.exit(1);
   }
+  if (strictHandoff && !handoffReport.ready) {
+    console.error('❌ 發佈失敗:交接資料未齊。');
+    printHandoffReadiness(handoffReport, console.error);
+    console.error('請先補齊共同目標、雙方任務邊界、請對方做的事、證據位置與風險,再重試。');
+    process.exit(1);
+  }
   try {
     // Recipient reachability runs for every resolved recipient. An explicit --to (the new
     // multi-peer path) blocks on failure; the old config-default partner (fallback) only warns,
@@ -2987,9 +3082,14 @@ if (subcommand === 'publish') {
           throw new Error(reach.reason);
         }
         console.log(`⚠️ ${reach.reason}`);
-      } else if (reach.warn) {
+    } else if (reach.warn) {
         console.log(`⚠️ ${reach.warn}`);
       }
+    }
+    if (!strictHandoff && !handoffReport.ready) {
+      printHandoffReadiness(handoffReport);
+      console.log('⚠️ 非嚴格模式會繼續寫入。AI 主流程應使用 `--strict-handoff`,避免把含糊交接發給新手 peer。');
+      console.log('');
     }
     // Participation self-confirms: when we publish as the locally configured agent (identity
     // not overridden via --from / --agent-id), mark our own peer card confirmed so the other
@@ -3010,6 +3110,9 @@ if (subcommand === 'publish') {
       attention: noticeAttentionFromBody(body),
     });
     console.log(`✅ 已發佈 ${result.packetId} v${result.version}`);
+    if (strictHandoff || handoffReport.ready) {
+      printHandoffReadiness(handoffReport);
+    }
     console.log(`📦 交接包: ${result.packetDir}`);
     console.log(`📋 已申報項目: ${result.items.length ? result.items.join(' / ') : '(無 — 如要列明請對方做的事,可加 --items "甲;乙")'}`);
     console.log('');
@@ -3020,11 +3123,11 @@ if (subcommand === 'publish') {
     console.log(`📧 Email 正文: ${notice}`);
     console.log('');
     console.log('🚀 下一步:把上面的通知訊息複製貼上到 Telegram、WhatsApp、Email 或你們平常使用的通訊工具。由收件人本人決定何時叫自己的 AI `check Drive`;CLI inbox 命令只作排錯備用。');
-    process.exit(0);
   } catch (err) {
     console.error(`❌ 發佈失敗:${err.message}`);
     process.exit(1);
   }
+  process.exit(0);
 }
 
 if (subcommand === 'revise') {

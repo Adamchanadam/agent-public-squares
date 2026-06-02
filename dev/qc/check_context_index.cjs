@@ -88,6 +88,10 @@ function runDashboard(args) {
   return runAps('dashboard', args);
 }
 
+function runPublish(args) {
+  return runAps('publish', args);
+}
+
 function assert(condition, message, details = '') {
   if (!condition) {
     const suffix = details ? `\n${details}` : '';
@@ -155,6 +159,20 @@ function expectDashboardCase(name, args, expectedStatus, requiredText) {
   console.log(`PASS ${name}`);
 }
 
+function expectPublishCase(name, args, expectedStatus, requiredText) {
+  const result = runPublish(args);
+  const output = outputOf(result);
+  assert(
+    result.status === expectedStatus,
+    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
+    output,
+  );
+  for (const text of requiredText) {
+    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
+  }
+  console.log(`PASS ${name}`);
+}
+
 function inboxPacket(project, fromAgent, toAgent, packetId, topic, version = 1) {
   writeFile(
     path.join(hubRoot, project, `from_${fromAgent}`, 'outbox.log.md'),
@@ -173,8 +191,82 @@ function writeAck(project, agent, consumed) {
   );
 }
 
+function publishReadyProject(project) {
+  writeFile(path.join(hubRoot, project, 'from_adam', 'outbox.log.md'), '');
+  writeFile(
+    path.join(hubRoot, project, '_peers', 'agents', 'jay.json'),
+    `${JSON.stringify({
+      project,
+      agent_id: 'jay',
+      display_name: 'Jay',
+      lane: 'from_jay',
+      status: 'active',
+      peer_state: 'confirmed',
+      updated_at: '2026-06-02T00:00:00.000Z',
+    }, null, 2)}\n`,
+  );
+}
+
 try {
   fs.mkdirSync(evidenceRoot, { recursive: true });
+
+  publishReadyProject('strict_publish_incomplete');
+  expectPublishCase(
+    'strict handoff blocks incomplete packet',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_incomplete',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'handoff_gap',
+      '--body', '請 Jay 接手下一步。',
+      '--strict-handoff',
+    ],
+    1,
+    ['交接資料未齊', '缺少', '共同目標', '證據位置'],
+  );
+
+  publishReadyProject('strict_publish_complete');
+  expectPublishCase(
+    'strict handoff allows complete packet',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_complete',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'handoff_ready',
+      '--body',
+      [
+        '## 共同目標',
+        '讓新手交接流程在資料不足時先補洞,再發正式 APS 交接包。',
+        '',
+        '## 本方任務',
+        '已完成發送方流程分析,並準備把問題交給 Jay 審閱。',
+        '',
+        '## 對方任務',
+        'Jay 需要審閱交接定義卡是否足夠保護新手。',
+        '',
+        '## 交叉點',
+        'Jay 只需審閱新手交接流程,不用接手整個專案。',
+        '',
+        '## 請對方做的事',
+        '請確認三問補洞是否足夠。',
+        '',
+        '## 不應誤解',
+        '這不是要求 Jay 發佈版本或覆寫文件。',
+        '',
+        '## 證據位置',
+        '參考 README 與 skills/aps/SKILL.md 的新手交接流程。',
+        '',
+        '## 風險 / 未決事項',
+        '仍需真實新手演練驗證。',
+      ].join('\n'),
+      '--items', '確認三問補洞是否足夠',
+      '--strict-handoff',
+    ],
+    0,
+    ['已發佈', '交接完整性檢查: 通過', '已申報項目'],
+  );
 
   packet('context_valid', 'adam', '20260531T120000Z__context_source');
   contextLog('context_valid', 'adam', {
