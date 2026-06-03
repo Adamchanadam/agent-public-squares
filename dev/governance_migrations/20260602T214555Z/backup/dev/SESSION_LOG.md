@@ -1,7 +1,5 @@
 # Session Log
 
-
-<!-- ack:section:session-log-preamble -->
 Add new session entries at the top. Record what actually happened in the session; do not copy old completed work forward as new work.
 
 This log carries recent evidence, not current state. Put the current objective, next action, risks, and workspace identity in `dev/SESSION_HANDOFF.md`.
@@ -9,15 +7,6 @@ This log carries recent evidence, not current state. Put the current objective, 
 Keep recent entries concise. If older entries no longer affect the next action, reduce them to short dated indexes that point to the durable source of truth. Archive long error output, validation detail, or research trails only when needed; do not create an archive directory by default.
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
-
-## 2026-06-03 (S63) — Open: Kit version-narrative reconcile
-
-- **ID:** S63
-- **Summary:** Adam said "開工"; startup reads found the Kit version narrative drifted — the S62 handoff still said v0.3.22, but `PROJECT_INDEX.md` Stack said 0.3.24 and two untracked post-S62 upgrade folders existed. Adam chose option A: reconcile the narrative, run doctor, and report on commit.
-- **Changed:** `dev/SESSION_HANDOFF.md`, `START_NEXT_SESSION_PROMPT.txt`, `dev/PROJECT_INDEX.md`, and this log.
-- **Done:** Confirmed via the two migration reports that after the S62 closeout (Kit v0.3.22) Adam ran two more local upgrades on 2026-06-02: 18:30Z 0.3.22 → 0.3.23 and 21:45Z 0.3.23 → 0.3.24, both no-conflict bounded merges (`dev/governance_migrations/20260602T183058Z/`, `dev/governance_migrations/20260602T214555Z/`). These shipped without a closeout, so the handoff narrative lagged. Aligned every current-state mention of the Kit version to v0.3.24 in the handoff (Durable Anchors, Active Objective, Risks, Validation/QC trace, Sync Status, Reconciliation, lifecycle, opening message) and in `PROJECT_INDEX.md` (Stack Last-verified date, Local QC Commands row, External Services row). Regenerated the prompt mirror. Preserved S57/S58 historical event narratives (which correctly recorded v0.3.22 at the time) and all `governance_migrations/*/backup/` snapshots.
-- **QC:** S63-open `doctor` (run before edits) reported `status: passed`, 47 checks, 三向對齊 v0.3.24, prompt mirror ok, credential sweep ok. Post-edit doctor re-run recorded in the closeout / follow-up; see Validation/QC in the handoff.
-- **Boundary:** No commit, push, tag, release, npm publish, GitHub Pages change, or Drive Hub runtime write was performed. The reconciled governance files plus the S62 closeout files remain uncommitted in the working tree, pending Adam's explicit commit authorization.
 
 ## 2026-06-02 (S62) — Closeout after APS 0.2.16 release
 
@@ -124,12 +113,9 @@ Before closeout, check whether older log detail should be kept, summarized, or a
 - **Risks:** This was one-machine two-folder UAT, so it does not prove real cross-machine Google Drive sync latency.
 - **Boundary:** No commit, push, tag, release, npm publish, or GitHub Pages action was performed.
 
-<!-- ack:section:session-log-entry-template -->
-
 ## Entry Template
 
 ````markdown
-<!-- ack:log-entry:start -->
 ## <YYYY-MM-DD> — <short session title>
 
 - **ID:** <agent_or_session_id>
@@ -162,5 +148,4 @@ If this root does not match the expected project root, stop and ask for confirma
 
 After reading, summarize current objective, confirmed decisions, pending work, risks, and the next recommended action.
 ```
-<!-- ack:log-entry:end -->
 ````

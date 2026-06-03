@@ -9,16 +9,6 @@
 
 ---
 
-Research-derived decisions use this compact evidence-chain format inside the relevant section, without creating a new section:
-
-```text
-- YYYY-MM-DD [research-derived] Decision summary. Evidence chain: Source=source:<id>; Summary=<source finding>; Inference=<reasoning>; Decision impact=<what changed>; Uncertainty=<limits or none>.
-```
-
-The `source:<id>` token must also appear in `dev/PROJECT_INDEX.md` under `Fact Base` or `External Sources`, so later sessions can trace the decision back to its source map.
-
-This file does not store raw build / upload / QC evidence, current next actions, one-time task results, or reusable operating procedures. Keep those in `dev/SESSION_LOG.md`, `dev/SESSION_HANDOFF.md`, or the relevant rule pack / registered reference.
-
 ## Evolution Timeline
 
 任務需求演進的長期 narrative。Newest first。AI 觀察到 substantive task evolution 時 append。

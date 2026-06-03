@@ -92,8 +92,6 @@ Ambiguous closeout phrases need one concise confirmation question before full cl
 
 At full closeout:
 
-Closeout Write Contract: before writing `dev/SESSION_HANDOFF.md`, `dev/SESSION_LOG.md`, or `START_NEXT_SESSION_PROMPT.txt`, classify each fact by role and write it to the matching structured area. Use one Agent Handoff Kit marker standard as the machine boundary: `ack:section:*` for sections, `ack:field:*` for fields, `ack:log-entry:start/end` for log entries, and managed-core BEGIN/END for the installed AGENTS core. Do not remove or translate these markers. New closeout writes must use this marker standard; natural-language headings are only human labels, and legacy heading fallback is only for migration / repair of older installs. Current state and next action go only in `dev/SESSION_HANDOFF.md`. Trace evidence, one-time tasks, old build / release / hash facts, and completed delivery details go only in `dev/SESSION_LOG.md` unless promoted to `dev/PROJECT_INDEX.md`, `dev/PROJECT_DECISIONS.md`, `dev/DOC_SYNC_REGISTRY.md`, or a rule pack. `START_NEXT_SESSION_PROMPT.txt` is regenerated from the handoff opening-message block; do not hand-write separate startup state there.
-
 1. Reconcile `dev/SESSION_HANDOFF.md`. Do not append a new state snapshot under old state. Verify `Durable Anchors`, then rewrite or explicitly confirm every section under `Closeout-Reconciled State`.
 2. Add a concise entry to `dev/SESSION_LOG.md` with work actually completed this session and the exact next-session opening message.
 3. Update `dev/PROJECT_INDEX.md` if files, stack, commands, entry points, workspace identity, or durable document map changed.

@@ -14,3 +14,4 @@
 | 010 | 2026-05-28 to 2026-05-28 | `archive_010_2026-05-28_to_2026-05-28.md` | S39 Project Peers one-by-one handoff isolation short-index entry |
 | 011 | 2026-05-28 to 2026-05-28 | `archive_011_2026-05-28_to_2026-05-28.md` | S42-S40 closeout-only prompt rule and Agent Handoff Kit v0.3.12 doctor verification history |
 | 012 | 2026-05-28 to 2026-05-29 | `archive_012_2026-05-28_to_2026-05-29.md` | S47-S43 short-index entries for 0.2.13 public surfaces, CLI / skill build, Jay UAT feedback, 0.2.12 naming release, and Codex skill load-fix |
+| 013 | 2026-05-30 to 2026-05-31 | `archive_013_2026-05-30_to_2026-05-31.md` | S52-S48 closeout, Agent Handoff Kit v0.3.20 verification, path-sync governance, GitHub Latest correction, and 0.2.13 release short-index entries |
