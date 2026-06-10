@@ -102,7 +102,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
   <ol class="steps">
     <li><strong>確認能力。</strong>如果你不能讀寫本機資料夾或不能執行命令，停止並告訴用戶要改用 Codex、Claude Code 或同等本機代理型 AI。</li>
     <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
-    <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化。</li>
+    <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化；已存在時，不要重複初始化，先跑健康檢查，必要時才建議升級。</li>
     <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
     <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 agent id。提醒項目代號和 agent id 只能用小寫英文、數字與底線。</li>
     <li><strong>確認 Google Drive 目標資料夾可離線使用。</strong>請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
@@ -115,11 +115,16 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 
 <section>
   <h2>新安裝路徑</h2>
-  <p class="lede">只有在目前項目沒有 <code>.aps/config.json</code> 時使用。</p>
+  <p class="lede">只有在目前項目沒有 <code>.aps/config.json</code> 時使用。這條路仍要先分清楚 Agent Handoff Kit 是否已存在。</p>
   <ol class="steps">
-    <li>列出安裝計劃：會初始化 Agent Handoff Kit、安裝 npm 套件、執行 APS init、寫入本機設定與共用 Drive 資料夾骨架。</li>
-    <li>取得用戶確認後，執行 Agent Handoff Kit 初始化。命令如下：
+    <li>列出安裝計劃：會檢查 Agent Handoff Kit、安裝 npm 套件、執行 APS init、寫入本機設定與共用 Drive 資料夾骨架。若 Agent Handoff Kit 已存在，計劃中要寫明不會重複初始化。</li>
+    <li>如果缺少 Agent Handoff Kit，取得用戶確認後才執行初始化。命令如下：
       <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init</pre>
+    </li>
+    <li>如果已有 Agent Handoff Kit，先做健康檢查；如檢查顯示需要升級，先列出會改動的治理檔，取得用戶確認後才執行升級。命令如下：
+      <pre>npx --yes @adamchanadam/agent-handoff-kit@latest doctor --root &lt;目前項目資料夾&gt;
+npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目資料夾&gt;</pre>
+      若升級工具要求輸入 <code>yes</code>，必須先向用戶確認，再輸入 <code>yes</code>。
     </li>
     <li>取得用戶確認後，安裝 APS 套件。命令如下：
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
@@ -156,7 +161,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
       <tr><th>檢查</th><th>成功標準</th></tr>
     </thead>
     <tbody>
-      <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。</td></tr>
+      <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>；新項目已初始化，既有項目已健康檢查，必要升級已經用戶確認。</td></tr>
       <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 agent id。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
       <tr><td>下一步</td><td>告訴用戶可以說「邀請某某加入這個 APS 項目」或先做測試交接；不要自動發送。</td></tr>
