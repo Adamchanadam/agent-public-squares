@@ -353,10 +353,11 @@ HTML 沿用 `docs/` 既有視覺語言，但必須守以下界線：
 - 禁止欄位必須由 `context check` 阻塞，而不是只留在文件警告。
 - 來源不存在、來源較新或內容衝突時，報告能標示未核實、可能過期或以 packet / outbox / ack 為準。
 - 若 context 指向舊 packet 版本，而同一 packet 已有較新版本，必須標示可能過期；`context add` 的去重必須精準比較來源引用，不能把 `v1` 誤認成 `v11`。
-- `aps context`、`aps context check`、`aps context add`、`aps context html`、`aps dashboard` 不會寫 outbox、ack、packet，不會 consume、close、revise 或 withdraw；`context add` 只可寫執行者自己名下的 context log；`context html` 與 `dashboard` 只可生成唯讀衍生快照。
+- `aps context`、`aps context check`、`aps context add`、`aps context html`、`aps dashboard`、`aps check-aps` 不會寫 outbox、ack、packet，不會 consume、close、revise 或 withdraw；`context add` 只可寫執行者自己名下的 context log；`context html`、`dashboard` 與 `check-aps` 只可生成唯讀衍生快照。
 - context 與 HTML 不含 credentials，不把某台電腦的本機 Drive 路徑寫成其他人通用路徑。
 - `check Drive` 報告可用 context 輔助說明背景，但仍先以 packet 摘要、完整性預檢與本機對接檢查作決策入口。
 - `dashboard` 首屏必須回答「待你處理」「你發出的交接狀態」「建議先讀」「風險與未決」四件事；即使沒有 `_context/`，仍應能顯示 packet / outbox / ack 讀到的日常狀態。
+- `Check APS` / `aps check-aps` 是整體狀態入口,必須同時顯示收件、發件、協作對象、風險與未決,並按需更新 `_context/dashboard.html`；它不是背景自動監察,也不得把 Drive 檔案存在推斷成對方已收到通知。
 - `dashboard` 顯示已發出交接時，只可用明確狀態文字：`尚未看到對方標記處理`、`對方已標記處理（ack 已記錄）`、`已收結`、`已撤回`。不得寫成「對方已收到」，除非協定日後新增可核實的接收事件。
 - 不新增自動分派、排程、催辦、看板或項目管理承諾。
 
@@ -563,8 +564,9 @@ APS 的價值是「靠同步資料夾交換結構化交接包 + 人手通知」,
 10. `inbox --all` 的文案是否清楚表明只代表本機可見資料？
 11. Project Context Index 是否完整符合第 4.4 的唯一設計真源，包括權威順序、寫入邊界、內容欄位、新鮮度、防漂移、人類呈現層與驗收？
 12. `check Drive` 是否只用 context 輔助理解，而報告仍以 packet 摘要、完整性預檢與本機對接檢查為主？
-13. Dropbox / OneDrive 的本機同步行為是否已用實機驗證？
-14. 公開頁是否清楚標示真正多人、多收件人是延後路線，而 notify、watch、平台排程、桌面通知是非 APS 範圍，兩者都不是已支援功能？
+13. `Check APS` / `check-aps` 是否只作整體狀態入口,不與一般「狀態」「check」「交接包」「收工」等非 APS 或 Agent Handoff Kit 語句重疊？
+14. Dropbox / OneDrive 的本機同步行為是否已用實機驗證？
+15. 公開頁是否清楚標示真正多人、多收件人是延後路線，而 notify、watch、平台排程、桌面通知是非 APS 範圍，兩者都不是已支援功能？
 
 ---
 

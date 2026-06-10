@@ -207,7 +207,9 @@ npx aps publish --to <peer_agent_id> --topic setup_test --body "APS setup test f
 
 完成後:
 
-> 設置完成。這個工作目錄已有 APS 本地設定。我會先替你做三件事:一,檢查共用 Drive 資料夾與本機設定是否完整;二,讀取 project peers;三,查看所有 peer 是否有新內容。若各項正常,第一步應先建立項目共同簡報,把共同目標、參與者、角色、第一輪分工、不可做事項和驗收標準定好。共同簡報確認後,我才建議邀請新 peer、建立測試交接包,或把目前任務整理成交接包。你不需要記住命令;之後只要直接說「教我用 APS」「教我用 Agent Public Squares」「建立共同簡報」「邀請指定協作者加入這個 APS project」「把這部分交給指定協作者」「對方收到未」「check Drive」「check Hub」或「Drive 同步不到」即可。
+> 設置完成。這個工作目錄已有 APS 本地設定。我會先替你做三件事:一,檢查共用 Drive 資料夾與本機設定是否完整;二,讀取 project peers;三,查看所有 peer 是否有新內容。若各項正常,第一步應先建立項目共同簡報,把共同目標、參與者、角色、第一輪分工、不可做事項和驗收標準定好。共同簡報確認後,我才建議邀請新 peer、建立測試交接包,或把目前任務整理成交接包。你不需要記住命令;之後只要直接說「教我用 APS」「教我用 Agent Public Squares」「Check APS」「建立共同簡報」「邀請指定協作者加入這個 APS project」「把這部分交給指定協作者」「對方收到未」「check Drive」「check Hub」或「Drive 同步不到」即可。
+
+`Check APS` 是整體狀態入口:AI 會讀本機 APS 設定,查看收件、發件、peer 狀態與風險,並按需更新 dashboard。`check Drive` 則偏向查看共用 Drive 有沒有對方交來的新內容。兩者都不是背景自動監察,也不代表對方已收到人手通知。
 
 日常一語交接可用以下 wording:
 

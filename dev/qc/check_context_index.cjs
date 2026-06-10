@@ -84,6 +84,10 @@ function runCheckDrive(args) {
   return runAps('check-drive', args);
 }
 
+function runCheckAps(args) {
+  return runAps('check-aps', args);
+}
+
 function runDashboard(args) {
   return runAps('dashboard', args);
 }
@@ -133,6 +137,20 @@ function expectInboxCase(name, args, expectedStatus, requiredText) {
 
 function expectCheckDriveCase(name, args, expectedStatus, requiredText) {
   const result = runCheckDrive(args);
+  const output = outputOf(result);
+  assert(
+    result.status === expectedStatus,
+    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
+    output,
+  );
+  for (const text of requiredText) {
+    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
+  }
+  console.log(`PASS ${name}`);
+}
+
+function expectCheckApsCase(name, args, expectedStatus, requiredText) {
+  const result = runCheckAps(args);
   const output = outputOf(result);
   assert(
     result.status === expectedStatus,
@@ -654,6 +672,22 @@ try {
     assert(dashboardHtml.includes(text), `dashboard html: missing ${text}`, dashboardHtml);
   }
   console.log('PASS dashboard contains daily index sections and Google Docs link');
+  expectCheckApsCase(
+    'check-aps shows full APS status and updates dashboard',
+    ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay'],
+    0,
+    [
+      'APS 整體狀態',
+      '待你處理: 1',
+      '你發出的交接: 1',
+      '尚未看到對方處理: 0',
+      '今日要看',
+      '我發出的交接',
+      '協作對象',
+      'Dashboard 已按需更新',
+      '不是背景自動監察',
+    ],
+  );
   expectInboxCase(
     'inbox daily brief includes context as background',
     ['--hub-root', hubRoot, '--project', 'context_inbox', '--agent-id', 'adam', '--from', 'jay'],

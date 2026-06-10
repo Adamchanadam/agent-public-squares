@@ -1941,6 +1941,75 @@ function buildDashboardData({ hubRoot, projectSlug, agentId, config }) {
   return { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads };
 }
 
+function dashboardRiskItems({ incomingGroups, contextReport, peers }) {
+  return [
+    ...incomingGroups.filter((group) => group.error).map((group) => `未能讀取 ${group.from} 的 outbox: ${group.error}`),
+    ...contextReport.issues.map((issue) => issue.message),
+    ...peers.filter((peer) => peer.peer_state && peer.peer_state !== 'confirmed').map((peer) => `${peer.agent_id} 尚未確認；正式交接前先確認對方已完成設置。`),
+  ];
+}
+
+function renderProjectDashboardSummary(dashboard) {
+  const { projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers } = dashboard;
+  const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const riskItems = dashboardRiskItems({ incomingGroups, contextReport, peers });
+  const lines = [
+    '🧭 APS 整體狀態',
+    `📁 項目: ${projectSlug}`,
+    `👤 本機代理: ${agentId}`,
+    '',
+    `📬 待你處理: ${pendingItems.length}`,
+    `📤 你發出的交接: ${outgoingPackets.length}`,
+    `⏳ 尚未看到對方處理: ${waitingOutgoing.length}`,
+    `👥 協作對象: ${peers.length}`,
+    `⚠️ 風險與提醒: ${riskItems.length}`,
+    '',
+    '📬 今日要看',
+  ];
+  if (pendingItems.length === 0) {
+    lines.push('- 目前沒有待你處理的新交接。');
+  } else {
+    for (const item of pendingItems.slice(0, 5)) {
+      lines.push(`- ${item.from} → ${agentId}: ${packetTopic(item.packetId)} v${item.version}`);
+      lines.push(`  交了甚麼: ${inboxWhatSummary(item)}`);
+      const actions = inboxActionLines(item).map((line) => line.replace(/^- /, '').trim()).filter(Boolean);
+      if (actions.length > 0) lines.push(`  請你做: ${actions.join('；')}`);
+    }
+  }
+  lines.push('');
+  lines.push('📤 我發出的交接');
+  if (outgoingPackets.length === 0) {
+    lines.push('- 目前沒有由你發出的交接紀錄。');
+  } else {
+    for (const item of outgoingPackets.slice(0, 5)) {
+      lines.push(`- 給 ${item.toId || '(未記錄)'}: ${packetTopic(item.packetId)} v${item.version} — ${item.label}`);
+    }
+  }
+  lines.push('');
+  lines.push('👥 協作對象');
+  if (peers.length === 0) {
+    lines.push('- 未見協作對象卡；舊二人設定仍可透過本機設定運作。');
+  } else {
+    for (const peer of peers.slice(0, 8)) {
+      const markers = [peer.is_self ? '本機' : null, peer.is_default_peer ? '預設對方' : null].filter(Boolean).join(', ');
+      const suffix = markers ? ` (${markers})` : '';
+      const stateLabel = peer.peer_state === 'confirmed' ? '已確認' : peer.peer_state || peer.status || 'unknown';
+      lines.push(`- ${peer.agent_id}${suffix}: ${stateLabel}`);
+    }
+  }
+  lines.push('');
+  lines.push('⚠️ 風險與未決');
+  if (riskItems.length === 0) {
+    lines.push('- 未見阻塞風險。仍須以最新 packet / outbox / ack 作準。');
+  } else {
+    for (const item of riskItems.slice(0, 8)) lines.push(`- ${item}`);
+  }
+  lines.push('');
+  lines.push('🔎 邊界:這是按需讀取本機已同步資料的狀態摘要,不代表對方已收到人手通知或已完成 Google Drive 同步。');
+  return lines.join('\n');
+}
+
 function renderContextOverviewHtml({ report, projectSlug, dashboard = null }) {
   if (dashboard) return renderProjectDashboardHtml(dashboard);
   const generatedAt = isoNow();
@@ -2084,11 +2153,7 @@ function renderProjectDashboardHtml(dashboard) {
       <td><span class="badge ${peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn'}">${htmlEscape(peer.peer_state || peer.status || 'unknown')}</span></td>
       <td>${peer.is_self ? '本機 agent' : peer.is_default_peer ? '預設 peer' : 'project peer'}</td>
     </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見 peer card；舊二人設定仍可透過本機設定運作。</td></tr>';
-  const riskItems = [
-    ...incomingGroups.filter((group) => group.error).map((group) => `未能讀取 ${group.from} 的 outbox: ${group.error}`),
-    ...contextReport.issues.map((issue) => issue.message),
-    ...peers.filter((peer) => peer.peer_state && peer.peer_state !== 'confirmed').map((peer) => `${peer.agent_id} 尚未 confirmed；正式交接前先確認對方已完成設置。`),
-  ];
+  const riskItems = dashboardRiskItems({ incomingGroups, contextReport, peers });
   const riskRows = riskItems.map((item) => `<li>${htmlEscape(item)}</li>`).join('\n') || '<li>未見阻塞風險。仍須以最新 packet / outbox / ack 作準。</li>';
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -2536,7 +2601,7 @@ function registerHandoffKitIntegration(values, dryRun) {
   const projectIndexPath = path.join(projectRoot, 'dev', 'PROJECT_INDEX.md');
   const steps = [];
 
-  const routeRow = '| APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / check Drive / check Hub / Hub 有新嘢 / 跨機合作 / Drive 同步不到 / sync stuck / conflict | `dev/rules/aps-bridge.md` | APS cross-machine collaboration route: load the bridge rules and `.aps/config.json` before APS setup, daily use, inbox checks, or recovery. |';
+  const routeRow = '| APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / check Drive / check Hub / Hub 有新嘢 / 跨機合作 / Drive 同步不到 / sync stuck / conflict | `dev/rules/aps-bridge.md` | APS cross-machine collaboration route: load the bridge rules and `.aps/config.json` before APS setup, daily use, status checks, inbox checks, or recovery. |';
   steps.push(upsertManagedBlock(
     rulePacksPath,
     'rule-pack-route',
@@ -2556,7 +2621,7 @@ function registerHandoffKitIntegration(values, dryRun) {
 | 共用 Drive 項目 | \`${values.projectSlug}\` |
 | Local agent | \`${values.agentId}\` |
 | Partner agent | ${values.otherAgentId ? `\`${values.otherAgentId}\`` : '(尚未邀請;用 `npx aps peer add` 加入)'} |
-| Trigger route | Registered in \`dev/RULE_PACKS.md\`; when the user mentions APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / check Drive / check Hub / Hub 有新嘢 / Drive sync / conflict, read \`dev/rules/aps-bridge.md\` and \`.aps/config.json\` before answering. |
+| Trigger route | Registered in \`dev/RULE_PACKS.md\`; when the user mentions APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / check Drive / check Hub / Hub 有新嘢 / Drive sync / conflict, read \`dev/rules/aps-bridge.md\` and \`.aps/config.json\` before answering. |
 | Last verified | ${today} |`;
   steps.push(upsertManagedBlock(
     projectIndexPath,
@@ -2603,6 +2668,8 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
                                   查看對方交來而本機尚未處理的項目
   npx aps check-drive
                                   同 inbox;給「check Drive」日常收件流程使用
+  npx aps check-aps
+                                  查看 APS 整體狀態:收件、發件、協作對象、風險;並按需更新 dashboard
   npx aps dashboard
                                   生成唯讀 Project Dashboard / Daily Index HTML
   npx aps status --packet-id <id>
@@ -2635,7 +2702,7 @@ init 保存 .aps/config.json 後,日常命令可省略 --hub-root、--project、
 --agent-id 與 --other-agent-id。需要臨時覆蓋設定時,仍可傳入這些參數。
 
 狀態:已可使用 bridge-pack、skill 安裝、初始共用 Drive 資料夾設置、既有項目升級、
-本機設定保存、peers / peer starter、publish / revise / inbox / check-drive / dashboard / status / context / consume / withdraw / close,
+本機設定保存、peers / peer starter、publish / revise / inbox / check-drive / check-aps / dashboard / status / context / consume / withdraw / close,
 以及只讀 doctor。
 這個預發布版本已有一次維護者真實 Google Drive 往返驗證;每個真實項目
 仍需要各自做項目級同步驗證。
@@ -3379,6 +3446,37 @@ if (subcommand === 'dashboard') {
     console.log('⚠️ 注意:Dashboard 只作日常索引;真正執行仍以 packet / outbox / ack 為準。');
   } catch (err) {
     console.error(`❌ dashboard 生成失敗:${err.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (subcommand === 'check-aps') {
+  const config = loadConfigOrExit();
+  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
+  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
+  const agentId = flagOrConfig('--agent-id', 'agentId', config);
+  const otherAgentId = flagOrConfig('--other-agent-id', 'otherAgentId', config);
+  requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--agent-id': agentId });
+  const dashboardConfig = { ...config, hubRoot, projectSlug, agentId, otherAgentId };
+  const errors = [
+    validateSnakeCase('--project', projectSlug),
+    validateSnakeCase('--agent-id', agentId),
+    otherAgentId ? validateSnakeCase('--other-agent-id', otherAgentId) : null,
+  ].filter(Boolean);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(error);
+    process.exit(1);
+  }
+  try {
+    const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: dashboardConfig });
+    console.log(renderProjectDashboardSummary(dashboard));
+    const outputPath = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
+    console.log('');
+    console.log(`📄 Dashboard 已按需更新: ${outputPath}`);
+    console.log('⚠️ 注意:這不是背景自動監察;只有你要求 Check APS 時才重新讀取和生成。');
+  } catch (err) {
+    console.error(`❌ Check APS 失敗:${err.message}`);
     process.exit(1);
   }
   process.exit(0);

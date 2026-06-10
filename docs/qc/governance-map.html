@@ -398,6 +398,10 @@
         <td>APS 不自動觸發對方 AI,也不保證對方電腦即時同步。AI 應生成可貼到 Telegram / WhatsApp / Email 的摘要式通知,包含重點摘要、注意事項與 <code>check Drive</code> 下一步;對方看不到時先檢查 Drive 同步。</td>
       </tr>
       <tr>
+        <td>可行動狀態面</td>
+        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、風險與按需 dashboard。它不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。</td>
+      </tr>
+      <tr>
         <td>新安裝與版本升級落地</td>
         <td>若套件內 skill、CLI 或 setup wording 有變,須驗證新安裝與既有項目更新路徑。公開 HTML 只寫已公開可用的命令;其他測試路徑只記錄於 Markdown 真源與審核報告。</td>
       </tr>
@@ -445,7 +449,7 @@
       </tr>
       <tr>
         <td>日常協作流程</td>
-        <td>一語交接、AI 讀設定、健康檢查、整理上下文、發送前預檢、用戶確認、發佈、生成摘要式通知、接收方 <code>check Drive</code>、收件報告、本機對接檢查、補交 / 共識確認、回覆 / 收結能追蹤同一條邏輯。</td>
+        <td>一語交接、AI 讀設定、健康檢查、整理上下文、發送前預檢、用戶確認、發佈、生成摘要式通知、接收方 <code>check Drive</code>、用戶按需 <code>Check APS</code> 看整體可行動狀態、收件報告、本機對接檢查、補交 / 共識確認、回覆 / 收結能追蹤同一條邏輯。</td>
         <td><a class="site-nav__link" href="../guides/aps-onboarding-walkthrough.html#daily">第一次測試交接</a></td>
       </tr>
       <tr>
