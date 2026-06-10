@@ -10,6 +10,18 @@ Keep recent entries concise. If older entries no longer affect the next action, 
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
 
+## 2026-06-10 (S68) — APS 0.2.17 release shipped
+
+- **ID:** S68
+- **Summary:** Adam explicitly asked to commit, prepare release notes, push, and publish the S67 project brief onboarding work.
+- **Changed:** `package.json`, `README.md`, `docs/index.html`, `dev/release-notes/v0.2.17.md`, `dev/release-notes/v0.2.17.github.md`, `skills/aps/SKILL.md`, `skills/aps/references/setup-dialogue.md`, public HTML onboarding pages, `dev/DOC_SYNC_REGISTRY.md`, `dev/PROJECT_INDEX.md`, `dev/SESSION_HANDOFF.md`, this log, and the S66 archive files already pending locally.
+- **Done:** Bumped APS package source to 0.2.17, added release notes, committed `f265543` (`Release APS 0.2.17 project brief onboarding`), pushed `main`, created and pushed tag `v0.2.17`, created GitHub release `Agent Public Squares v0.2.17`, and published npm package `@adamchanadam/aps@0.2.17`.
+- **QC:** Pre-publish checks passed: `npm test`; `node --check bin\aps.js`; `node bin\aps.js --help` showed `v0.2.17 pre-release`; skill frontmatter sanity passed (`description` 730 chars, no colon-space); current-surface no-hard-coded example check passed; public HTML `.md` href scan passed; `git diff --check` had only LF→CRLF warnings; `npm pack --dry-run --json` reported `@adamchanadam/aps@0.2.17`, 15 files; Agent Handoff Kit doctor v0.3.28 passed 48 checks with the known SESSION_LOG count warning.
+- **Readback:** npm registry reports version/latest 0.2.17, bin `aps`, fileCount 15, published at `2026-06-10T11:58:18.637Z`; `npx --cache C:\tmp\npx-aps-0.2.17-readback --yes --offline=false @adamchanadam/aps@latest --help` shows `v0.2.17 pre-release`; `git ls-remote` shows both `refs/heads/main` and `refs/tags/v0.2.17` at `f265543eb5357f3b62b926d2cd04766007c9d868`; `gh release view v0.2.17` reports `isDraft=false`, `isPrerelease=false`, URL `https://github.com/Adamchanadam/agent-public-squares/releases/tag/v0.2.17`.
+- **Pages:** live GitHub Pages readback via local `Invoke-WebRequest` is blocked by the same local TLS / authentication exception seen in S66; source is pushed to `main`.
+- **Risks:** This is an AI orchestration / teaching-layer release, not a new CLI command. APS remains early testing, not production-grade; remote second-machine Google Drive sync latency remains unverified.
+- **Log maintenance:** Added S68; hot log now exceeds the N-rule threshold. Next full closeout must advance the SESSION_LOG archive rule.
+
 ## 2026-06-10 (S67) — APS project brief onboarding upgrade
 
 - **ID:** S67
@@ -18,8 +30,8 @@ Before closeout, check whether older log detail should be kept, summarized, or a
 - **Done:** Added `skills/aps/SKILL.md` §4.2 as the single behavior source for the project kickoff brief. It requires AI to collect / draft common goal, participants + agent id, roles, first-round split, forbidden actions, acceptance criteria, first invite target, and first handoff target before peer invite or first handoff. Follow-up hardening records that example names such as adam / jay / fanny / jackie are examples only, not product defaults or hard-coded roles; actual participants, roles, and agent ids must be user-provided or user-confirmed. The eight brief fields are minimum fields, and AI may add project-specific fields without deleting core fields. Setup wording and public docs now summarize install → project brief → peer invite / first handoff.
 - **QC:** Passed. Skill frontmatter sanity passed (`description` 730 chars, no colon-space). `npm test` passed all current strict handoff / context / dashboard / inbox regressions. `node --check bin\aps.js` passed. `node bin\aps.js init --dry-run --hub-root C:\tmp\aps-project-brief-dry-run-hub --project project_brief_demo --agent-id adam` showed planned writes only and did not modify files. Current-surface no-hard-coded example check passed across README, public HTML, `skills/aps/SKILL.md`, and setup dialogue. New-user wording checks passed; install now leads to project brief before peer invite / first handoff, actual participants / roles / agent ids are user-provided or user-confirmed, and eight project brief fields are minimum extensible fields. HTML href scan found no `.md` hyperlinks. `git diff --check` had only LF→CRLF warnings. Agent Handoff Kit doctor v0.3.28 passed 48 checks with one warning: hot SESSION_LOG count is 11, so the next closeout should advance the N-rule.
 - **Sync:** `dev/DOC_SYNC_REGISTRY.md` now has a dedicated row stating `skills/aps/SKILL.md` is the one behavior source for project kickoff alignment; README and HTML may summarize but must not redefine the field set.
-- **Pending:** Decide whether Adam wants commit / push after review. If pushed, recheck GitHub Pages after deployment.
-- **Risks:** This is an AI orchestration upgrade, not a new CLI command. It relies on local AI agents following the APS skill / AI install page; no npm publish has been performed.
+- **Pending:** Superseded by S68: Adam authorized commit, push, tag, GitHub release, and npm publish for 0.2.17. GitHub Pages live readback remains blocked locally by TLS / authentication exception.
+- **Risks:** This is an AI orchestration upgrade, not a new CLI command. It relies on local AI agents following the APS skill / AI install page; 0.2.17 is now published.
 - **Log maintenance:** Added S67; hot log count is now 11. Doctor warns this should be advanced at the next closeout, not mid-session.
 
 ## 2026-06-10 (S66) — Closeout after AI-agent install docs push
