@@ -164,9 +164,24 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
       <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>；新項目已初始化，既有項目已健康檢查，必要升級已經用戶確認。</td></tr>
       <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 agent id。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
-      <tr><td>下一步</td><td>告訴用戶可以說「邀請某某加入這個 APS 項目」或先做測試交接；不要自動發送。</td></tr>
+      <tr><td>下一步</td><td>先帶用戶建立「項目共同簡報」，確認共同目標、參與者、角色、第一輪分工、不可做事項與驗收標準；共同簡報確認後，才建議邀請協作者或建立第一輪交接。示範人名不得當作固定預設。</td></tr>
     </tbody>
   </table>
+</section>
+
+<section>
+  <h2>安裝後：先建立項目共同簡報</h2>
+  <p class="lede">這是安裝成功後的第一個產品流程。不要直接叫用戶邀請對方或發測試包，先把團隊共同口徑定好。</p>
+  <ol class="steps">
+    <li><strong>向用戶說明用途。</strong>共同簡報會成為之後邀請 peer、發第一輪交接包、以及對方 <code>check Drive</code> 時判斷能否接手的基準。</li>
+    <li><strong>由 AI 先整理草稿。</strong>從用戶已提供的項目背景、目前資料夾內容和對話中整理；缺資料才問，最多問三個關鍵問題。</li>
+    <li><strong>共同簡報至少包含：</strong>共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。</li>
+    <li><strong>不要硬套示範人名。</strong>實際參與者、角色和 agent id 必須由用戶提供，或由 AI 整理後交用戶確認。</li>
+    <li><strong>可以加欄。</strong>八項是最低欄位；若項目需要截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以加入，但不要刪除核心欄位。</li>
+    <li><strong>先讓用戶確認。</strong>確認共同簡報內容、第一個邀請對象、以及可否作為後續邀請和第一輪交接的基準。</li>
+    <li><strong>確認後才進入下一步。</strong>若對方未加入，走邀請流程；若對方已加入，才用共同簡報加上對方任務建立第一輪交接草稿。</li>
+  </ol>
+  <pre>請先幫我建立這個 APS 項目的共同簡報，再邀請協作者。共同簡報要包括共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事和驗收標準。參與者和 agent id 由我確認；如項目有額外要求，可以加欄，但不要刪除核心欄位。</pre>
 </section>
 
 <section>
@@ -186,7 +201,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
     <li>安裝是否成功。</li>
     <li>目前項目代號與自己的 agent id。</li>
     <li><code>doctor</code> 是否通過。</li>
-    <li>下一句建議用戶說甚麼，例如「邀請 Jay 加入這個 APS 項目」或「幫我發一個 APS 測試交接給 Jay」。</li>
+    <li>下一句建議用戶說甚麼：先說「請幫我建立這個 APS 項目的共同簡報」，共同簡報確認後才邀請實際協作者或建立第一輪交接。</li>
   </ul>
 </section>
 

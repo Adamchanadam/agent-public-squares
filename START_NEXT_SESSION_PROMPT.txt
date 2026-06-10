@@ -1,20 +1,24 @@
 Work in C:\Users\adam\_claude_desktop\Agent_Public_Squares (template SSOT for Agent Public Squares; npm `@adamchanadam/aps`; GitHub repo Adamchanadam/agent-public-squares is public; Pages enabled). The local working-folder rename is complete.
 
 
-0.2.13 shipped the「人性化上手」model end to end: three-question `init` (own side only; counterpart invited later via `peer add`), items as an explicit `--items` sender contract (verbatim into frontmatter; revise preserves / `--clear-items` empties), doctor local-core vs peer split (solo passes), publish actionable no-recipient guidance + reachability gate, the shared-folder default name unified to `Agent_Public_Squares` (underscore `AI_Public_Squares` scrubbed from user-facing defaults; existing folders keep working), a rewritten forwardable starter-pack invite linking to the new joiner page `docs/guides/aps-join-invite.html`, and project-scoped starter-pack filenames. CLI ↔ skill ↔ public docs are aligned (外發前檢 9(d) GREEN).
+0.2.13 shipped the「人性化上手」model end to end: three-question `init` (own side only; counterpart invited later via `peer add`), items as an explicit `--items` sender contract, doctor local-core vs peer split, publish no-recipient guidance + reachability gate, shared-folder default `Agent_Public_Squares`, forwardable starter-pack invite, joiner page, and project-scoped starter-pack filenames. CLI ↔ skill ↔ public docs are aligned (外發前檢 9(d) GREEN).
 
-The Agent Handoff Kit tool is now v0.3.28. After S63, three migration reports were present before this closeout: 2026-06-05 updated metadata 0.3.24 → 0.3.25; 2026-06-07 merged the governance bridge route / workflow and updated metadata 0.3.25 → 0.3.28; 2026-06-10 ran an upgrade-existing init check with no changes. S64 reconciled the handoff + project index + startup prompt to v0.3.28 and removed the duplicate governance bridge workflow block; doctor was re-run during S64.
+The Agent Handoff Kit tool is now v0.3.28. S64 reconciled the handoff + project index + startup prompt to v0.3.28 and removed the duplicate governance bridge workflow block. S66 closeout re-ran doctor after the AI-agent install docs push and SESSION_LOG archive maintenance.
 
-The next actionable work: monitor 0.2.16 adoption, especially real-machine Google Drive sync latency and whether first-time users get enough guidance from strict handoff intake. Release checks passed: `node --check bin\aps.js`, `node --check dev\qc\check_context_index.cjs`, `npm test`, manual scenario audit, `git diff --check`, `node bin\aps.js --help` showing v0.2.16 pre-release + `--strict-handoff`, `npm pack --dry-run --json` reporting 0.2.16 / 15 files, npm registry readback, `npx @latest --help`, GitHub release readback, and remote tag / main readback. The stale local `AI_Public_Squares_UAT` sibling is deleted; any future UAT should be rebuilt cleanly from npm `@latest` for public-version testing or local source for deliberate candidate testing. Out of APS scope (never re-add): watch / _notify / scheduling / desktop notif / bot auto-send.
+The latest pushed docs work is S65/S66:
+- `866188e Add AI-agent install journey docs`
+- `f72beaf Clarify handoff kit install routing in APS docs`
 
-Local `main` is one commit ahead of `origin/main`: S63 committed the S62 closeout + the Kit upgrade to v0.3.24 + the version reconcile as `72ea3ef` (not pushed). S64 adds uncommitted governance closeout files for v0.3.28 reconciliation and governance bridge de-duplication; commit and push both need fresh authorization.
+Local HEAD and `origin/main` both point to `f72beaf3357df5be8adcccf93bee2ad2407e948a` at S66 closeout. The public beginner route now tells non-technical users to paste one prompt into a local AI agent; human pages and README point to `docs/guides/aps-ai-agent-install.html`; the AI-agent page includes read-only preflight, user-supplied Drive path / project code / agent id, confirmation gates before writes, Google Drive folder `可離線使用`, and the Agent Handoff Kit split: missing Kit → `init`; existing Kit → `doctor`, then `upgrade` only if needed and only after user confirmation.
 
-Do not commit, push, tag, release, publish, or change GitHub Pages unless Adam explicitly asks (each external action is its own authorization). `items` uses the explicit contract, never prose-parsing. New installs default the shared folder to Agent_Public_Squares; existing older AI_Public_Squares folders keep working; the underscore name is scrubbed from user-facing defaults only (`AI Public Squares` with a space and the `check Hub` trigger stay recognized). Do not bulk-rewrite old historical evidence solely to rename path snapshots.
+The next actionable work: monitor 0.2.16 adoption, especially real-machine Google Drive sync latency, whether first-time users get enough guidance from strict handoff intake, and whether the new one-prompt AI-agent install route works in a real new-user session. Live GitHub Pages readback for the S65/S66 docs is still pending because S66 closeout hit an SSL connection error during local `Invoke-WebRequest`; source has been pushed. The stale local `AI_Public_Squares_UAT` sibling is deleted; any future UAT should be rebuilt cleanly from npm `@latest` for public-version testing or local source for deliberate candidate testing. Out of APS scope (never re-add): watch / _notify / scheduling / desktop notif / bot auto-send.
+
+Do not commit, push, tag, release, publish, or change GitHub Pages unless Adam explicitly asks again (each external action is its own authorization). `items` uses the explicit contract, never prose-parsing. New installs default the shared folder to Agent_Public_Squares; existing older AI_Public_Squares folders keep working; the underscore name is scrubbed from user-facing defaults only (`AI Public Squares` with a space and the `check Hub` trigger stay recognized). Do not bulk-rewrite old historical evidence solely to rename path snapshots.
 
 Read in order:
 1. AGENTS.md
 2. dev/SESSION_HANDOFF.md
-3. dev/SESSION_LOG.md (latest S64 entry)
+3. dev/SESSION_LOG.md (latest S66 entry)
 4. dev/PROJECT_INDEX.md
 5. dev/RULE_PACKS.md
 6. dev/qc/triggers.md (🟡 外發前檢 / 🔴 全面檢; 9(d) behaviour-truth)
