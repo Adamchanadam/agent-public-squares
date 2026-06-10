@@ -18,3 +18,5 @@
 | 014 | 2026-05-31 to 2026-05-31 | `archive_014_2026-05-31.md` | S53 two-folder APS self-UAT on the real Drive Hub, summary/inbox-report root-fix, and 0.2.14 local candidate prep |
 | 015 | 2026-05-31 to 2026-05-31 | `archive_015_2026-05-31.md` | S54 APS 0.2.14 release commit, push, tag, GitHub release, npm publish, and post-publish readbacks |
 | 016 | 2026-05-31 to 2026-05-31 | `archive_016_2026-05-31.md` | S56 APS 0.2.15 release and S55 Project Context Index / Daily Index design consolidation |
+| 017 | 2026-06-01 to 2026-06-01 | `archive_017_2026-06-01.md` | S57 Agent Handoff Kit v0.3.22 upgrade and closeout reconciliation |
+| 018 | 2026-06-01 to 2026-06-01 | `archive_018_2026-06-01.md` | S59 README zero-context rewrite and S58 latest two-agent APS full audit |

@@ -3,22 +3,23 @@ Work in C:\Users\adam\_claude_desktop\Agent_Public_Squares (template SSOT for Ag
 
 0.2.13 shipped the「人性化上手」model end to end: three-question `init` (own side only; counterpart invited later via `peer add`), items as an explicit `--items` sender contract, doctor local-core vs peer split, publish no-recipient guidance + reachability gate, shared-folder default `Agent_Public_Squares`, forwardable starter-pack invite, joiner page, and project-scoped starter-pack filenames. CLI ↔ skill ↔ public docs are aligned (外發前檢 9(d) GREEN).
 
-The Agent Handoff Kit tool is now v0.3.28. S64 reconciled the handoff + project index + startup prompt to v0.3.28 and removed the duplicate governance bridge workflow block. S66 closeout re-ran doctor after the AI-agent install docs push and SESSION_LOG archive maintenance.
+The Agent Handoff Kit tool is now v0.3.28. S64 reconciled the handoff + project index + startup prompt to v0.3.28 and removed the duplicate governance bridge workflow block. S69 closeout re-ran closeout maintenance after the homepage flow diagram commit and GitHub Pages incident triage.
 
-The latest pushed docs work is S65/S66:
+The latest pushed docs work is S65/S66/S69:
 - `866188e Add AI-agent install journey docs`
 - `f72beaf Clarify handoff kit install routing in APS docs`
+- `90acc12 Clarify APS homepage swimlane flow`
 
-Local HEAD and `origin/main` both point to `f72beaf3357df5be8adcccf93bee2ad2407e948a` at S66 closeout. The public beginner route now tells non-technical users to paste one prompt into a local AI agent; human pages and README point to `docs/guides/aps-ai-agent-install.html`; the AI-agent page includes read-only preflight, user-supplied Drive path / project code / agent id, confirmation gates before writes, Google Drive folder `可離線使用`, and the Agent Handoff Kit split: missing Kit → `init`; existing Kit → `doctor`, then `upgrade` only if needed and only after user confirmation.
+Local HEAD and `origin/main` both point to `90acc129dd0459620c89375e7c183176c73849d5` at S69 closeout. The public beginner route now tells non-technical users to paste one prompt into a local AI agent; human pages and README point to `docs/guides/aps-ai-agent-install.html`; the AI-agent page includes read-only preflight, user-supplied Drive path / project code / agent id, confirmation gates before writes, Google Drive folder `可離線使用`, and the Agent Handoff Kit split: missing Kit → `init`; existing Kit → `doctor`, then `upgrade` only if needed and only after user confirmation. S69 simplified the homepage macro flow into a vertical three-lane diagram (`用戶 1` / `Google Drive` / `用戶 2`) with semantic Chinese actions, dashed manual invite, and explicit no-auto-message / one-to-one packet boundaries.
 
-The next actionable work: monitor 0.2.16 adoption, especially real-machine Google Drive sync latency, whether first-time users get enough guidance from strict handoff intake, and whether the new one-prompt AI-agent install route works in a real new-user session. Live GitHub Pages readback for the S65/S66 docs is still pending because S66 closeout hit an SSL connection error during local `Invoke-WebRequest`; source has been pushed. The stale local `AI_Public_Squares_UAT` sibling is deleted; any future UAT should be rebuilt cleanly from npm `@latest` for public-version testing or local source for deliberate candidate testing. Out of APS scope (never re-add): watch / _notify / scheduling / desktop notif / bot auto-send.
+The next actionable work: first check GitHub Pages after the GitHub API authentication incident clears. Pages run `27287064874` is queued after rerun; the original build succeeded and uploaded the artifact, but deploy failed with `Requires authentication` / HTTP 401, and Pages API still reports `building`. Live `https://adamchanadam.github.io/agent-public-squares/docs/index.html` is therefore not confirmed updated to `90acc12`. After that, monitor 0.2.17 adoption, especially real-machine Google Drive sync latency, whether first-time users get enough guidance from strict handoff intake, and whether the one-prompt AI-agent install route plus project brief step works in a real new-user session. The stale local `AI_Public_Squares_UAT` sibling is deleted; any future UAT should be rebuilt cleanly from npm `@latest` for public-version testing or local source for deliberate candidate testing. Out of APS scope (never re-add): watch / _notify / scheduling / desktop notif / bot auto-send.
 
 Do not commit, push, tag, release, publish, or change GitHub Pages unless Adam explicitly asks again (each external action is its own authorization). `items` uses the explicit contract, never prose-parsing. New installs default the shared folder to Agent_Public_Squares; existing older AI_Public_Squares folders keep working; the underscore name is scrubbed from user-facing defaults only (`AI Public Squares` with a space and the `check Hub` trigger stay recognized). Do not bulk-rewrite old historical evidence solely to rename path snapshots.
 
 Read in order:
 1. AGENTS.md
 2. dev/SESSION_HANDOFF.md
-3. dev/SESSION_LOG.md (latest S66 entry)
+3. dev/SESSION_LOG.md (latest S69 entry)
 4. dev/PROJECT_INDEX.md
 5. dev/RULE_PACKS.md
 6. dev/qc/triggers.md (🟡 外發前檢 / 🔴 全面檢; 9(d) behaviour-truth)

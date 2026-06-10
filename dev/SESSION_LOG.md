@@ -10,6 +10,18 @@ Keep recent entries concise. If older entries no longer affect the next action, 
 
 Before closeout, check whether older log detail should be kept, summarized, or archived. Do not remove validation evidence, unresolved risks, or the latest opening message.
 
+## 2026-06-10 (S69) — Homepage flow diagram closeout and Pages incident triage
+
+- **ID:** S69
+- **Summary:** Adam accepted the final `docs/index.html` macro-flow diagram revision, asked to commit and push it, then reported a GitHub Pages deployment failure and finally said "收工".
+- **Changed:** `docs/index.html`, `dev/SESSION_HANDOFF.md`, `START_NEXT_SESSION_PROMPT.txt`, `dev/PROJECT_INDEX.md`, `dev/SESSION_LOG.md`, `dev/SESSION_LOG_archive/INDEX.md`, and `dev/SESSION_LOG_archive/archive_017_2026-06-01.md`.
+- **Done:** Reworked the homepage macro flow into a simpler vertical three-lane diagram using semantic Chinese actions rather than internal commands. The final accepted visual shows `用戶 1`, `Google Drive`, and `用戶 2`; includes manual invite as a dashed line; states that APS does not auto-send messages or open the other user's AI; and keeps each handoff package one-to-one. Commit `90acc12` (`Clarify APS homepage swimlane flow`) was pushed to `origin/main`.
+- **QC:** Local visual QC passed before the commit using desktop and mobile screenshots of `docs/index.html`; `git diff --check` passed. After push, GitHub Pages build succeeded and uploaded the artifact, but the deploy job failed with `Requires authentication` / HTTP 401. GitHub Status simultaneously reported an unresolved API authentication incident affecting API Requests, so the failure is classified as GitHub-side deployment/authentication trouble rather than an HTML/Jekyll content failure. A rerun of the failed Pages job was triggered and remains queued at closeout.
+- **Sync:** `dev/SESSION_HANDOFF.md`, `dev/PROJECT_INDEX.md`, and this log now record local/remote `main` at `90acc129dd0459620c89375e7c183176c73849d5`, with GitHub Pages deployment still blocked by the GitHub API authentication incident.
+- **Pending:** After GitHub's API authentication incident clears, check Pages run `27287064874` and the live public page. If the rerun still fails for the same reason, rerun Pages once more; do not change source files unless build, link, or visual evidence points to a content issue.
+- **Risks:** APS remains early testing, not production-grade; remote second-machine Google Drive sync latency remains unverified. GitHub Pages live deployment for commit `90acc12` is not yet confirmed.
+- **Log maintenance:** Added S69 and advanced the SESSION_LOG N-rule by moving S57 into archive batch 017 with raw content preserved; hot log now keeps S69-S58.
+
 ## 2026-06-10 (S68) — APS 0.2.17 release shipped
 
 - **ID:** S68
@@ -113,34 +125,6 @@ Before closeout, check whether older log detail should be kept, summarized, or a
 - **Boundary:** No commit, push, tag, GitHub release, npm publish, GitHub Pages deploy, or Drive Hub runtime write was performed. 0.2.16 is local candidate source only until Adam explicitly authorizes external release actions.
 - **Sync:** `dev/PROJECT_INDEX.md` and `dev/DOC_SYNC_REGISTRY.md` now record the strict handoff intake rule and the public-latest versus local-candidate boundary.
 - **Root-fix follow-up:** Adam asked whether the strict empty-heading issue can be root-fixed. Reproduced the bug: a body with all required headings but empty core content / `未確認` passed `--strict-handoff`. Fixed `bin/aps.js` so strict mode extracts section content and blocks empty headings plus placeholder-only core fields such as `未確認`, `TBD`, or `N/A` where they cannot substitute for a real common goal, sender task, handoff point, evidence, or boundary. Added regressions `strict handoff blocks empty headings` and `strict handoff blocks placeholder core content`. Re-ran `node --check bin\aps.js`, `node --check dev\qc\check_context_index.cjs`, `npm test`, manual empty-heading publish, `node bin\aps.js --help`, `npm pack --dry-run --json`, and `git diff --check`; all passed except LF→CRLF warnings.
-
-## 2026-06-01 (S59) — README rewritten for zero-context new users
-
-- **ID:** S59
-- **Summary:** Adam asked to rewrite the latest README from start to finish for users who do not know APS, have no repo context, and should not see the old README framing.
-- **Changed:** `README.md`, `dev/PROJECT_INDEX.md`, and this log.
-- **Done:** Replaced the README with a new Traditional Chinese beginner entry that introduces Agent Public Squares from first principles, states the current public npm version `@adamchanadam/aps@0.2.15`, explains what is installable and usable today, gives new-project install order, existing-project upgrade path, daily natural-language use, command fallback, invite flow, and beginner FAQ. On 2026-06-02, Adam asked to put public entry links at the top; the README now starts with public entry page, teaching hub, first install walkthrough, and Agent Handoff Kit intro.
-- **QC:** Read back the whole README; checked the README no longer contains old README markers such as `AI Public Squares`, older version hints, old Drive path examples, `_notify`, `watch`, or old project-specific references; `git diff --check` initially found two README trailing-space lines, which were corrected, then passed with CRLF warnings only; Agent Handoff Kit doctor v0.3.22 passed with 45 checks and the expected SESSION_LOG N-rule warning.
-- **Boundary:** README only was rewritten for the public GitHub first impression. Public HTML docs were not rewritten in this task; no commit, push, tag, GitHub release, npm publish, or GitHub Pages change was performed.
-
-## 2026-06-01 (S58) — APS latest two-agent full audit
-
-- **ID:** S58
-- **Summary:** Adam asked Codex to create two agents and use the latest public APS version against the real Drive Hub for fresh-user install, upgrade, multi-scenario UAT, and full audit.
-- **Changed:** Added `dev/qc/2026-06-01-aps-full-audit-latest-two-agent.md`; wrote ignored evidence under `dev/qc/evidence/2026-06-01-latest-two-agent-full-audit/`; wrote test runtime data under `G:\我的雲端硬碟\Adam 工作目錄\AI_Projects\Agent_Public_Squares\aps_latest_full_audit_20260601\`; refreshed global APS skills after Adam confirmed upgrade (`C:\Users\adam\.claude\skills\aps.backup-20260601T192308Z`, `C:\Users\adam\.codex\skills\aps.backup-20260601T192308Z`).
-- **Done:** Verified npm latest `@adamchanadam/aps@0.2.15`; created `agent_adam_uat` and `agent_jay_uat`; installed Agent Handoff Kit v0.3.22 and APS latest; initialized both agents against the real Drive Hub; ran A→B publish / B check-drive / inbox / consume / A status; ran B→A reply / A check-drive / inbox --from / consume / B status; closed both packet lines; generated Project Context Index entries, `overview.html`, and `dashboard.html`; ran `aps upgrade --dry-run` for both agents and, after Adam's explicit confirmation, ran formal `aps upgrade` once in `agent_adam_uat`.
-- **QC:** A / B APS doctor passed after init and again after upgrade; both inboxes were empty after close; `npm test` passed; `git diff --check` had only CRLF warnings; Agent Handoff Kit doctor v0.3.22 passed with 45 checks. Full audit report result is scoped pass with two unresolved boundaries: Browser policy blocked `file://` render verification, and this is still one physical Windows machine rather than remote cross-machine sync latency.
-- **Boundary:** No commit, push, tag, GitHub release, npm publish, or GitHub Pages change was performed. One accidental root `package.json` devDependency / `package-lock.json` change from an early npm install attempt was reverted before final reporting.
-
-## 2026-06-01 (S57) — Agent Handoff Kit upgraded to v0.3.22 and closeout reconciled
-
-- **ID:** S57
-- **Summary:** Adam asked to upgrade Agent Handoff Kit for this root after APS 0.2.15 release.
-- **Changed:** `dev/SESSION_HANDOFF.md`, `START_NEXT_SESSION_PROMPT.txt`, `dev/PROJECT_INDEX.md`, `dev/SESSION_LOG.md`, `dev/SESSION_LOG_archive/INDEX.md`, `dev/SESSION_LOG_archive/archive_012_2026-05-28_to_2026-05-29.md`, `dev/PROJECT_DECISIONS.md`, and new migration evidence under `dev/governance_migrations/20260601T040152Z/` and `dev/governance_migrations/20260601T073843Z/`.
-- **Done:** Confirmed npm latest `@adamchanadam/agent-handoff-kit` is 0.3.22. Ran `npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root C:\Users\adam\_claude_desktop\Agent_Public_Squares --dry-run`; dry-run showed create 0 / merge 1 / skip 19 / conflict 0. Then ran the upgrade with explicit `yes` input. The first migration merged only `dev/SESSION_HANDOFF.md`, updated `dev/PROJECT_INDEX.md` metadata 0.3.20 → 0.3.21, and wrote report `dev/governance_migrations/20260601T040152Z/migration-report.md`. A later metadata-only migration updated `dev/PROJECT_INDEX.md` 0.3.21 → 0.3.22 and wrote `dev/governance_migrations/20260601T073843Z/migration-report.md`.
-- **QC:** Upgrade auto-doctor passed: 45 checks, 0 failed. Closeout then reconciled the 0.3.21 / 0.3.22 drift, regenerated `START_NEXT_SESSION_PROMPT.txt`, advanced the SESSION_LOG N-rule, and re-ran `npx --yes @adamchanadam/agent-handoff-kit@latest doctor --root C:\Users\adam\_claude_desktop\Agent_Public_Squares`: v0.3.22, 45 checks, `status: passed`, prompt mirror ok, SESSION_LOG discipline ok, credential sweep ok.
-- **Log maintenance:** Moved S47-S43 short-index entries into archive batch 012 with raw content preserved; hot log now keeps S57-S48.
-- **Boundary:** No APS package change, no npm publish, no GitHub release, no tag, and no push were performed.
 
 <!-- ack:section:session-log-entry-template -->
 
