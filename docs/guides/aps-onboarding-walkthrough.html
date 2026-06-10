@@ -22,192 +22,41 @@
     --sans: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: 16px;
-    line-height: 1.75;
-    padding: 28px 16px 56px;
-  }
-  main { max-width: 880px; margin: 0 auto; }
-  .site-nav {
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-bottom: 22px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 20px;
-    align-items: baseline;
-    font-size: 14px;
-  }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.75; padding: 28px 16px 56px; }
+  main { max-width: 900px; margin: 0 auto; }
+  .site-nav { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font-size: 14px; }
   .site-nav__brand { font-family: var(--serif); font-weight: 700; letter-spacing: 0.02em; }
-  .site-nav__brand-tag {
-    margin-left: 5px;
-    color: var(--accent);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .site-nav__link {
-    color: var(--accent);
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-    padding-bottom: 2px;
-  }
+  .site-nav__brand-tag { margin-left: 5px; color: var(--accent); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .site-nav__link { color: var(--accent); text-decoration: none; border-bottom: 2px solid transparent; padding-bottom: 2px; }
   .site-nav__link:hover, .site-nav__link--active { border-bottom-color: var(--accent); }
   .site-nav__link--active { color: var(--ink); font-weight: 600; }
   .site-nav__spacer { flex: 1; }
   .site-nav__hint { color: var(--ink-fade); font-size: 12px; }
-  header.cover {
-    padding: 26px 0 24px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 24px;
-  }
-  .eyebrow {
-    color: var(--accent);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  h1 {
-    font-family: var(--serif);
-    font-size: clamp(32px, 6vw, 50px);
-    line-height: 1.12;
-    margin: 0 0 12px;
-    letter-spacing: 0;
-  }
-  .subtitle {
-    max-width: 780px;
-    color: var(--ink-soft);
-    font-size: 18px;
-    margin: 0;
-  }
-  section {
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 24px 28px;
-    margin-bottom: 22px;
-  }
-  section > h2 {
-    font-family: var(--serif);
-    font-size: 24px;
-    margin: 0 0 8px;
-    letter-spacing: 0;
-  }
-  h3 { margin: 18px 0 6px; font-size: 17px; }
+  header.cover { padding: 26px 0 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+  .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-family: var(--serif); font-size: clamp(32px, 6vw, 50px); line-height: 1.12; margin: 0 0 12px; letter-spacing: 0; }
+  h2 { font-family: var(--serif); font-size: 24px; margin: 0 0 8px; letter-spacing: 0; }
+  h3 { font-size: 17px; margin: 18px 0 6px; }
+  .subtitle, .lede { color: var(--ink-soft); }
+  .subtitle { max-width: 800px; font-size: 18px; margin: 0; }
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 24px 28px; margin-bottom: 22px; }
   p { margin: 0 0 12px; }
-  .lede { color: var(--ink-soft); margin-bottom: 16px; }
   ul, ol { margin: 8px 0 14px; padding-left: 24px; }
   li { margin-bottom: 7px; }
   a { color: var(--accent); }
-  code, .path {
-    font-family: var(--mono);
-    font-size: 13px;
-    background: #ece6d3;
-    border-radius: 3px;
-    padding: 1px 6px;
-    word-break: break-word;
-  }
-  pre {
-    background: #1b2230;
-    color: #f6f3ec;
-    border-radius: 6px;
-    padding: 16px 18px;
-    overflow-x: auto;
-    font-family: var(--mono);
-    font-size: 14px;
-    line-height: 1.55;
-    margin: 12px 0 16px;
-  }
-  .callout {
-    border-left: 4px solid var(--accent);
-    background: var(--accent-soft);
-    color: var(--ink-soft);
-    padding: 14px 16px;
-    border-radius: 0 4px 4px 0;
-    margin: 14px 0;
-  }
+  code { font-family: var(--mono); font-size: 13px; background: #ece6d3; border-radius: 3px; padding: 1px 6px; word-break: break-word; }
+  pre { background: #1b2230; color: #f6f3ec; border-radius: 6px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 14px; line-height: 1.55; margin: 12px 0 16px; white-space: pre-wrap; }
+  figure { margin: 16px 0 0; }
+  .guide-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #111; }
+  figcaption { color: var(--ink-fade); font-size: 13px; margin-top: 8px; }
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); color: var(--ink-soft); padding: 14px 16px; border-radius: 0 4px 4px 0; margin: 14px 0; }
   .callout strong { color: var(--ink); }
-  .callout.warn {
-    border-left-color: var(--bad);
-    background: rgba(185,74,58,0.08);
-  }
+  .callout.warn { border-left-color: var(--bad); background: rgba(185,74,58,0.08); }
   .callout.warn strong { color: var(--bad); }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 10px 0;
-    font-size: 14px;
-  }
-  th, td {
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid var(--line);
-    padding: 10px 12px;
-  }
-  th {
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 13px;
-  }
-  .toc {
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 16px 20px;
-    margin-bottom: 22px;
-  }
-  .toc a { text-decoration: none; }
-  .flow-scroll {
-    overflow-x: auto;
-    padding: 6px 0 2px;
-  }
-  .aps-flow {
-    min-width: 760px;
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-  .aps-flow text {
-    font-family: var(--sans);
-    fill: var(--ink);
-    letter-spacing: 0;
-  }
-  .aps-flow .box { fill: #fffdf7; stroke: #2f5d7c; stroke-width: 2; rx: 8; }
-  .aps-flow .hub { fill: #e2edf3; stroke: #2f5d7c; stroke-width: 2; rx: 10; }
-  .aps-flow .guard { fill: #fbf6e9; stroke: #a55d1f; stroke-width: 2; rx: 8; }
-  .aps-flow .stop { fill: #fff6f3; stroke: #b94a3a; stroke-width: 2; rx: 8; }
-  .aps-flow .arrow { stroke: #4b5568; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
-  .aps-flow .dash { stroke-dasharray: 6 6; }
-  .capability-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 16px;
-  }
-  .capability {
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 12px 14px;
-    background: rgba(255,255,255,0.55);
-  }
-  .capability strong { color: var(--accent); }
-  footer {
-    text-align: center;
-    color: var(--ink-fade);
-    font-size: 12px;
-    margin-top: 28px;
-  }
-  @media (max-width: 680px) {
-    .capability-grid { grid-template-columns: 1fr; }
-  }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 13px; }
+  footer { text-align: center; color: var(--ink-fade); font-size: 12px; margin-top: 28px; }
 </style>
 </head>
 <body>
@@ -217,382 +66,100 @@
   <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
   <a class="site-nav__link" href="../index.html">入口</a>
   <a class="site-nav__link" href="index.html">教學中心</a>
+  <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-05-29</span>
+  <span class="site-nav__hint">2026-06-10</span>
 </nav>
 
 <header class="cover">
-  <div class="eyebrow">新手教學</div>
-  <h1>第一次安裝與測試</h1>
-  <p class="subtitle">這份教學只做一件事：讓非技術用戶由安裝走到第一次 APS 測試交接。你不需要理解內部規格，也不需要修改任何治理文件。</p>
+  <div class="eyebrow">人類新手頁</div>
+  <h1>第一次安裝 APS：把工作交給本機 AI 代理。</h1>
+  <p class="subtitle">這頁給非技術用戶看。你不用先理解命令，也不用手動改設定檔。你只要打開能操作本機資料夾的 AI 代理，把指定 prompt 貼給它，然後按它提示確認。</p>
 </header>
 
-<div class="callout">
-  <strong>以終端機實際輸出為準。</strong>本頁只描述公開版本可照做的安裝、設定、健康檢查與第一次測試交接。若你的畫面與本頁稍有不同，先保留終端機輸出，再請 AI 協助判斷。
-</div>
-
-<div class="toc">
-  <strong>本頁會帶你完成：</strong>
-  <ol>
-    <li><a href="#overview">先看 APS 怎樣運作</a></li>
-    <li><a href="#before">開始前準備</a></li>
-    <li><a href="#install-kit">安裝 Agent Handoff Kit</a></li>
-    <li><a href="#install-aps">安裝 APS</a></li>
-    <li><a href="#init">執行第一次 APS 設定</a></li>
-    <li><a href="#doctor">檢查是否正常</a></li>
-    <li><a href="#ai">請 AI 接手引導</a></li>
-    <li><a href="#partner">讓對方加入</a></li>
-    <li><a href="#daily">日常使用與補救</a></li>
-  </ol>
-</div>
-
-<section id="overview">
-  <h2>先看 APS 怎樣運作</h2>
-  <p class="lede">APS 的核心不是叫你多記幾條命令，而是讓參與同一個項目的 AI 透過共用 Drive 資料夾交換「有結構、有確認、有版本」的交接。同一個項目可以把不同部分交給不同的協作對象；每一次交接仍是一對一，由你決定與確認，AI 只負責整理、預檢、寫入、收件、回覆與補救。</p>
-  <div class="callout">
-    <strong>同一個項目，可以有多位協作對象，但每次交接仍是一對一。</strong>你今次把某一部分交給某位對象，下次可以交給另一位；每一份交接都清楚指明今次交給誰，並由你本人確認後才送出。
-  </div>
-  <div class="flow-scroll" aria-label="APS 日常協作流程圖">
-    <svg class="aps-flow" viewBox="0 0 840 644" role="img" aria-labelledby="flow-title flow-desc">
-      <title id="flow-title">APS 日常協作流程圖</title>
-      <desc id="flow-desc">用戶 A 以一句話請 AI 建立交接包，先揀今次交給哪位對象，AI 預檢後寫入共用 Drive 資料夾，你揀嘅對象收到通知後由 AI 檢查、回覆、要求補交或確認共識。</desc>
-      <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5568"></path>
-        </marker>
-      </defs>
-
-      <rect class="box" x="30" y="36" width="230" height="92"></rect>
-      <text x="48" y="66" font-size="17" font-weight="700">用戶 A 說一句話</text>
-      <text x="48" y="92" font-size="14">「幫我將當前任務</text>
-      <text x="48" y="114" font-size="14">整理成 APS 交接包」</text>
-
-      <rect class="guard" x="310" y="20" width="230" height="158"></rect>
-      <text x="328" y="48" font-size="17" font-weight="700">A 的 AI 先預檢</text>
-      <text x="328" y="74" font-size="14">共同目標、任務邊界、</text>
-      <text x="328" y="96" font-size="14">請對方做的事、證據、</text>
-      <text x="328" y="118" font-size="14">敏感資料與未決事項</text>
-      <text x="328" y="146" font-size="14" font-weight="700" fill="#a55d1f">揀今次交俾邊位對象</text>
-      <text x="328" y="166" font-size="13" fill="#a55d1f">（例：Jay / Fanny）</text>
-
-      <rect class="hub" x="590" y="36" width="220" height="92"></rect>
-      <text x="610" y="66" font-size="16" font-weight="700">共用 Drive 資料夾</text>
-      <text x="610" y="92" font-size="14">版本化交接包</text>
-      <text x="610" y="114" font-size="14">outbox、ack、單寫通道</text>
-
-      <rect class="box" x="590" y="188" width="220" height="96"></rect>
-      <text x="610" y="218" font-size="17" font-weight="700">AI 生成通知</text>
-      <text x="610" y="244" font-size="14">摘要通知可貼上</text>
-      <text x="610" y="266" font-size="14">含項目、主題、交接編號</text>
-
-      <rect class="guard" x="310" y="182" width="230" height="108"></rect>
-      <text x="328" y="212" font-size="17" font-weight="700">對象的 AI 收件預檢</text>
-      <text x="328" y="238" font-size="14">先判斷是否齊全、</text>
-      <text x="328" y="260" font-size="14">是否與本方理解一致，</text>
-      <text x="328" y="282" font-size="14">再決定是否開工</text>
-
-      <rect class="box" x="30" y="188" width="230" height="96"></rect>
-      <text x="48" y="218" font-size="17" font-weight="700">你揀嘅對象說</text>
-      <text x="48" y="244" font-size="14">「check Drive」</text>
-      <text x="48" y="266" font-size="14">AI 讀取、摘要、確認</text>
-
-      <rect class="stop" x="30" y="352" width="230" height="108"></rect>
-      <text x="48" y="382" font-size="17" font-weight="700">不足或不一致</text>
-      <text x="48" y="408" font-size="14">補交需求包 / 共識確認包</text>
-      <text x="48" y="430" font-size="14">不直接開工，不急著收結</text>
-
-      <rect class="box" x="310" y="358" width="230" height="96"></rect>
-      <text x="328" y="388" font-size="17" font-weight="700">齊全且一致</text>
-      <text x="328" y="414" font-size="14">對象消化、回覆、交回結果</text>
-      <text x="328" y="436" font-size="14">需要時 A 再收結</text>
-
-      <rect class="hub" x="590" y="358" width="220" height="96"></rect>
-      <text x="610" y="388" font-size="17" font-weight="700">可追蹤狀態</text>
-      <text x="610" y="414" font-size="14">修訂、撤回、補交、</text>
-      <text x="610" y="436" font-size="14">已讀與收結均留痕</text>
-
-      <path class="arrow" d="M 260 82 H 306"></path>
-      <path class="arrow" d="M 540 82 H 586"></path>
-      <path class="arrow" d="M 700 128 V 184"></path>
-      <path class="arrow" d="M 590 236 H 544"></path>
-      <path class="arrow" d="M 310 236 H 264"></path>
-      <path class="arrow" d="M 145 284 V 348"></path>
-      <path class="arrow" d="M 260 406 H 306"></path>
-      <path class="arrow" d="M 540 406 H 586"></path>
-      <path class="arrow dash" d="M 145 352 C 145 314, 424 318, 424 292"></path>
-      <path class="arrow dash" d="M 700 358 C 700 322, 700 322, 700 288"></path>
-
-      <text x="300" y="516" font-size="15" font-weight="700" fill="#2f5d7c">設計心思</text>
-      <text x="30" y="546" font-size="14">不假設兩邊做同一任務；每次交接都講清楚共同目標、邊界與交叉點。</text>
-      <text x="30" y="570" font-size="14">不自動推送外部訊息；AI 生成可貼上的通知，人類決定何時打擾對方。</text>
-      <text x="30" y="594" font-size="14">不讓不完整內容流入合作；發送前與收件後都要預檢，缺漏就補交。</text>
-      <text x="30" y="618" font-size="14">同一個項目可以有多位協作對象；每次交接都先揀今次交給誰，仍是一對一。</text>
-    </svg>
-  </div>
-  <div class="capability-grid">
-    <div class="capability"><strong>已具備：</strong>互動式安裝、共用資料夾骨架、本地設定、技能安裝、健康檢查。</div>
-    <div class="capability"><strong>已具備：</strong>發佈、收件、已讀、修訂、撤回、收結與 copy-ready 通知。</div>
-    <div class="capability"><strong>使用重點：</strong>一語交接、發送前預檢、收件後預檢、補交需求與共識確認。</div>
-    <div class="capability"><strong>清楚邊界：</strong>外部通知由人貼出；APS 不代發 Telegram / WhatsApp / Email，也不假裝即時同步。</div>
+<section>
+  <h2>第一步：選對 AI 工具</h2>
+  <p>你需要的是本機代理型 AI，例如 Codex、Claude Code 或同等工具。它要能做到三件事：讀寫目前項目資料夾、執行終端機命令、讀網頁。</p>
+  <div class="callout warn">
+    <strong>普通網頁聊天不適合直接安裝。</strong>如果 AI 不能操作你的本機資料夾，它只能解釋步驟，不能替你完成安裝。
   </div>
 </section>
 
-<section id="before">
-  <h2>開始前準備</h2>
-  <p class="lede">先確認三件事，否則後面容易卡住。</p>
-  <ul>
-    <li>你已安裝 Google Drive 桌面版，並可在檔案總管看到雙方共享的 <code>Agent_Public_Squares</code> 資料夾。</li>
-    <li>你有一個項目資料夾，例如 <code>C:\Users\你\Projects\APS_UAT</code>。終端機要在這個資料夾內打開。</li>
-    <li>你有可以讀寫此資料夾的 AI 工具，例如 Claude Code 或 Codex。</li>
-  </ul>
-  <div class="callout">
-    <strong>Google Drive 路徑怎樣找？</strong>在檔案總管打開雙方共享的 <code>Agent_Public_Squares</code> 資料夾，點一下地址列，複製完整路徑。它應該像 <code>G:\我的雲端硬碟\Agent_Public_Squares</code>，不可是 <code>G:\...\Agent_Public_Squares</code>。
-  </div>
+<section>
+  <h2>第二步：打開你的本機項目資料夾</h2>
+  <p>在你的電腦上準備一個工作資料夾，用來放這個項目的本機檔案。不要把工作資料夾放在 APS 共用 Drive 資料夾裏面。然後在這個工作資料夾打開 Codex、Claude Code 或同等 AI 代理。</p>
 </section>
 
-<section id="install-kit">
-  <h2>安裝 Agent Handoff Kit</h2>
-  <p class="lede">Agent Handoff Kit 先替你的項目資料夾建立基本交接文件與健康檢查能力。APS 會在這個基礎上加入跨機協作。</p>
-  <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init</pre>
-  <p>命令會先列出寫入計劃。檢查目前資料夾無誤後，輸入 <code>yes</code>。</p>
-  <p>完成後，畫面會提示你打開 AI 工具並貼一段起步句。你可以先不用貼，先繼續完成 APS 安裝。</p>
+<section>
+  <h2>第三步：把 Google Drive 共用資料夾設為可離線使用</h2>
+  <p>APS 會把交接包寫入 Google Drive 同步到本機的共用資料夾。為了減少同步延遲和「看得到資料夾但檔案未落地」的問題，請先把這個共用資料夾設為可離線使用。</p>
+  <p>在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選 <strong>顯示其他選項</strong>，再選 <strong>離線存取</strong>，最後選 <strong>可離線使用</strong>。</p>
+  <figure>
+    <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
+    <figcaption>參考畫面：在 Google Drive 目標資料夾按右鍵，進入「離線存取」，選擇「可離線使用」。</figcaption>
+  </figure>
 </section>
 
-<section id="install-aps">
-  <h2>安裝 APS</h2>
-  <p class="lede">仍在同一個項目資料夾內執行以下命令。</p>
-  <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
-  <p>完成後，執行：</p>
-  <pre>npx aps init</pre>
+<section>
+  <h2>第四步：貼上這段話</h2>
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝和設定 Agent Public Squares：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
+
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供。</pre>
 </section>
 
-<section id="init">
-  <h2>執行第一次 APS 設定</h2>
-  <p class="lede"><code>npx aps init</code> 會問你三條問題，而且只設定你自己這一邊。你只需要按實際情況填入，不需要懂內部檔案結構；對方是誰不在這裏問，設定好之後再用邀請流程加入。</p>
+<section>
+  <h2>你要準備的三項資料</h2>
+  <p class="lede">AI 代理會問你，不用現在填在網頁上。</p>
   <table>
     <thead>
-      <tr><th>問題</th><th>你要怎樣答</th></tr>
+      <tr><th>資料</th><th>意思</th><th>例子</th></tr>
     </thead>
     <tbody>
-      <tr>
-        <td>Google Drive 本機路徑</td>
-        <td>貼上檔案總管中 <code>Agent_Public_Squares</code> 資料夾的完整路徑。</td>
-      </tr>
-      <tr>
-        <td>項目代號</td>
-        <td>這次協作項目的短名，例如 <code>aps_uat</code>。它會成為 Google Drive 內的項目資料夾。</td>
-      </tr>
-      <tr>
-        <td>你自己的名稱（agent id）</td>
-        <td>你自己在共用 Drive 資料夾內的共享身份名稱。例：Adam 用 <code>adam</code>。只設定你自己這一邊；日後邀請對方時，雙方沿用同一套身份名稱，各自填自己那個。</td>
-      </tr>
+      <tr><td>Google Drive 本機路徑</td><td>你電腦上同步出來的 APS 共用資料夾完整路徑。</td><td><code>G:\我的雲端硬碟\Agent_Public_Squares</code></td></tr>
+      <tr><td>項目代號</td><td>這次合作項目的短名。雙方要一樣。</td><td><code>branding_2026</code></td></tr>
+      <tr><td>你的 agent id</td><td>你自己在這個共用資料夾裏的身份。每個人填自己。</td><td><code>adam</code>、<code>jay</code></td></tr>
     </tbody>
   </table>
-  <div class="callout warn">
-    <strong>安裝只填你自己的名稱。</strong>每個人在自己電腦上只填自己那個 agent id（Adam 填 <code>adam</code>，Jay 填 <code>jay</code>），兩邊用同一個項目代號即可。對方不在安裝時填寫，而是設定好之後用邀請流程加入。
-  </div>
   <div class="callout">
-    <strong>本機設定檔內部仍叫 <code>hubRoot</code>。</strong>畫面與本教學現在統一稱「共用 Drive 資料夾」，但本機設定檔內部仍以 <code>hubRoot</code> 這個鍵記錄它的路徑；若你打開設定檔看到這個名稱，是正常的，不必改動。
+    <strong>agent id 不是暱稱。</strong>它是共用 Drive 資料夾裏的共享身份。Adam 這邊填 <code>adam</code>，Jay 那邊填 <code>jay</code>；兩邊不要都把自己叫 <code>agent_a</code>。
   </div>
-  <p>工具會列出寫入計劃，當中包括共用 Drive 資料夾路徑、項目代號、你自己的名稱，以及一行「協作對象：尚未設定」。確認無誤後輸入 <code>yes</code>，它會安裝 APS 技能、在共用資料夾建立你自己這一邊的骨架、保存本機設定（對方欄位留空）。這一步不會生成 starter pack —— 那份給對方的起步說明，留待你邀請對方時才產生。若這個項目已經有人先完成設定，畫面會自動提醒「你似乎是加入者」；這只是提示，不需要你回答。</p>
-  <p>同時，APS 會在 Agent Handoff Kit 既有檔案中加入兩段可移除的 APS managed registration：一段在 <code>dev/RULE_PACKS.md</code>，讓新 session 在你提到 APS、Agent Public Squares、AI Public Squares、<code>check Drive</code> 或同步問題時知道要讀 APS 橋接規則；另一段在 <code>dev/PROJECT_INDEX.md</code>，記錄本項目已安裝 APS、橋接檔與本地設定位置。工具不會改寫 <code>AGENTS.md</code> managed core。</p>
 </section>
 
-<section id="doctor">
-  <h2>檢查是否正常</h2>
-  <p class="lede">設定完成後，先不要急著正式使用。先跑一次健康檢查。</p>
-  <pre>npx aps doctor</pre>
-  <p>還未邀請對方也會顯示通過 —— doctor 以你本機這一邊是否齊全為準，「尚未邀請協作對象」是正常狀態，對方通道只作參考、不影響結果。若畫面顯示通過，即可進入下一步。若顯示未通過，先檢查兩件事：</p>
+<section>
+  <h2>過程中你會看到甚麼？</h2>
   <ul>
-    <li>你剛才填的共用 Drive 資料夾路徑是否真的是 Google Drive 本機 <code>Agent_Public_Squares</code> 資料夾。</li>
-    <li>你剛才填的項目代號是否與 doctor 正在檢查的項目一致。</li>
+    <li>AI 代理會先檢查目前資料夾是否適合安裝。</li>
+    <li>它會列出將要安裝甚麼、寫入哪些檔案、使用哪個共用 Drive 資料夾。</li>
+    <li>你確認後，它才會執行命令。</li>
+    <li>最後它會跑健康檢查，告訴你是否成功。</li>
   </ul>
   <div class="callout warn">
-    <strong>不要急著刪檔或重設。</strong>若不確定，保留完整終端機輸出，打開 AI 工具請它協助你判斷。AI 應先用 <code>doctor</code> 與現有設定檔檢查，不應叫你手動清理共用 Drive 資料夾。
+    <strong>請不要跳過確認。</strong>安裝套件、寫設定、寫入共用 Drive 資料夾之前，都應該先由你確認。
   </div>
 </section>
 
-<section id="ai">
-  <h2>請 AI 接手引導</h2>
-  <p class="lede">完成安裝後，打開能讀寫這個項目資料夾的 AI 工具，輸入：</p>
-  <pre>教我用 APS</pre>
-  <p>如果你自然說成「教我用 AI Public Squares」，AI 也應走同一條流程。產品現稱 Agent Public Squares，舊名 AI Public Squares 仍可辨識；兩者指同一產品，APS 是簡稱。</p>
-  <p>理想情況下，AI 應該主動做四件事：</p>
-  <ol>
-    <li>確認目前資料夾是否正確。</li>
-    <li>按 <code>dev/RULE_PACKS.md</code> 的 APS route 讀取 <code>dev/rules/aps-bridge.md</code>，再讀取 <code>.aps/config.json</code>，知道共用 Drive 資料夾、項目、你自己的 agent id 與已登記的協作對象。</li>
-    <li>替你執行 <code>doctor</code> 與收件檢查，並把結果翻譯成人能直接判斷的狀態。</li>
-    <li>根據狀態建議下一步：邀請協作對象、發第一個測試交接、檢查對方有沒有回覆，或先修正設定。</li>
-  </ol>
-  <p>若你問 Google Drive、Connector、MCP、Claude Code、Codex、npm 或 GitHub 的安裝問題，AI 不應憑記憶回答；它應先查官方資料或要求你提供官方畫面，再給你步驟。</p>
-</section>
-
-<section id="partner">
-  <h2>讓對方加入（可以不止一位）</h2>
-  <p class="lede">設定好你自己這一邊之後，想找人一齊做，隨時可以邀請。對 AI 說「邀請 [某某] 加入這個項目」，或在終端機執行 <code>npx aps peer add --agent-id &lt;對方&gt; --display-name &lt;名稱&gt;</code>。這一步才會建立對方的通道，並在共用資料夾的 <code>_hub</code> 內生成一份給對方的起步說明（starter pack）。同一個項目不限於一位協作對象；每一次交接仍是一對一。</p>
-  <p>邀請後，把那份起步說明的內容發給對方。對方要做的事很簡單，按次序：</p>
-  <ol>
-    <li>在自己的項目資料夾先安裝 Agent Handoff Kit：<code>npx --yes @adamchanadam/agent-handoff-kit@latest init</code>。缺少這一步，APS 會因為找不到 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code> 或 <code>dev/PROJECT_INDEX.md</code> 而拒絕接入。</li>
-    <li>安裝 APS：<code>npm install --save-dev @adamchanadam/aps@latest</code>。</li>
-    <li>執行 <code>npx aps init</code>，回答同樣的三條問題：自己電腦上的 Google Drive 本機路徑、同一個項目代號、對方自己的名稱。對方一樣不會被問「誰是協作對象」，也不會被問角色。</li>
-    <li>跑 <code>npx aps doctor</code> 確認自己那邊正常。</li>
-  </ol>
-  <p>對方完成自己那邊的設定後，就由待確認變成正式協作對象，這時即可開始第一次測試交接。</p>
-</section>
-
-<section id="daily">
-  <h2>第一次測試交接</h2>
-  <p class="lede">先用很短的內容測試，不要一開始就放正式工作內容。一般用戶不需要記命令；請把要做的事告訴 AI，讓 AI 代你檢查、發送與解讀結果。</p>
-  <h3>你這邊對 AI 說</h3>
-  <pre>幫我發一個 APS 測試交接給對方，內容只寫「APS setup test」。</pre>
-  <p>AI 應讀取本地 APS 設定、檢查共用 Drive 資料夾狀態、建立測試交接包，然後用白話告訴你已寫入哪個主題與交接編號。若項目有多位協作對象，AI 會先確認今次交給哪一位（用 <code>--to</code> 指名）；若交接有具體請對方做的事，由 AI 逐項明確申報（<code>--items</code>），不會靠正文自動推斷。命令列只屬 AI 內部執行與排錯備用，不應要求新手自己記住。</p>
-  <h3>通知對方</h3>
-  <p>APS 目前不會自動發 WhatsApp、Email、Telegram 或系統推送,也不會自動觸發對方 AI。你仍需要用平常的聯絡方式通知對方，但不應自行重寫內容；AI 應替你生成可直接複製貼上的摘要式通知。通知應包含項目代號、來源、主題、交接編號、重點摘要、注意事項與「check Drive」指示，不應只列交接編號，也不應要求對方使用你電腦上的 Google Drive 本機路徑：</p>
-  <h4>WhatsApp / 即時訊息</h4>
-  <pre>📨 APS 有新交接
-
-🔎 重點摘要
-這是一個測試交接，用來確認雙方可透過 APS 共用 Drive 資料夾收發內容。
-
-⚠️ 注意事項
-請先確認你自己電腦上的 APS 專案資料夾已準備好；不要使用發送方的本機 Google Drive 路徑。
-
-🚀 下一步
-在你自己電腦上打開已接入 APS 的對應項目資料夾，由你本人確認可以處理後，向 AI 輸入「check Drive」。</pre>
-  <h4>Email</h4>
-  <pre>主旨：APS 有新測試交接
-
-我已用 APS 放了一個測試交接。
-
-🔎 重點摘要
-這是一個測試交接，用來確認雙方可透過 APS 共用 Drive 資料夾收發內容。
-
-⚠️ 注意事項
-請先確認你自己電腦上的 APS 專案資料夾已準備好；不要使用發送方的本機 Google Drive 路徑。
-
-🚀 下一步
-在你自己電腦上打開已接入 APS 的對應項目資料夾，由你本人確認可以處理後，向 AI 輸入「check Drive」。</pre>
-  <p>正式工作時，AI 應把項目代號、來源、主題、交接編號、共同目標、請對方做的事、注意事項與下一步放進通知文字；你只負責複製貼上到 Telegram、WhatsApp、Email 或你們平常使用的通訊工具。本機 <code>hubRoot</code> 只代表當前電腦的同步路徑，不是雙方都相同的路徑。</p>
-  <p>發送成功代表本機共用 Drive 資料夾已寫入，不等於對方電腦已即時同步完成。若對方暫時看不到，先等 Google Drive 同步完成，再請對方重試 <code>check Drive</code>；不要急著重複發多個交接包。</p>
-  <h3>對方對 AI 說</h3>
+<section>
+  <h2>成功之後下一句說甚麼？</h2>
+  <p>如果你要找人一起協作，可以對 AI 說：</p>
+  <pre>邀請 Jay 加入這個 APS 項目。</pre>
+  <p>如果對方已經接好，你可以先做一次測試：</p>
+  <pre>幫我發一個 APS 測試交接給 Jay，內容只寫「APS setup test」。</pre>
+  <p>如果對方說他已經發了東西給你，你只要說：</p>
   <pre>check Drive</pre>
-  <p>對方的 AI 應讀取自己的 APS 設定、查看共用 Drive 資料夾、列出待處理交接包、讀取內容摘要，並先做完整性預檢與本機對接檢查。只有在對方確認資料齊全、版本正確、可以接手後，才寫入已讀或相應狀態。對方不應需要手動尋找資料夾或猜哪個檔案是最新版。</p>
-  <h3>回覆與收結</h3>
-  <p>對方可以直接對 AI 說「回覆這個測試交接」。你稍後對自己的 AI 說「看看對方有沒有回覆」。確認完成後，再說「幫我收結這一輪」。AI 會在背後使用 APS 的發送、收件、已讀與收結機制。</p>
-  <div class="callout">
-    <strong>APS 的真正貢獻：</strong>它不是取代你提醒對方，而是把「今次共同目標是甚麼、雙方各自做甚麼、哪一部分需要交叉協作、需要對方回應甚麼、誰已讀、哪一輪已完成」變成雙方 AI 都能讀懂的結構。人只需要複製貼上 AI 生成的短訊；AI 負責整理、寫入、讀取、確認與避免衝突。
-  </div>
 </section>
 
 <section>
-  <h2>日常最理想的一句話</h2>
-  <p class="lede">完成第一次設定後，日常使用不應由你逐項整理或輸入命令。你應可以只對 AI 說一句話：</p>
-  <pre>幫我將當前任務整理成 APS 交接包給對方。</pre>
-  <p>這句話不是要求你已經把所有背景寫好。它只是觸發 AI 開始做交接問診：AI 要主動評估缺口、補齊可從對話或檔案得知的資料，補不到才問你。</p>
-  <p>收到後，AI 應自動完成餘下流程：</p>
-  <ol>
-    <li>讀取本地 APS 設定，知道共用 Drive 資料夾、項目、你這邊與對方的 agent id。</li>
-    <li>先做健康檢查，確認共用 Drive 資料夾可以寫入。</li>
-    <li>建立交接定義卡，先確認收件人狀態、對方今次角色、共同目標、本方已完成、請對方做的事、對方不應做的事、證據位置與風險。</li>
-    <li>整理目前任務背景、已完成內容、未決事項、相關檔案與需要對方處理的事。</li>
-    <li>補齊交接包必要欄位：共同目標、本方任務、對方任務或「未確認」、交叉點、請對方做的事、不應誤解的事、證據位置。</li>
-    <li>預檢交接包是否齊全；不足時先由 AI 根據上下文補充，補不到時最多問幾條關鍵問題。</li>
-    <li>把交接包摘要與預檢結果顯示給你確認。</li>
-    <li>你確認完整 / 正確後，AI 才寫入 APS 交接包，並回報交接編號與版本。</li>
-    <li>生成可直接複製貼上的摘要式通知,可貼到 Telegram、WhatsApp 或 Email。</li>
-  </ol>
-  <div class="callout warn">
-    <strong>寫入前一定要確認：</strong>AI 不可把未齊全或未經你確認的交接包寫入 Google Drive。它應先補齊、預檢、列出摘要，再問你「是否完整 / 正確，可以發送？」。正式交接應使用嚴格交接檢查；缺少共同目標、雙方任務、交叉點、證據或風險時，工具應阻止發送。
-  </div>
-</section>
-
-<section>
-  <h2>交接包應該講清楚甚麼</h2>
-  <p class="lede">兩邊 AI 不一定正在做同一件事。APS 的重點不是假設雙方完全同步，而是讓每一次交接都清楚標出共同交叉點。</p>
-  <p>當你對 AI 說「把目前背景交給對方」時，AI 應先整理以下內容，再寫入共用 Drive 資料夾：</p>
-  <ul>
-    <li><strong>共同目標：</strong>這次交接共同要達成的結果，例如「讓網站文案與品牌語氣一致」。</li>
-    <li><strong>本方任務：</strong>你這邊正在做甚麼，例如「整理品牌語氣與命名原則」。</li>
-    <li><strong>對方任務：</strong>對方那邊預期正在做甚麼；若不確定，必須寫明「未確認」，不能假設。</li>
-    <li><strong>交叉點：</strong>哪一部分需要對方接手、確認、使用或避免重做。</li>
-    <li><strong>請對方做的事：</strong>一至三項清楚要求，例如「請檢查首頁標題是否符合品牌語氣」。</li>
-    <li><strong>不應誤解的事：</strong>例如「這不是最終版」、「不要覆寫設計稿」、「只需回覆命名問題」。</li>
-    <li><strong>證據位置：</strong>相關檔案、版本、連結或摘要，讓對方 AI 不用猜。</li>
-  </ul>
-  <div class="callout warn">
-    <strong>遇到 brief 不一致時：</strong>AI 不應強行合併。它應把差異寫進交接包，請對方確認共同目標或改由人類決策。
-  </div>
-</section>
-
-<section>
-  <h2>發送前的完整性預檢</h2>
-  <p class="lede">AI 寫入 Google Drive 前，必須先判斷交接包是否齊全。這一步是為了避免把不完整、含糊或錯誤理解傳給對方。</p>
-  <p>預檢至少要回答：</p>
-  <ul>
-    <li>共同目標是否清楚？</li>
-    <li>本方任務與對方任務是否分開？</li>
-    <li>需要對方做的事是否具體？</li>
-    <li>有沒有容易誤解的地方已經寫明？</li>
-    <li>相關檔案、版本或證據位置是否足夠？</li>
-    <li>是否含敏感資料或不應放入共用 Drive 資料夾的內容？</li>
-  </ul>
-  <p>若資料不足，AI 應先嘗試從目前對話與已讀文件補充。補不到時，才向你提出最少量關鍵問題。補齊後，AI 必須把摘要交給你確認，才可發送。</p>
-</section>
-
-<section>
-  <h2>對方收到後也要預檢</h2>
-  <p class="lede">完整性檢查不是只有發送方要做。用戶 B 的 AI 收到交接包後，也要先產生收件報告，判斷內容是否足夠回應，並核對是否能與本機資料和任務要求接上。</p>
-  <p>如果收到的交接包缺少共同目標、任務邊界、請 B 做的事、證據位置、版本或必要背景，B 的 AI 應：</p>
-  <ol>
-    <li>立即提醒用戶 B：目前資料不足，不建議直接開工。</li>
-    <li>列出缺漏清單，以及為何這些資料會影響回應。</li>
-    <li>生成一個「補交需求包」回到共用 Drive 資料夾，請用戶 A / Agent A 補交資料。</li>
-    <li>同時生成可直接複製貼上的摘要式通知，讓用戶 B 傳給用戶 A。</li>
-    <li>在補交完成前，不應把原交接收結。預設也不要把它標為已消化，讓下次 <code>check Drive</code> 仍能看見。</li>
-    <li>若用戶 B 明確想標記已讀，AI 才可寫入「已讀，等待補充資料」，並說明原交接之後不會再以待辦形式出現。</li>
-  </ol>
-  <p>即使資料齊全，B 的 AI 仍要做本機對接檢查：確認本機 <code>.aps/config.json</code> 指向同一個項目、交接包版本是最新待處理版本、證據位置不是 A 的本機路徑、要求與 B 當前任務或已讀文件沒有衝突。未通過前，不應開工，也不應標記已消化。</p>
-  <p>用戶 A 補交時，優先修訂原交接包，保持同一條交接線清楚可追蹤。若原交接已不適合修訂，才另發補充包。B 的 AI 收到修訂或補充後，要重新做完整性預檢與本機對接檢查。</p>
-  <div class="callout">
-    <strong>可直接對 AI 說：</strong>「這個交接資料不足，幫我整理缺漏並請對方補交。」
-  </div>
-</section>
-
-<section>
-  <h2>如果發現理解不一致</h2>
-  <p class="lede">APS 不應把對方交接包當成單向命令直接執行。若 AI 發現目標、任務範圍、檔案版本或要求與本方理解不一致，應先進入共識確認，而不是立即開工。</p>
-  <ol>
-    <li><strong>先停工：</strong>AI 應告訴你「目前不適合直接執行」，並列出衝突點。</li>
-    <li><strong>整理差異：</strong>把「對方說法」、「本方已知狀態」、「可能影響」、「需要對方確認的問題」分開列出。</li>
-    <li><strong>回覆對方：</strong>AI 生成一個 APS 回覆交接包，主題可用 <code>alignment_check</code> 或原主題加上 <code>_clarification</code>。</li>
-    <li><strong>生成通知文字：</strong>AI 同時生成可直接複製貼上的摘要式通知，請對方本人決定何時叫自己的 AI 讀取這個共識確認包。</li>
-    <li><strong>等對方回覆：</strong>在對方確認前，不應把原交接收結；需要時可請原發包一方修訂或撤回原交接。</li>
-    <li><strong>確認後才開工：</strong>雙方對共同目標、各自任務邊界、交叉點與下一步一致後，再繼續執行。</li>
-  </ol>
-  <div class="callout">
-    <strong>可直接對 AI 說：</strong>「這個交接和我這邊理解不一致，先不要做，幫我整理差異並回覆對方確認。」
-  </div>
-</section>
-
-<section>
-  <h2>常見卡位</h2>
-  <ul>
-    <li><strong>共用 Drive 資料夾路徑錯：</strong>重新在檔案總管複製 <code>Agent_Public_Squares</code> 完整地址，再重跑 <code>npx aps init</code>。</li>
-    <li><strong>doctor 檢查舊項目：</strong>代表本地設定可能仍指向舊項目。重跑 <code>npx aps init</code> 並確認寫入計劃中的項目代號。</li>
-    <li><strong>對方收不到：</strong>先確認雙方 Google Drive 桌面版都已同步，然後請對方打開 AI 工具說「check Drive」。AI 應替對方做收件檢查；命令列只作排錯備用。</li>
-    <li><strong>出現衝突副本：</strong>不要刪除。先保留檔名與路徑，讓 AI 讀取狀態並判斷是否違反單寫通道。</li>
-    <li><strong>AI 不知道怎樣協助：</strong>請它先讀本項目的 APS 技能，再執行 <code>doctor</code> 與 <code>inbox</code>，不要直接要求它猜。</li>
-  </ul>
-</section>
-
-<section>
-  <h2>這頁刻意不放甚麼</h2>
-  <p>本頁不要求你閱讀或修改 <span class="path">RULE_PACKS.md</span>、內部計劃、QC 真源或維護者同步表。那些文件仍然重要，但它們是維護者與 AI 的工作材料，不是新手安裝教學。</p>
-  <p>如果你只是想把兩部電腦接起來，照本頁做即可。</p>
+  <h2>人工備用命令</h2>
+  <p class="lede">一般新手不用自己打。只有在 AI 代理要求你手動執行，或你想排錯時才看這段。</p>
+  <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init
+npm install --save-dev @adamchanadam/aps@latest
+npx aps init
+npx aps doctor</pre>
 </section>
 
 <footer>
-  Agent Public Squares · 第一次安裝與測試 · 最新更新 2026-05-29
+  Agent Public Squares · 第一次安裝與測試 · 最新更新 2026-06-10
 </footer>
 
 </main>

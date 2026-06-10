@@ -14,7 +14,6 @@ Read only the packs needed for the current task.
 | External notes, knowledge base, Notion, Obsidian, Drive | `dev/rules/knowledge.md` | external knowledge source integration |
 | External tool integrations (Connector / MCP / Plugin / Skill) — declared in `## Installed Integrations`; tasks involving Notion / Drive / Slack / Linear / Dropbox / HubSpot / GitHub / etc. external read-write | `dev/rules/integrations.md` | Connector-first default + credential separation + multi-layer source-of-truth + cross-session resilience |
 | Reply format, language, output schema | `dev/rules/communication.md` | user-facing response rules |
-| Governance bridge / 治理打通 / 把文件接入 Agent Handoff Kit / 接入 Agent Handoff Kit / 掃描未接入 Agent Handoff Kit 的重要文件 / bridge governance / connect this document to governance / scan for unbridged governance documents | `dev/rules/agent-governance.md` | connect important files, source-of-truth documents, runbooks, workflows, checklists, and guides to the project index, sync registry, handoff/log roles, and related workflows without creating duplicate sources of truth |
 
 ## Routing Rule
 

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APS AI 代理安裝指引</title>
+<style>
+  :root {
+    --ink: #1b2230;
+    --ink-soft: #4b5568;
+    --ink-fade: #7c8798;
+    --bg: #f6f3ec;
+    --paper: #fffdf7;
+    --line: #d8d1c0;
+    --accent: #2f5d7c;
+    --accent-soft: #e2edf3;
+    --ok: #2e7d4f;
+    --warn: #a55d1f;
+    --bad: #b94a3a;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "PingFang TC", monospace;
+    --serif: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", "Songti TC", Georgia, serif;
+    --sans: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.75; padding: 28px 16px 56px; }
+  main { max-width: 900px; margin: 0 auto; }
+  .site-nav { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font-size: 14px; }
+  .site-nav__brand { font-family: var(--serif); font-weight: 700; letter-spacing: 0.02em; }
+  .site-nav__brand-tag { margin-left: 5px; color: var(--accent); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .site-nav__link { color: var(--accent); text-decoration: none; border-bottom: 2px solid transparent; padding-bottom: 2px; }
+  .site-nav__link:hover, .site-nav__link--active { border-bottom-color: var(--accent); }
+  .site-nav__link--active { color: var(--ink); font-weight: 600; }
+  .site-nav__spacer { flex: 1; }
+  .site-nav__hint { color: var(--ink-fade); font-size: 12px; }
+  header.cover { padding: 26px 0 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+  .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-family: var(--serif); font-size: clamp(32px, 6vw, 52px); line-height: 1.12; margin: 0 0 12px; letter-spacing: 0; }
+  h2 { font-family: var(--serif); font-size: 24px; line-height: 1.3; margin: 0 0 8px; letter-spacing: 0; }
+  h3 { font-size: 17px; margin: 18px 0 6px; }
+  .subtitle, .lede { color: var(--ink-soft); }
+  .subtitle { max-width: 780px; font-size: 18px; margin: 0; }
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 24px 28px; margin-bottom: 22px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 8px 0 14px; padding-left: 24px; }
+  li { margin-bottom: 7px; }
+  a { color: var(--accent); }
+  code, .path { font-family: var(--mono); font-size: 13px; background: #ece6d3; border-radius: 3px; padding: 1px 6px; word-break: break-word; }
+  pre { background: #1b2230; color: #f6f3ec; border-radius: 6px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 14px; line-height: 1.55; margin: 12px 0 16px; white-space: pre-wrap; }
+  figure { margin: 16px 0 0; }
+  .guide-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #111; }
+  figcaption { color: var(--ink-fade); font-size: 13px; margin-top: 8px; }
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); color: var(--ink-soft); padding: 14px 16px; border-radius: 0 4px 4px 0; margin: 14px 0; }
+  .callout strong { color: var(--ink); }
+  .callout.warn { border-left-color: var(--bad); background: rgba(185,74,58,0.08); }
+  .callout.warn strong { color: var(--bad); }
+  .steps { counter-reset: step; list-style: none; padding-left: 0; }
+  .steps li { counter-increment: step; border-top: 1px solid var(--line); padding: 14px 0 12px 42px; position: relative; }
+  .steps li::before { content: counter(step); position: absolute; left: 0; top: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 13px; }
+  footer { text-align: center; color: var(--ink-fade); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<main>
+
+<nav class="site-nav" aria-label="主目錄">
+  <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
+  <a class="site-nav__link" href="../index.html">入口</a>
+  <a class="site-nav__link" href="index.html">教學中心</a>
+  <a class="site-nav__link site-nav__link--active" href="aps-ai-agent-install.html">AI 代理安裝</a>
+  <span class="site-nav__spacer"></span>
+  <span class="site-nav__hint">2026-06-10</span>
+</nav>
+
+<header class="cover">
+  <div class="eyebrow">給本機 AI 代理讀</div>
+  <h1>帶用戶安裝與設定 Agent Public Squares</h1>
+  <p class="subtitle">本頁不是給普通聊天 AI 使用。你必須是能讀寫本機項目資料夾、能執行終端機命令、能上網核對文件的本機代理型 AI，例如 Codex 或 Claude Code。</p>
+</header>
+
+<section>
+  <h2>任務定位</h2>
+  <p>你的任務是帶非技術用戶在目前本機項目資料夾安裝並設定 Agent Public Squares。用戶會提供三項資料：Google Drive 本機路徑、項目代號、自己的 agent id。你不可猜測這三項。</p>
+  <div class="callout warn">
+    <strong>安全邊界：</strong>任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼、影響哪些路徑，並取得用戶確認。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
+  </div>
+</section>
+
+<section>
+  <h2>用戶可複製的起步 prompt</h2>
+  <p class="lede">若用戶未提供明確任務，可要求他把以下整段貼給本機代理型 AI。</p>
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝和設定 Agent Public Squares：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
+
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供。</pre>
+</section>
+
+<section>
+  <h2>先做只讀檢查</h2>
+  <ol class="steps">
+    <li><strong>確認能力。</strong>如果你不能讀寫本機資料夾或不能執行命令，停止並告訴用戶要改用 Codex、Claude Code 或同等本機代理型 AI。</li>
+    <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
+    <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化。</li>
+    <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
+    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 agent id。提醒項目代號和 agent id 只能用小寫英文、數字與底線。</li>
+    <li><strong>確認 Google Drive 目標資料夾可離線使用。</strong>請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
+  </ol>
+  <figure>
+    <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
+    <figcaption>參考畫面：請用戶把他自己電腦上的 Google Drive 共用資料夾設為「可離線使用」。</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>新安裝路徑</h2>
+  <p class="lede">只有在目前項目沒有 <code>.aps/config.json</code> 時使用。</p>
+  <ol class="steps">
+    <li>列出安裝計劃：會初始化 Agent Handoff Kit、安裝 npm 套件、執行 APS init、寫入本機設定與共用 Drive 資料夾骨架。</li>
+    <li>取得用戶確認後，執行 Agent Handoff Kit 初始化。命令如下：
+      <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init</pre>
+    </li>
+    <li>取得用戶確認後，安裝 APS 套件。命令如下：
+      <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
+    </li>
+    <li>執行 APS 初始化。優先使用互動式 <code>npx aps init</code>，按用戶提供的三項資料回答。若你需要非互動方式，使用：
+      <pre>npx aps init --hub-root "&lt;Google Drive 本機路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 agent id&gt;</pre>
+    </li>
+    <li>工具列出寫入計劃時，轉述給用戶確認，確認後才輸入 <code>yes</code>。</li>
+    <li>完成後跑健康檢查：
+      <pre>npx aps doctor</pre>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <h2>既有項目升級路徑</h2>
+  <p class="lede">如果已有 <code>.aps/config.json</code>，不要重建共用 Drive 資料夾。</p>
+  <ol class="steps">
+    <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前項目、共用 Drive 資料夾、自己的 agent id。</li>
+    <li>取得確認後，更新 npm 套件：
+      <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
+    </li>
+    <li>取得確認後，刷新 APS 橋接與技能：
+      <pre>npx aps upgrade</pre>
+    </li>
+    <li>跑 <code>npx aps doctor</code>，把結果翻譯成普通用戶看得懂的狀態。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>成功判斷</h2>
+  <table>
+    <thead>
+      <tr><th>檢查</th><th>成功標準</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。</td></tr>
+      <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 agent id。</td></tr>
+      <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
+      <tr><td>下一步</td><td>告訴用戶可以說「邀請某某加入這個 APS 項目」或先做測試交接；不要自動發送。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>出錯處理</h2>
+  <ul>
+    <li><strong>Google Drive 路徑不存在：</strong>請用戶在檔案總管或 Finder 打開共用資料夾，重新複製完整路徑。不要使用含 <code>...</code> 的省略路徑。</li>
+    <li><strong>npm 或 npx 失敗：</strong>先讀錯誤訊息。若是網絡、權限或快取問題，說明原因並請用戶確認是否允許重試；不要改用危險命令。</li>
+    <li><strong>doctor 未通過：</strong>不要手寫共用 Drive 檔案。先核對 <code>.aps/config.json</code>、共用 Drive 路徑和項目代號。</li>
+    <li><strong>普通聊天 AI 無法操作：</strong>明確告訴用戶要改用本機代理型 AI，因為普通聊天 AI 不能讀寫本機項目資料夾。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>收尾輸出</h2>
+  <p>完成後，用簡短中文回報：</p>
+  <ul>
+    <li>安裝是否成功。</li>
+    <li>目前項目代號與自己的 agent id。</li>
+    <li><code>doctor</code> 是否通過。</li>
+    <li>下一句建議用戶說甚麼，例如「邀請 Jay 加入這個 APS 項目」或「幫我發一個 APS 測試交接給 Jay」。</li>
+  </ul>
+</section>
+
+<footer>
+  Agent Public Squares · AI 代理安裝指引 · 最新更新 2026-06-10
+</footer>
+
+</main>
+</body>
+</html>
