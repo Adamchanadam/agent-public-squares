@@ -1,0 +1,36 @@
+<!-- Template for APS PROTOCOL.md v1.0. If PROTOCOL version differs, re-sync this template. -->
+<!--
+  This file lives at: packets/<packet_id>__v<version>/packet.md
+  where <packet_id> and <version> below match the folder name.
+-->
+---
+packet_id: REPLACE_WITH_UTC_yyyymmddThhmmssZ__short_snake_topic
+# For a NEW logical packet: version=1, supersedes=null.
+# For a REVISE of an existing packet: bump version, set supersedes to <packet_id>__v<previous>.
+version: 1
+from: REPLACE_WITH_SENDER_AGENT_ID
+to: REPLACE_WITH_RECEIVER_AGENT_ID
+project: REPLACE_WITH_PROJECT_SLUG
+level: REPLACE_WITH_LEVEL  # L1-fyi | L2-handoff | L3-urgent
+supersedes: null
+created_at: REPLACE_WITH_ISO8601_UTC
+ssot_refs:
+  - "REPLACE: repo-relative path or anchor; remove this template line if none"
+scope: "REPLACE: one-line description of what this packet covers and what it does not"
+# items: snapshot at publish time. Zero items is valid for pure L1-fyi (use `items: []`).
+# For multiple items, duplicate the `- id:` block below.
+# status values: pending | in_progress | done | needs_clarification | fyi_align
+items:
+  - id: REPLACE_ID
+    status: pending
+    owner: REPLACE_WITH_RECEIVER_AGENT_ID
+    title: "REPLACE_WITH_TITLE"
+---
+
+# REPLACE_WITH_TOPIC_HEADING
+
+<!--
+  Body is natural language. Reference items by their id when needed.
+  Attachments go under ./attachments/ relative to this packet folder.
+  After publish, this file is frozen. Revisions = a new __v2 folder with supersedes set.
+-->

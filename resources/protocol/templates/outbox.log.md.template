@@ -1,0 +1,13 @@
+<!-- Template for APS PROTOCOL.md v1.0. If PROTOCOL version differs, re-sync this template. -->
+# Outbox Ledger
+
+Append-only. One event per line. Never edit existing lines.
+
+Format:
+`<ISO-8601-UTC> | <verb> | <packet_id> v<N> | <key>:<value> | <key>:<value>`
+
+Verbs: publish | revise | close | withdraw
+
+<!-- sample lines below (delete before publish) -->
+<!-- 2026-05-20T10:30:00Z | publish | 20260520T103000Z__sample_topic v1 | to:other_agent | items:A1,A2 -->
+<!-- 2026-05-20T16:00:00Z | close   | 20260520T103000Z__sample_topic v1 | reason:receiver ack'd -->

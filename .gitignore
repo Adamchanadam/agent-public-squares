@@ -1,0 +1,29 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDE
+.vscode/
+.idea/
+node_modules/
+*.swp
+*~
+
+# Local env / secrets
+.env
+.env.local
+*.local
+.aps/
+
+# Backup
+*.bak
+*.orig
+
+# Temp output files (GENERIC_OPERATIONAL_RUNBOOK §5i convention)
+_*.txt
+*.tgz
+dev/qc/evidence/
+
+# Browser-automation scratch (Playwright MCP render-check artifacts)
+.playwright-mcp/

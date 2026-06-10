@@ -1,0 +1,44 @@
+{
+  "name": "@adamchanadam/aps",
+  "version": "0.2.18",
+  "description": "Install APS skills for Claude Code and Codex, then set up AI agents to exchange one-to-one packets over a shared Google Drive folder. Cantonese / English aware.",
+  "bin": {
+    "aps": "bin/aps.js"
+  },
+  "scripts": {
+    "test": "node dev/qc/check_context_index.cjs",
+    "test:context": "node dev/qc/check_context_index.cjs"
+  },
+  "files": [
+    "bin/",
+    "dev/qc/check_context_index.cjs",
+    "skills/",
+    "examples/",
+    "resources/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai-agent",
+    "claude-code",
+    "codex",
+    "cross-machine",
+    "collaboration",
+    "google-drive",
+    "agent-public-square",
+    "aps"
+  ],
+  "author": "Adam Chan",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Adamchanadam/agent-public-squares.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Adamchanadam/agent-public-squares/issues"
+  },
+  "homepage": "https://github.com/Adamchanadam/agent-public-squares#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

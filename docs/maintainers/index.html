@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APS 維護者規格</title>
+<style>
+  :root {
+    --ink: #1b2230;
+    --ink-soft: #4b5568;
+    --ink-fade: #7c8798;
+    --bg: #f6f3ec;
+    --paper: #fffdf7;
+    --line: #d8d1c0;
+    --accent: #2f5d7c;
+    --accent-soft: #e2edf3;
+    --warn: #a55d1f;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "PingFang TC", monospace;
+    --serif: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", "Songti TC", Georgia, serif;
+    --sans: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.75;
+    padding: 28px 16px 56px;
+  }
+  main { max-width: 900px; margin: 0 auto; }
+  .site-nav {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: baseline;
+    font-size: 14px;
+  }
+  .site-nav__brand { font-family: var(--serif); font-weight: 700; letter-spacing: 0.02em; }
+  .site-nav__brand-tag {
+    margin-left: 5px;
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .site-nav__link {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    padding-bottom: 2px;
+  }
+  .site-nav__link:hover, .site-nav__link--active { border-bottom-color: var(--accent); }
+  .site-nav__link--active { color: var(--ink); font-weight: 600; }
+  .site-nav__spacer { flex: 1; }
+  .site-nav__hint { color: var(--ink-fade); font-size: 12px; }
+  header.cover {
+    padding: 26px 0 24px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(32px, 6vw, 50px);
+    line-height: 1.12;
+    margin: 0 0 12px;
+    letter-spacing: 0;
+  }
+  .subtitle {
+    max-width: 780px;
+    color: var(--ink-soft);
+    font-size: 18px;
+    margin: 0;
+  }
+  section {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 24px 28px;
+    margin-bottom: 22px;
+  }
+  section > h2 {
+    font-family: var(--serif);
+    font-size: 24px;
+    margin: 0 0 8px;
+    letter-spacing: 0;
+  }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--ink-soft); margin-bottom: 16px; }
+  ul { margin: 8px 0 14px; padding-left: 24px; }
+  li { margin-bottom: 7px; }
+  a { color: var(--accent); }
+  code, .path {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: #ece6d3;
+    border-radius: 3px;
+    padding: 1px 6px;
+    word-break: break-word;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+  }
+  th {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+  }
+  .callout {
+    border-left: 4px solid var(--warn);
+    background: rgba(165,93,31,0.08);
+    color: var(--ink-soft);
+    padding: 14px 16px;
+    border-radius: 0 4px 4px 0;
+    margin: 14px 0;
+  }
+  .callout strong { color: var(--warn); }
+  footer {
+    text-align: center;
+    color: var(--ink-fade);
+    font-size: 12px;
+    margin-top: 28px;
+  }
+</style>
+</head>
+<body>
+<main>
+
+<nav class="site-nav" aria-label="主目錄">
+  <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
+  <a class="site-nav__link" href="../index.html">入口</a>
+  <a class="site-nav__link" href="../guides/index.html">教學中心</a>
+  <a class="site-nav__link site-nav__link--active" href="index.html">維護者規格</a>
+  <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
+  <span class="site-nav__spacer"></span>
+  <span class="site-nav__hint">2026-05-28</span>
+</nav>
+
+<header class="cover">
+  <div class="eyebrow">維護者規格</div>
+  <h1>這頁給開發者與維護者，不給第一次安裝的新用戶。</h1>
+  <p class="subtitle">公眾入口只講如何使用；本頁集中列出內部真源、檢查責任、公開承諾邊界與發佈前應核對的規格位置。</p>
+</header>
+
+<section>
+  <h2>頁面分工</h2>
+  <table>
+    <thead>
+      <tr><th>讀者</th><th>入口</th><th>目的</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>第一次使用者</td>
+        <td><a href="../index.html">入口</a>、<a href="../guides/index.html">教學中心</a></td>
+        <td>理解工具價值，完成安裝、檢查與第一次測試。</td>
+      </tr>
+      <tr>
+        <td>日常使用者</td>
+        <td><a href="../guides/aps-onboarding-walkthrough.html">第一次安裝與測試</a></td>
+        <td>知道如何請 AI 收發交接包、如何回到 CLI 備用路徑。</td>
+      </tr>
+      <tr>
+        <td>維護者</td>
+        <td>本頁、<a href="../qc/governance-map.html">分層 QC</a></td>
+        <td>核對公開承諾、發佈檢查、協定實作、同步記錄與內部規格。</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>治理邊界：</strong>新手教學不得要求用戶修改 <span class="path">RULE_PACKS.md</span>、<span class="path">dev\DOC_SYNC_REGISTRY.md</span>、<span class="path">dev\qc\triggers.md</span> 或任何內部計劃檔。這些只屬維護者與 AI 的工作材料。
+  </div>
+</section>
+
+<section>
+  <h2>公開承諾邊界</h2>
+  <p class="lede">任何公開頁、README、CLI help 或技能提示都不可讓讀者誤以為尚未列入現有能力的事已可使用。</p>
+  <ul>
+    <li><strong>可說：</strong><code>npx aps init</code> 可建立初始設定，CLI 已支援最小收發、修訂、撤回、收結與健康檢查。</li>
+    <li><strong>必須同時說：</strong>每個真實跨機項目仍需各自驗證 Google Drive 同步；外部通知仍由人貼出，並應包含交接摘要與注意事項。</li>
+    <li><strong>必須標清：</strong>已發布主線是 Reliable Peer Handoff（Project Peers + Sent Status：同一項目可有多位協作對象，每次仍是一對一交接），確切版本以 npm <code>@latest</code> 為準；尚未發布的候選功能不可寫成公眾已支援。</li>
+    <li><strong>不可要求：</strong>核心設置不得要求額外雲端開發者專案、外部服務憑證或密鑰設定。</li>
+    <li><strong>不可說：</strong>完全自動、正式生產可用、免檢查、免人工確認、工具會自動向對方推送通知，或通知會自動觸發對方 AI。</li>
+  </ul>
+  <div class="callout">
+    <strong>Handoff Kit 整合邊界：</strong>APS 不改寫 <span class="path">AGENTS.md</span> managed core。<code>aps init</code> 應只追加可移除的 APS managed block 到 <span class="path">dev\RULE_PACKS.md</span> 與 <span class="path">dev\PROJECT_INDEX.md</span>，並寫入 <span class="path">dev\rules\aps-bridge.md</span> 與 <span class="path">.aps\config.json</span>。日後 uninstall 應移除這些 APS managed block 與 APS 自有檔案，而不碰用戶原有 Handoff Kit 內容。
+  </div>
+</section>
+
+<section>
+  <h2>維護者真源</h2>
+  <table>
+    <thead>
+      <tr><th>範圍</th><th>真源位置</th><th>使用時機</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>QC 觸發詞與檢查分層</td>
+        <td><span class="path">dev\qc\triggers.md</span></td>
+        <td>用戶要求快檢、外發前檢或全面檢時。</td>
+      </tr>
+      <tr>
+        <td>文件同步責任</td>
+        <td><span class="path">dev\DOC_SYNC_REGISTRY.md</span></td>
+        <td>改公開文檔、CLI 行為、技能、發佈狀態或治理規則前後。</td>
+      </tr>
+      <tr>
+        <td>新用戶體驗路線</td>
+        <td><span class="path">dev\qc\2026-05-22-zero-knowledge-funnel-audit.md</span></td>
+        <td>判斷公開頁是否仍然服務非技術用戶。</td>
+      </tr>
+      <tr>
+        <td>CLI 實作</td>
+        <td><span class="path">bin\aps.js</span></td>
+        <td>修改安裝、設定、收發、修訂、撤回、收結或 doctor 行為。</td>
+      </tr>
+      <tr>
+        <td>AI 對話行為</td>
+        <td><span class="path">skills\aps\SKILL.md</span>、<span class="path">skills\aps\references\setup-dialogue.md</span></td>
+        <td>修改「教我用 APS」、日常收發或補救引導。</td>
+      </tr>
+      <tr>
+        <td>公開產品邊界</td>
+        <td><span class="path">docs\plans\2026-05-28-aps-public-product-multi-agent-roadmap.md</span></td>
+        <td>新增或公開承諾任何本頁未列入的能力前，先回到產品真源核對。</td>
+      </tr>
+      <tr>
+        <td>人類可視 QC 地圖</td>
+        <td><a href="../qc/governance-map.html">分層 QC</a></td>
+        <td>維護者需要以 HTML 方式閱讀檢查分層時。</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>發佈前最低核對</h2>
+  <p class="lede">發佈前不要只看文案是否順眼，要核對工具是否支撐了文案承諾。</p>
+  <ul>
+    <li>公開頁是否只承諾現有可用能力，未把目標體驗寫成已支援。</li>
+    <li>新手教學是否不再要求閱讀或修改內部規格。</li>
+    <li>CLI 是否能用真實或 throw-away 共用 Drive 資料夾跑通 <code>init</code>（三問、只設自己一邊）、<code>doctor</code>、<code>peers</code>、<code>peer add</code>（在此生成 starter pack，並非 init）、<code>peer starter</code>、<code>publish --to &lt;對象&gt;</code>（逐一指名收件）、<code>inbox</code>、<code>consume</code>、<code>close</code>。</li>
+    <li><code>aps init</code> 是否已註冊 Handoff Kit 可發現路徑：<span class="path">dev\RULE_PACKS.md</span> 有 APS route，<span class="path">dev\PROJECT_INDEX.md</span> 有 APS installed skill block，且 <code>doctor</code> 會檢查這兩項。</li>
+    <li><code>doctor</code> 健康分兩層：本機核心（設定、橋接、上述兩項註冊、共用 Drive 資料夾 root、<span class="path">_hub</span> 的 PROTOCOL/CHANGELOG、自己的 outbox/packets/ack、衝突檔掃描）決定退出碼；協作對象健康只供參考，永不影響退出碼。核對重點：未邀請對方的單邊新裝項目必須通過（exit 0），對方通道缺失不可令 <code>doctor</code> 失敗。</li>
+    <li>HTML 不可連結任何本地 <code>.md</code> 規格檔；需要提及時只用 plain path。</li>
+    <li>npm 版本、GitHub release、README、GitHub Pages 與本地 <span class="path">package.json</span> 邊界一致。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>最新 QC 覆蓋範圍</h2>
+  <p class="lede">QC 規則以 <span class="path">dev\qc\triggers.md</span> 為單一真源。本頁只提示維護者：功能、流程或教學改動後，以下項目必須納入外發前檢與全面檢。</p>
+  <ul>
+    <li>新手頁的 SVG 宏觀流程圖與能力清單，須與 README、入口頁、CLI、skill spec、QC 真源一致。</li>
+    <li>日常主路徑須是自然語言請 AI 操作；命令列只可作備用、排錯或維護者驗證。</li>
+    <li>一語交接、發送前完整性預檢、摘要式通知、收件報告、本機對接檢查、補交需求、共識確認、回覆與收結，須在公開文檔、skill 與 QC 真源之間對齊。</li>
+    <li>APS 不自動發 Telegram / WhatsApp / Email，也不自動觸發對方 AI，不保證對方電腦即時同步；公開文檔與通知文字不得暗示相反能力。</li>
+    <li>公開 HTML 只寫現有可用能力；未列入現有能力的產品路線名稱留在 Markdown 真源與審核報告，不放入公眾頁面。</li>
+    <li>若 HTML 參考卡與 <span class="path">dev\qc\triggers.md</span> 不一致，先以該真源為準，再立即同步 HTML。</li>
+  </ul>
+</section>
+
+<footer>
+  Agent Public Squares · 維護者規格 · 最新更新 2026-05-29
+</footer>
+
+</main>
+</body>
+</html>

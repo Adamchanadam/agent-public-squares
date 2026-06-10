@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APS 第一次安裝與測試</title>
+<style>
+  :root {
+    --ink: #1b2230;
+    --ink-soft: #4b5568;
+    --ink-fade: #7c8798;
+    --bg: #f6f3ec;
+    --paper: #fffdf7;
+    --line: #d8d1c0;
+    --accent: #2f5d7c;
+    --accent-soft: #e2edf3;
+    --ok: #2e7d4f;
+    --warn: #a55d1f;
+    --bad: #b94a3a;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "PingFang TC", monospace;
+    --serif: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", "Songti TC", Georgia, serif;
+    --sans: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.75; padding: 28px 16px 56px; }
+  main { max-width: 900px; margin: 0 auto; }
+  .site-nav { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font-size: 14px; }
+  .site-nav__brand { font-family: var(--serif); font-weight: 700; letter-spacing: 0.02em; }
+  .site-nav__brand-tag { margin-left: 5px; color: var(--accent); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .site-nav__link { color: var(--accent); text-decoration: none; border-bottom: 2px solid transparent; padding-bottom: 2px; }
+  .site-nav__link:hover, .site-nav__link--active { border-bottom-color: var(--accent); }
+  .site-nav__link--active { color: var(--ink); font-weight: 600; }
+  .site-nav__spacer { flex: 1; }
+  .site-nav__hint { color: var(--ink-fade); font-size: 12px; }
+  header.cover { padding: 26px 0 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+  .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-family: var(--serif); font-size: clamp(32px, 6vw, 50px); line-height: 1.12; margin: 0 0 12px; letter-spacing: 0; }
+  h2 { font-family: var(--serif); font-size: 24px; margin: 0 0 8px; letter-spacing: 0; }
+  h3 { font-size: 17px; margin: 18px 0 6px; }
+  .subtitle, .lede { color: var(--ink-soft); }
+  .subtitle { max-width: 800px; font-size: 18px; margin: 0; }
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 24px 28px; margin-bottom: 22px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 8px 0 14px; padding-left: 24px; }
+  li { margin-bottom: 7px; }
+  a { color: var(--accent); }
+  code { font-family: var(--mono); font-size: 13px; background: #ece6d3; border-radius: 3px; padding: 1px 6px; word-break: break-word; }
+  pre { background: #1b2230; color: #f6f3ec; border-radius: 6px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 14px; line-height: 1.55; margin: 12px 0 16px; white-space: pre-wrap; }
+  figure { margin: 16px 0 0; }
+  .guide-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #111; }
+  figcaption { color: var(--ink-fade); font-size: 13px; margin-top: 8px; }
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); color: var(--ink-soft); padding: 14px 16px; border-radius: 0 4px 4px 0; margin: 14px 0; }
+  .callout strong { color: var(--ink); }
+  .callout.warn { border-left-color: var(--bad); background: rgba(185,74,58,0.08); }
+  .callout.warn strong { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 13px; }
+  footer { text-align: center; color: var(--ink-fade); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<main>
+
+<nav class="site-nav" aria-label="主目錄">
+  <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
+  <a class="site-nav__link" href="../index.html">入口</a>
+  <a class="site-nav__link" href="index.html">教學中心</a>
+  <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝</a>
+  <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
+  <span class="site-nav__spacer"></span>
+  <span class="site-nav__hint">2026-06-10</span>
+</nav>
+
+<header class="cover">
+  <div class="eyebrow">人類新手頁</div>
+  <h1>第一次安裝 APS：把工作交給本機 AI 代理。</h1>
+  <p class="subtitle">這頁給非技術用戶看。你不用先理解命令，也不用手動改設定檔。你只要打開能操作本機資料夾的 AI 代理，把指定 prompt 貼給它，然後按它提示確認。</p>
+</header>
+
+<section>
+  <h2>第一步：選對 AI 工具</h2>
+  <p>你需要的是本機代理型 AI，例如 Codex、Claude Code 或同等工具。它要能做到三件事：讀寫目前項目資料夾、執行終端機命令、讀網頁。</p>
+  <div class="callout warn">
+    <strong>普通網頁聊天不適合直接安裝。</strong>如果 AI 不能操作你的本機資料夾，它只能解釋步驟，不能替你完成安裝。
+  </div>
+</section>
+
+<section>
+  <h2>第二步：打開你的本機項目資料夾</h2>
+  <p>在你的電腦上準備一個工作資料夾，用來放這個項目的本機檔案。不要把工作資料夾放在 APS 共用 Drive 資料夾裏面。然後在這個工作資料夾打開 Codex、Claude Code 或同等 AI 代理。</p>
+</section>
+
+<section>
+  <h2>第三步：把 Google Drive 共用資料夾設為可離線使用</h2>
+  <p>APS 會把交接包寫入 Google Drive 同步到本機的共用資料夾。為了減少同步延遲和「看得到資料夾但檔案未落地」的問題，請先把這個共用資料夾設為可離線使用。</p>
+  <p>在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選 <strong>顯示其他選項</strong>，再選 <strong>離線存取</strong>，最後選 <strong>可離線使用</strong>。</p>
+  <figure>
+    <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
+    <figcaption>參考畫面：在 Google Drive 目標資料夾按右鍵，進入「離線存取」，選擇「可離線使用」。</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>第四步：貼上這段話</h2>
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝和設定 Agent Public Squares：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
+
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供。</pre>
+</section>
+
+<section>
+  <h2>你要準備的三項資料</h2>
+  <p class="lede">AI 代理會問你，不用現在填在網頁上。</p>
+  <table>
+    <thead>
+      <tr><th>資料</th><th>意思</th><th>例子</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Google Drive 本機路徑</td><td>你電腦上同步出來的 APS 共用資料夾完整路徑。</td><td><code>G:\我的雲端硬碟\Agent_Public_Squares</code></td></tr>
+      <tr><td>項目代號</td><td>這次合作項目的短名。雙方要一樣。</td><td><code>branding_2026</code></td></tr>
+      <tr><td>你的 agent id</td><td>你自己在這個共用資料夾裏的身份。每個人填自己；例子不可當作固定預設。</td><td><code>owner</code>、<code>reviewer</code></td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>agent id 不是暱稱。</strong>它是共用 Drive 資料夾裏的共享身份。每個人要使用由項目確認的固定名稱，例如一邊叫 <code>owner</code>，另一邊叫 <code>reviewer</code>；兩邊不要都把自己叫 <code>agent_a</code>。
+  </div>
+</section>
+
+<section>
+  <h2>過程中你會看到甚麼？</h2>
+  <ul>
+    <li>AI 代理會先檢查目前資料夾是否適合安裝。</li>
+    <li>它會檢查目前資料夾有沒有 Agent Handoff Kit；沒有才初始化，已有就先健康檢查，必要升級時會先問你。</li>
+    <li>它會列出將要安裝甚麼、寫入哪些檔案、使用哪個共用 Drive 資料夾。</li>
+    <li>你確認後，它才會執行命令。</li>
+    <li>最後它會跑健康檢查，告訴你是否成功。</li>
+  </ul>
+  <div class="callout warn">
+    <strong>請不要跳過確認。</strong>安裝套件、寫設定、寫入共用 Drive 資料夾之前，都應該先由你確認。
+  </div>
+</section>
+
+<section>
+  <h2>成功之後下一句說甚麼？</h2>
+  <p>先不要急着邀請對方或發測試包。第一位用戶應先叫 AI 建立一份「項目共同簡報」，把共同目標、參與者、角色、第一輪分工、不可做的事和驗收標準定好。人名和 agent id 由你提供或確認；示範名稱不可當作固定預設。</p>
+  <pre>請先幫我建立這個 APS 項目的共同簡報，再邀請協作者。</pre>
+  <p>共同簡報確認後，如果你要找人一起協作，可以對 AI 說：</p>
+  <pre>邀請我指定的協作者加入這個 APS 項目。</pre>
+  <p>如果對方已經接好，你可以先做一次測試：</p>
+  <pre>幫我發一個 APS 測試交接給我指定的協作者，內容只寫「APS setup test」。</pre>
+  <p>如果對方說他已經發了東西給你，你只要說：</p>
+  <pre>check Drive</pre>
+  <p>如果你想看整個 APS 項目的狀態，包括你收到的、你發出的、協作對象和風險，可以說：</p>
+  <pre>Check APS</pre>
+  <p>這是按需檢查，不是背景自動監察；仍然不會自動通知或打開對方的 AI。</p>
+</section>
+
+<section>
+  <h2>人工備用命令</h2>
+  <p class="lede">一般新手不用自己打。只有在 AI 代理要求你手動執行，或你想排錯時才看這段。</p>
+  <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init
+npm install --save-dev @adamchanadam/aps@latest
+npx aps init
+npx aps doctor</pre>
+</section>
+
+<footer>
+  Agent Public Squares · 第一次安裝與測試 · 最新更新 2026-06-10
+</footer>
+
+</main>
+</body>
+</html>

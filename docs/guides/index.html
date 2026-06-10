@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APS 教學中心</title>
+<style>
+  :root {
+    --ink: #1b2230;
+    --ink-soft: #4b5568;
+    --ink-fade: #7c8798;
+    --bg: #f6f3ec;
+    --paper: #fffdf7;
+    --line: #d8d1c0;
+    --accent: #2f5d7c;
+    --accent-soft: #e2edf3;
+    --ok: #2e7d4f;
+    --warn: #a55d1f;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "PingFang TC", monospace;
+    --serif: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", "Songti TC", Georgia, serif;
+    --sans: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.75; padding: 28px 16px 56px; }
+  main { max-width: 900px; margin: 0 auto; }
+  .site-nav { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; font-size: 14px; }
+  .site-nav__brand { font-family: var(--serif); font-weight: 700; letter-spacing: 0.02em; }
+  .site-nav__brand-tag { margin-left: 5px; color: var(--accent); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .site-nav__link { color: var(--accent); text-decoration: none; border-bottom: 2px solid transparent; padding-bottom: 2px; }
+  .site-nav__link:hover, .site-nav__link--active { border-bottom-color: var(--accent); }
+  .site-nav__link--active { color: var(--ink); font-weight: 600; }
+  .site-nav__spacer { flex: 1; }
+  .site-nav__hint { color: var(--ink-fade); font-size: 12px; }
+  header.cover { padding: 26px 0 24px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+  .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-family: var(--serif); font-size: clamp(32px, 6vw, 50px); line-height: 1.12; margin: 0 0 12px; letter-spacing: 0; }
+  h2 { font-family: var(--serif); font-size: 24px; margin: 0 0 8px; letter-spacing: 0; }
+  .subtitle, .lede { color: var(--ink-soft); }
+  .subtitle { max-width: 780px; font-size: 18px; margin: 0; }
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 24px 28px; margin-bottom: 22px; }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent); }
+  code { font-family: var(--mono); font-size: 13px; background: #ece6d3; border-radius: 3px; padding: 1px 6px; }
+  pre { background: #1b2230; color: #f6f3ec; border-radius: 6px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 14px; line-height: 1.55; margin: 12px 0 16px; white-space: pre-wrap; }
+  .guide-list { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .guide-card { display: block; text-decoration: none; color: var(--ink); background: #fbf6e9; border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; }
+  .guide-card:hover { border-color: var(--accent); }
+  .guide-card h3 { font-size: 20px; font-family: var(--serif); margin: 0 0 6px; letter-spacing: 0; }
+  .guide-card p { color: var(--ink-soft); font-size: 14px; margin: 0 0 8px; }
+  .tag { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .tag.ok { color: var(--ok); }
+  .tag.warn { color: var(--warn); }
+  ul { margin: 8px 0 14px; padding-left: 24px; }
+  li { margin-bottom: 7px; }
+  footer { text-align: center; color: var(--ink-fade); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<main>
+
+<nav class="site-nav" aria-label="主目錄">
+  <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
+  <a class="site-nav__link" href="../index.html">入口</a>
+  <a class="site-nav__link site-nav__link--active" href="index.html">教學中心</a>
+  <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝</a>
+  <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
+  <span class="site-nav__spacer"></span>
+  <span class="site-nav__hint">2026-06-10</span>
+</nav>
+
+<header class="cover">
+  <div class="eyebrow">教學中心</div>
+  <h1>新手先用 AI 代理安裝，不用自己讀命令。</h1>
+  <p class="subtitle">這裡把人類閱讀與 AI 代理操作分開。人類只要知道自己處於哪個情況，然後把指定頁面交給 Codex、Claude Code 或其他本機代理型 AI。</p>
+</header>
+
+<section>
+  <h2>你現在是哪一種情況？</h2>
+  <div class="guide-list">
+    <a class="guide-card" href="aps-onboarding-walkthrough.html">
+      <span class="tag ok">第一次自己設置</span>
+      <h3>我想在自己的項目安裝 APS</h3>
+      <p>人類版新手頁。它只教你複製一段 prompt 給本機 AI 代理，讓 AI 帶你完成安裝、檢查，並在邀請協作者前先建立項目共同簡報。</p>
+    </a>
+    <a class="guide-card" href="aps-ai-agent-install.html">
+      <span class="tag warn">給 AI 讀</span>
+      <h3>AI 代理安裝操作頁</h3>
+      <p>Codex、Claude Code 這類本機 AI 代理應讀這一頁。裏面有完整檢查清單、命令順序、確認邊界與錯誤處理。</p>
+    </a>
+    <a class="guide-card" href="aps-join-invite.html">
+      <span class="tag">被人邀請加入</span>
+      <h3>我收到 APS 協作邀請</h3>
+      <p>如果有人已經邀請你加入項目，從這頁開始。你一樣可以把 prompt 交給本機 AI 代理處理。</p>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>最快路徑</h2>
+  <p class="lede">如果你不想分辨太多，直接把這段貼給本機代理型 AI：</p>
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝和設定 Agent Public Squares：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
+
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供。</pre>
+  <p>安裝成功後，第一步是請 AI 建立項目共同簡報，先定好共同目標、參與者、角色、第一輪分工、不可做的事和驗收標準，再邀請協作者。示範人名不可當作固定預設；實際參與者和 agent id 由用戶提供或確認。</p>
+</section>
+
+<section>
+  <h2>安裝後日常怎樣叫 AI？</h2>
+  <ul>
+    <li>要看整體交接狀態，說 <code>Check APS</code>。AI 會按需檢查收件、發件、協作對象與風險摘要，不會背景自動監察。</li>
+    <li>要查看對方有沒有新交接，說 <code>check Drive</code>。</li>
+    <li>要交給指定協作者，說「用 APS 交給指定協作者」。AI 應先整理交接內容和風險，等你確認後才寫入共用 Drive 資料夾。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>為甚麼要分人類頁和 AI 頁？</h2>
+  <ul>
+    <li>人類新手不需要先理解 <code>npx</code>、<code>doctor</code>、<code>init</code>、<code>peer add</code>。</li>
+    <li>本機 AI 代理需要完整規格，否則容易在錯誤資料夾或錯誤 Drive 路徑動手。</li>
+    <li>安裝套件、寫入設定、寫入共用 Drive 資料夾前，仍要由用戶確認。</li>
+  </ul>
+</section>
+
+<footer>
+  Agent Public Squares · 教學中心 · 最新更新 2026-06-10
+</footer>
+
+</main>
+</body>
+</html>
