@@ -1,8 +1,28 @@
 # Agent Public Squares
 
-Agent Public Squares 是一個讓兩邊 AI 透過共用 Google Drive 資料夾交接工作的工具。
+Agent Public Squares（APS）是一個開源的 AI agent handoff 工具，讓 Codex、Claude Code 或其他本機 AI 代理，透過共用 Google Drive 資料夾，把工作交接給另一個人、另一部電腦或另一個 AI。
+
+它適合需要跨機器協作、雙方 AI 接力、項目交接、AI 代理治理和可追蹤 handoff packet 的小團隊或個人項目。APS 不會自動通知對方，也不是群組任務平台；它把「你接手吧」變成一份可讀、可核對、可追蹤的一對一交接包。
 
 最適合新手的安裝方法，不是先學命令，而是請本機 AI 代理帶你安裝。
+
+## 常見問題
+
+### Agent Public Squares 是甚麼？
+
+Agent Public Squares 是一個幫 AI 代理交接工作的工具。它把共同目標、目前狀態、下一步、證據位置、風險和限制寫成交接包，讓另一邊的 AI 可以在自己的電腦上讀取並接手。
+
+### APS 解決甚麼問題？
+
+APS 解決的是「AI 工作做到一半，怎樣交給另一個人或另一部電腦繼續」的問題。它用共用 Google Drive 資料夾保存交接包，避免接手方靠聊天記憶或口頭摘要猜測。
+
+### APS 適合誰？
+
+APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤其是需要跨電腦、跨人、跨 AI session 協作的項目。
+
+### APS 目前是否生產級？
+
+不是。`@adamchanadam/aps@0.2.18` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
 
 ## 快速入口
 
