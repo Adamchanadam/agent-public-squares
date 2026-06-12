@@ -525,6 +525,7 @@ try {
     source_agent: 'adam',
     source_refs: [
       'packet:adam:20260531T121000Z__release_review:v1',
+      'packet:jay:20260531T122000Z__missing_followup:v1',
       'url:https://docs.google.com/document/d/demo-project-context-index',
     ],
     status: 'background_only',
@@ -655,6 +656,10 @@ try {
   );
   const dashboardHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html'), 'utf8');
   for (const text of [
+    '下一步',
+    '這裡只整理已同步資料中可追溯的行動線索，不是自動派工。',
+    '你要處理',
+    '建議下一步',
     '今日要看',
     '我發出的交接',
     '建議先讀',
@@ -671,6 +676,7 @@ try {
   ]) {
     assert(dashboardHtml.includes(text), `dashboard html: missing ${text}`, dashboardHtml);
   }
+  assert(!dashboardHtml.includes(hubRoot), 'dashboard html: should not expose local absolute hub path in action or risk sources', dashboardHtml);
   console.log('PASS dashboard contains daily index sections and Google Docs link');
   expectCheckApsCase(
     'check-aps shows full APS status and updates dashboard',
@@ -681,6 +687,10 @@ try {
       '待你處理: 1',
       '你發出的交接: 1',
       '尚未看到對方處理: 0',
+      '下一步',
+      '[你要處理]',
+      '[先核對風險]',
+      '來源:',
       '今日要看',
       '我發出的交接',
       '協作對象',

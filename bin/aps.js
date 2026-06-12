@@ -1941,19 +1941,75 @@ function buildDashboardData({ hubRoot, projectSlug, agentId, config }) {
   return { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads };
 }
 
-function dashboardRiskItems({ incomingGroups, contextReport, peers }) {
+function hideLocalPaths(value) {
+  return String(value || '').replace(/[A-Za-z]:[\\/][^\s<>"']+/g, '(本機路徑已隱藏)');
+}
+
+function dashboardRiskRecords({ incomingGroups, contextReport, peers }) {
   return [
-    ...incomingGroups.filter((group) => group.error).map((group) => `未能讀取 ${group.from} 的 outbox: ${group.error}`),
-    ...contextReport.issues.map((issue) => issue.message),
-    ...peers.filter((peer) => peer.peer_state && peer.peer_state !== 'confirmed').map((peer) => `${peer.agent_id} 尚未確認；正式交接前先確認對方已完成設置。`),
+    ...incomingGroups.filter((group) => group.error).map((group) => ({
+      message: `未能讀取 ${group.from} 的 outbox: ${group.error}`,
+      owner: group.from,
+      source: `outbox:${group.from}`,
+      next: '先檢查對方 lane、Google Drive 同步與 outbox 檔案是否可讀。',
+    })),
+    ...contextReport.issues.map((issue) => ({
+      message: hideLocalPaths(issue.message),
+      owner: issue.file ? String(issue.file).replace(/\\/g, '/').split('/').slice(-2).join('/') : '背景索引',
+      source: issue.file ? String(issue.file).replace(/\\/g, '/').split('/').slice(-3).join('/') : 'context',
+      next: '先核對最新 packet / outbox / ack，再決定是否採用背景索引內容。',
+    })),
+    ...peers.filter((peer) => peer.peer_state && peer.peer_state !== 'confirmed').map((peer) => ({
+      message: `${peer.agent_id} 尚未確認；正式交接前先確認對方已完成設置。`,
+      owner: peer.agent_id,
+      source: `peer:${peer.agent_id}`,
+      next: '先請對方完成 APS 接入或用 starter pack 確認身份，不要把未確認 peer 當成已可穩定交接。',
+    })),
   ];
+}
+
+function dashboardRiskItems({ incomingGroups, contextReport, peers }) {
+  return dashboardRiskRecords({ incomingGroups, contextReport, peers }).map((record) => record.message);
+}
+
+function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId }) {
+  const actions = [];
+  for (const item of pendingItems.slice(0, 5)) {
+    const actionText = inboxActionLines(item).map((line) => line.replace(/^- /, '').trim()).filter(Boolean).join('；')
+      || '先讀交接包正文，判斷是否可以處理。';
+    actions.push({
+      lane: '你要處理',
+      item: `${item.from} → ${agentId}: ${packetTopic(item.packetId)} v${item.version}`,
+      next: actionText,
+      source: packetSourceRef(item.from, item.packetId, item.version),
+    });
+  }
+  for (const item of outgoingPackets.filter((packet) => packet.state === 'waiting').slice(0, 5)) {
+    actions.push({
+      lane: '等對方',
+      item: `給 ${item.toId || '(未記錄)'}: ${packetTopic(item.packetId)} v${item.version}`,
+      next: '等待對方 check Drive、標記處理或另發回覆；不要把已寫入 Drive 當成對方已收到通知。',
+      source: packetSourceRef(agentId, item.packetId, item.version),
+    });
+  }
+  for (const record of riskRecords.slice(0, 5)) {
+    actions.push({
+      lane: '先核對風險',
+      item: `${record.owner}: ${record.message}`,
+      next: record.next,
+      source: record.source,
+    });
+  }
+  return actions.slice(0, 12);
 }
 
 function renderProjectDashboardSummary(dashboard) {
   const { projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers } = dashboard;
   const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
-  const riskItems = dashboardRiskItems({ incomingGroups, contextReport, peers });
+  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers });
+  const riskItems = riskRecords.map((record) => record.message);
+  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId });
   const lines = [
     '🧭 APS 整體狀態',
     `📁 項目: ${projectSlug}`,
@@ -1965,8 +2021,21 @@ function renderProjectDashboardSummary(dashboard) {
     `👥 協作對象: ${peers.length}`,
     `⚠️ 風險與提醒: ${riskItems.length}`,
     '',
-    '📬 今日要看',
+    '🚀 下一步',
   ];
+  if (actionItems.length === 0) {
+    lines.push('- 目前沒有明確下一步。若要推進,先建立或更新項目共同簡報,再按需發出一對一交接。');
+  } else {
+    for (const item of actionItems.slice(0, 8)) {
+      lines.push(`- [${item.lane}] ${item.item}`);
+      lines.push(`  建議: ${item.next}`);
+      lines.push(`  來源: ${item.source}`);
+    }
+  }
+  lines.push('');
+  lines.push(
+    '📬 今日要看',
+  );
   if (pendingItems.length === 0) {
     lines.push('- 目前沒有待你處理的新交接。');
   } else {
@@ -2003,7 +2072,11 @@ function renderProjectDashboardSummary(dashboard) {
   if (riskItems.length === 0) {
     lines.push('- 未見阻塞風險。仍須以最新 packet / outbox / ack 作準。');
   } else {
-    for (const item of riskItems.slice(0, 8)) lines.push(`- ${item}`);
+    for (const item of riskRecords.slice(0, 8)) {
+      lines.push(`- ${item.owner}: ${item.message}`);
+      lines.push(`  建議: ${item.next}`);
+      lines.push(`  來源: ${item.source}`);
+    }
   }
   lines.push('');
   lines.push('🔎 邊界:這是按需讀取本機已同步資料的狀態摘要,不代表對方已收到人手通知或已完成 Google Drive 同步。');
@@ -2114,6 +2187,14 @@ function renderProjectDashboardHtml(dashboard) {
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
   const contextErrors = contextReport.issues.filter((issue) => issue.severity === 'error');
   const contextWarnings = contextReport.issues.filter((issue) => issue.severity !== 'error');
+  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers });
+  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId });
+  const actionRows = actionItems.map((item) => `<tr>
+      <td><span class="badge ${item.lane === '先核對風險' ? 'warn' : item.lane === '等對方' ? 'warn' : 'ok'}">${htmlEscape(item.lane)}</span></td>
+      <td>${htmlEscape(item.item)}</td>
+      <td>${htmlEscape(item.next)}</td>
+      <td><code>${htmlEscape(item.source)}</code></td>
+    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">目前沒有明確下一步。若要推進,先建立或更新項目共同簡報,再按需發出一對一交接。</td></tr>';
   const incomingRows = pendingItems.map((item) => `<tr>
       <td>${htmlEscape(item.from)}</td>
       <td>${htmlEscape(packetTopic(item.packetId))}</td>
@@ -2153,8 +2234,12 @@ function renderProjectDashboardHtml(dashboard) {
       <td><span class="badge ${peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn'}">${htmlEscape(peer.peer_state || peer.status || 'unknown')}</span></td>
       <td>${peer.is_self ? '本機 agent' : peer.is_default_peer ? '預設 peer' : 'project peer'}</td>
     </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見 peer card；舊二人設定仍可透過本機設定運作。</td></tr>';
-  const riskItems = dashboardRiskItems({ incomingGroups, contextReport, peers });
-  const riskRows = riskItems.map((item) => `<li>${htmlEscape(item)}</li>`).join('\n') || '<li>未見阻塞風險。仍須以最新 packet / outbox / ack 作準。</li>';
+  const riskRows = riskRecords.map((item) => `<tr>
+      <td>${htmlEscape(item.owner)}</td>
+      <td>${htmlEscape(item.message)}</td>
+      <td>${htmlEscape(item.next)}</td>
+      <td><code>${htmlEscape(item.source)}</code></td>
+    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見阻塞風險。仍須以最新 packet / outbox / ack 作準。</td></tr>';
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -2211,6 +2296,11 @@ function renderProjectDashboardHtml(dashboard) {
 </header>
 <div class="callout"><strong>執行真相一律以 packet / outbox / ack 為準。</strong> Dashboard 只讀共用 Drive 資料夾內已同步的資料，可以反映已存在的 ack / close / withdraw 狀態；但它本身不會自動通知、不會替任何人標記處理、不會收結交接。</div>
 <section>
+  <h2>下一步</h2>
+  <p>這裡只整理已同步資料中可追溯的行動線索，不是自動派工。</p>
+  <table><thead><tr><th>分類</th><th>事項</th><th>建議</th><th>來源</th></tr></thead><tbody>${actionRows}</tbody></table>
+</section>
+<section>
   <h2>今日要看</h2>
   <p>這裡等同把日常「check Drive」結果放在首屏。</p>
   <table><thead><tr><th>來源</th><th>主題</th><th>版本</th><th>交了甚麼</th><th>請你做</th><th>來源</th></tr></thead><tbody>${incomingRows}</tbody></table>
@@ -2236,7 +2326,8 @@ function renderProjectDashboardHtml(dashboard) {
 </section>
 <section>
   <h2>風險與未決</h2>
-  <ul>${riskRows}</ul>
+  <p>每項風險都必須能追溯來源；若來源不清,先核對最新 packet / outbox / ack。</p>
+  <table><thead><tr><th>相關對象</th><th>風險</th><th>建議下一步</th><th>來源</th></tr></thead><tbody>${riskRows}</tbody></table>
 </section>
 <footer>Generated by <code>npx aps dashboard</code>. Read-only Daily Index.</footer>
 </main>
@@ -2669,7 +2760,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps check-drive
                                   同 inbox;給「check Drive」日常收件流程使用
   npx aps check-aps
-                                  查看 APS 整體狀態:收件、發件、協作對象、風險;並按需更新 dashboard
+                                  查看 APS 整體狀態:收件、發件、協作對象、下一步、風險;並按需更新 dashboard
   npx aps dashboard
                                   生成唯讀 Project Dashboard / Daily Index HTML
   npx aps status --packet-id <id>
