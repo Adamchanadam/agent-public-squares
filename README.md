@@ -1,36 +1,45 @@
 # Agent Public Squares
 
-Agent Public Squares（APS）是一個開源的 AI agent handoff 工具，讓 Codex、Claude Code 或其他本機 AI 代理，透過共用 Google Drive 資料夾，把工作交接給另一個人、另一部電腦或另一個 AI。
+Agent Public Squares（APS）讓同一個項目的多位用戶，透過共用 Google Drive，把任務交接給彼此的本機 AI 代理。
 
-它適合需要跨機器協作、雙方 AI 接力、項目交接、AI 代理治理和可追蹤 handoff packet 的小團隊或個人項目。APS 不會自動通知對方，也不是群組任務平台；它把「你接手吧」變成一份可讀、可核對、可追蹤的一對一交接包。
+![Agent Public Squares 一覽圖](docs/assets/aps-overview.png)
 
-最適合新手的安裝方法，不是先學命令，而是請本機 AI 代理帶你安裝。
+它適合需要多人合作、AI 代理分工、項目交接和可追蹤 handoff packet 的小團隊或個人項目。每個交接包只發給一位協作對象；APS 不是群聊、不是自動派工，也不會自動通知對方。
+
+最適合新手的安裝方法，不是先學命令，而是請 Codex、Claude Code 或同等本機 AI 代理帶你安裝。
+
+## 快速開始
+
+- 第一次使用：[先看人類新手頁](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-onboarding-walkthrough.html)
+- 交給本機 AI 安裝：[AI 代理安裝指引](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html)
+- 收到邀請：[加入 APS 協作邀請](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html)
+- 查看整體狀態：在已安裝 APS 的項目中對 AI 說 `Check APS`
+- 查看新交接：在已安裝 APS 的項目中對 AI 說 `check Drive`
 
 ## 常見問題
 
 ### Agent Public Squares 是甚麼？
 
-Agent Public Squares 是一個幫 AI 代理交接工作的工具。它把共同目標、目前狀態、下一步、證據位置、風險和限制寫成交接包，讓另一邊的 AI 可以在自己的電腦上讀取並接手。
+Agent Public Squares 是一個幫本機 AI 代理交接項目任務的工具。它把共同目標、目前狀態、下一步、證據位置、風險和限制寫成交接包，讓協作對象可以在自己的電腦上叫 AI 讀取並接手。
 
 ### APS 解決甚麼問題？
 
-APS 解決的是「AI 工作做到一半，怎樣交給另一個人或另一部電腦繼續」的問題。它用共用 Google Drive 資料夾保存交接包，避免接手方靠聊天記憶或口頭摘要猜測。
+APS 解決的是「同一個項目裡，不同用戶的 AI 代理怎樣清楚分工、交接和查狀態」的問題。它用共用 Google Drive 資料夾保存交接包，避免接手方靠聊天記憶或口頭摘要猜測。
 
 ### APS 適合誰？
 
-APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤其是需要跨電腦、跨人、跨 AI session 協作的項目。
+APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤其是需要多人合作、AI 代理分工、項目交接和風險檢查的項目。
 
 ### APS 目前是否生產級？
 
 不是。`@adamchanadam/aps@0.2.18` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
 
-## 快速入口
+## 文件與支援入口
 
-- [公眾入口頁](https://adamchanadam.github.io/agent-public-squares/docs/index.html)
-- [教學中心](https://adamchanadam.github.io/agent-public-squares/docs/guides/index.html)
-- [第一次安裝教學](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-onboarding-walkthrough.html)
-- [AI 代理安裝指引](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html)
-- [收到邀請時加入](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html)
+- [公眾入口頁](https://adamchanadam.github.io/agent-public-squares/docs/index.html)：給第一次認識 APS 的讀者
+- [完整教學中心](https://adamchanadam.github.io/agent-public-squares/docs/guides/index.html)：集中查看所有安裝、加入和日常使用頁面
+- [npm 套件頁](https://www.npmjs.com/package/@adamchanadam/aps)：查看目前公開套件版本
+- [GitHub Issues](https://github.com/Adamchanadam/agent-public-squares/issues)：回報問題或提出改進建議
 
 ## 第一次安裝
 
@@ -63,11 +72,11 @@ AI 會問你這三件事。不要把邀請人電腦上的本機路徑照抄到�
 請先幫我建立這個 APS 項目的共同簡報，再邀請協作者。
 ```
 
-共同簡報會先定好：共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象和第一輪交接對象。文中的人名只作例子；實際參與者、角色和 agent id 由你提供或確認。這八項是最低欄位；如有截止日期、優先級、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以叫 AI 加入。確認後，再邀請實際協作者，或發第一輪交接包。這一步可以避免每個 workspace 的 AI 各自理解，令後面的項目口徑不一致。
+共同簡報會先定好：共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象和第一輪交接對象。文中的人名只作例子；實際參與者、角色和 agent id 由你提供或確認。這八項是最低欄位；如有截止日期、優先級、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以叫 AI 加入。確認後，再邀請實際協作者，或發第一輪交接包。這一步可以避免每一邊的 AI 各自理解項目目標和分工，令後面的交接口徑不一致。
 
 ## APS 做甚麼
 
-你這邊的 AI 做到一半，要交給另一個人、另一部電腦或另一個 AI 接手時，APS 會把一句「你接手吧」變成一份可追蹤的交接包。
+你要把一部分項目任務交給指定協作者時，APS 會把一句「你接手吧」變成一份可追蹤的交接包。
 
 交接包會說清楚：
 
@@ -78,7 +87,7 @@ AI 會問你這三件事。不要把邀請人電腦上的本機路徑照抄到�
 - 證據或檔案在哪裡
 - 還有甚麼風險或未決事項
 
-對方那邊不用靠記憶猜。他只要在自己的項目資料夾叫 AI `check Drive`，AI 就會從共用 Drive 資料夾讀取交接包，先整理摘要與風險，再判斷能否接手。
+對方那邊不用靠記憶猜。他只要在自己的項目資料夾叫 AI `check Drive`，AI 就會從共用 Drive 資料夾讀取交接包，先整理摘要與風險，再判斷能否接手。你亦可以說 `Check APS`，查看整個項目的收件、發件、協作對象和風險摘要。
 
 ## 目前狀態
 
@@ -155,10 +164,6 @@ Check APS
 ```
 
 AI 應該先整理交接定義、缺漏與風險，讓你確認後才寫入共用 Drive 資料夾。它不應該未經確認就發正式交接包。
-
-## 想深入了解
-
-- [GitHub Issues](https://github.com/Adamchanadam/agent-public-squares/issues)
 
 ## 授權
 
