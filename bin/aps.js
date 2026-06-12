@@ -547,12 +547,37 @@ async function askWithDefault(rl, question, defaultValue, validate) {
   while (true) {
     const suffix = defaultValue ? ` [${defaultValue}]` : '';
     const answer = await askLine(rl, `${question}${suffix}: `);
-    if (answer === null) throw new Error('輸入在設定完成前中止。請重新執行 `npx aps init`,並回答每一條問題。');
+    if (answer === null) {
+      console.log('');
+      throw new Error('輸入在設定完成前中止。請重新執行 `npx aps init`,並回答每一條問題。');
+    }
     const value = answer || defaultValue;
     const error = validate ? validate(value) : null;
     if (!error) return value;
     console.log(`  ${error}`);
   }
+}
+
+function printDivider(label = '') {
+  const line = '─'.repeat(48);
+  if (!label) {
+    console.log(line);
+    return;
+  }
+  console.log(line);
+  console.log(label);
+  console.log(line);
+}
+
+function printPromptBlock({ step, title, body, example }) {
+  console.log('');
+  printDivider(`${step} ${title}`);
+  for (const line of body) console.log(line);
+  if (example) {
+    console.log('');
+    console.log(`例子: ${example}`);
+  }
+  console.log('');
 }
 
 function brandCardLines() {
@@ -594,38 +619,53 @@ async function runInteractiveInit() {
 
   printBrandCard();
   console.log('');
-  console.log('APS 初次設定');
-  console.log('');
-  console.log('👋 這一步只設定你自己這一邊,把本項目接到你的共用 Drive 資料夾。');
-  console.log('🧭 工具只會問三件事,先列出寫入計劃,你輸入 yes 之後才會寫入檔案。');
-  console.log('🤝 想搵人一齊做?設定好之後隨時可以邀請對方,毋須現在決定。');
-  console.log('↩️  方括號內是建議值;合適時可直接按 Enter。');
-  console.log('');
+  printDivider('APS 初次設定');
+  console.log('👋 這一步只設定你自己這一邊,把本項目接到共用 Drive 資料夾。');
+  console.log('🧭 只問三件事;最後會先列出寫入計劃,你輸入 yes 才會寫入。');
+  console.log('🤝 協作對象可在設定完成後再邀請,毋須現在決定。');
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    console.log('☁️  共用 Drive 資料夾 root path 是你電腦上 Google Drive 同步資料夾的完整路徑。');
-    console.log('   第一次建立:喺你 Google Drive 揀個位置,新增一個資料夾叫 Agent_Public_Squares,貼佢嘅完整路徑(資料夾未存在我會幫你建,唔會覆蓋原有內容)。');
-    console.log('   受邀加入:貼返對方分享畀你嗰個資料夾嘅完整路徑(名以邀請訊息為準)。');
-    console.log('   例: G:\\我的雲端硬碟\\Agent_Public_Squares');
+    printPromptBlock({
+      step: '1/3',
+      title: 'Google Drive 共用資料夾',
+      body: [
+        '☁️  請貼上你電腦上 Google Drive 同步資料夾的完整路徑。',
+        '第一次建立可新增 Agent_Public_Squares;受邀加入則貼上對方分享給你的資料夾路徑。',
+        '如果資料夾未存在,工具會替你建立;不會覆蓋原有內容。',
+      ],
+      example: 'G:\\我的雲端硬碟\\Agent_Public_Squares',
+    });
     const hubRoot = await askWithDefault(
       rl,
-      '1/3 Google Drive 共用資料夾完整路徑',
+      '請輸入 Google Drive 共用資料夾完整路徑',
       '',
       (value) => localizeValidation(validateNoPlaceholder('--hub-root', value)) || (path.isAbsolute(value) ? null : '請貼上完整路徑,例如 G:\\我的雲端硬碟\\Agent_Public_Squares 或 C:\\Users\\你\\Google Drive\\Agent_Public_Squares。')
     );
     const defaultProject = toSnakeCase(path.basename(process.cwd()), 'aps_uat');
-    console.log('');
-    console.log('📌 項目代號用來在共用 Drive 資料夾內分開不同合作項目,例如 branding_2026 或 aps_uat。');
-    console.log('   它會成為 Google Drive 內的資料夾名稱,請用小寫英文字母、數字或底線。');
-    const projectSlug = await askWithDefault(rl, '2/3 項目代號', defaultProject, (value) => (
+    printPromptBlock({
+      step: '2/3',
+      title: '項目代號',
+      body: [
+        '📌 用來在共用 Drive 資料夾內分開不同合作項目,也會成為資料夾名稱。',
+        '請用小寫英文字母、數字或底線。',
+      ],
+      example: 'branding_2026 或 aps_uat',
+    });
+    const projectSlug = await askWithDefault(rl, '請輸入項目代號', defaultProject, (value) => (
       localizeValidation(validateNoPlaceholder('--project', value) || validateSnakeCase('--project', value))
     ));
-    const defaultAgent = toSnakeCase(process.env.USERNAME || process.env.USER || '', '');
-    console.log('');
-    console.log('👤 你自己的名稱(agent id)是你這一邊在共用 Drive 資料夾內的共享身份,例如 adam 或 jay。');
-    console.log('   請用小寫英文字母、數字或底線。APS 會用它建立 from_<你的名稱> 通道及你的收件確認檔。');
-    const agentId = await askWithDefault(rl, '3/3 你自己的名稱', defaultAgent, (value) => (
+    const defaultAgent = '';
+    printPromptBlock({
+      step: '3/3',
+      title: '你自己的 APS 名稱',
+      body: [
+        '👤 這是你在此 APS 項目中的共享身份,由你自己決定。',
+        '請用小寫英文字母、數字或底線;不要照抄別人的名稱。',
+      ],
+      example: 'user1 或 project_lead',
+    });
+    const agentId = await askWithDefault(rl, '請輸入你自己的 APS 名稱', defaultAgent, (value) => (
       localizeValidation(validateNoPlaceholder('--agent-id', value) || validateSnakeCase('--agent-id', value))
     ));
 
@@ -647,7 +687,7 @@ async function runInteractiveInit() {
       ? '偵測:此項目在共用資料夾已存在,而且已有其他成員先完成設定。你似乎是加入者。若你確實是第一個設定的人,可忽略此提示。'
       : null;
     console.log('');
-    console.log('📝 寫入前計劃');
+    printDivider('📝 寫入前計劃');
     console.log(`  ☁️  共用 Drive 資料夾 root: ${values.hubRoot}`);
     console.log(`  📁 項目代號: ${values.projectSlug}`);
     console.log(`  👤 你自己: ${values.agentId}`);
@@ -660,6 +700,8 @@ async function runInteractiveInit() {
     }
     console.log('');
     const confirm = await askLine(rl, '確認無誤請輸入 yes,工具才會安裝 skill、建立共用 Drive 資料夾 skeleton 並保存本機設定: ');
+    console.log('');
+    if (confirm === null) throw new Error('輸入在寫入確認前中止。沒有寫入共用 Drive 資料夾檔案。請重新執行 `npx aps init`。');
     if (confirm.toLowerCase() !== 'yes') {
       console.log('已取消。沒有寫入共用 Drive 資料夾檔案。');
       return 1;
@@ -2598,6 +2640,7 @@ function ensurePeerArtifacts({ hubRoot, projectSlug, agentId, displayName, peerS
 
 function starterPackContent(values) {
   const folderName = path.basename(values.hubRoot || '') || 'Agent_Public_Squares';
+  const senderName = values.agentId || '發出邀請的人';
   return `# APS 協作邀請 — ${values.projectSlug}
 
 （這是給 ${values.otherAgentId} 的加入指引。把下面的訊息整段傳給對方即可，也可以直接轉發這份檔案的內容。）
@@ -2606,15 +2649,25 @@ function starterPackContent(values) {
 
 📨 APS 協作邀請：${values.projectSlug}
 
-我想邀請你一同用 Agent Public Squares（APS）跨機協作。做法很簡單：我們共用一個 Google Drive 資料夾，兩邊的 AI 就能互相交收進度，不必每次重新交代背景。
+${senderName} 想邀請你一同用 Agent Public Squares（APS）進行 AI 跨機協作。做法很簡單：你們共用一個 Google Drive 資料夾，兩邊的 AI 就能互相交收進度，不必每次重新交代背景。
 
 你大致要做這幾件事：
-☁️ 你會收到我經 Google Drive 分享的資料夾「${folderName}」（也可能收到一封 Google Drive 通知 email）。打開 Google Drive 接受它，設為「離線可用」，等它同步到你的電腦。
-📁 在你的電腦另外開一個屬於你自己的工作資料夾（名字隨你，不用跟我一樣；但不要用那個共用資料夾）。
-🤖 在那個工作資料夾打開你的 AI 工具（例如 Claude Code、Claude Cowork、Codex），請它跟下面的教學頁幫你安裝 APS。設定時，項目代號要跟我完全一樣，照抄 ${values.projectSlug}（一字不改，否則會各自落在不同項目、互相看不到）；你的名字填 ${values.otherAgentId}。
-✅ 見到「通過」就裝好了。之後我有東西交給你，你對 AI 說一句「check Drive」就會收到。
 
-逐步詳解（有圖、有安裝命令）：👉 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html
+☁️ 你會收到我經 Google Drive 分享的資料夾「${folderName}」（也可能收到一封 Google Drive 通知 email）。請先打開 Google Drive 接受分享，設為「離線可用」，等它同步到你的電腦。
+
+🤖 你在自己本機的 AI Project 目錄如常打開 AI 工具即可；Google Drive 共用資料夾只是 APS 用來同步交接資料。請 AI 讀下面這個安裝指引，讓它替你檢查環境、安裝 APS、設定本機路徑與做驗收：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
+
+📌 設定時，項目代號要跟我完全一樣，請照抄：
+${values.projectSlug}
+
+👤 你的 APS 名稱請填：
+${values.otherAgentId}
+
+✅ 見到「通過」就裝好了。之後我有東西交給你，你在自己的 AI 工具輸入「check Drive」就會收到。
+
+給人看的逐步詳解（有圖、有安裝命令）：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html
 `;
 }
 

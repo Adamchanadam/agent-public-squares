@@ -2,11 +2,32 @@
 
 Agent Public Squares（APS）讓同一個項目的多位用戶，透過共用 Google Drive，把任務交接給彼此的本機 AI 代理。
 
+![npm version](https://img.shields.io/npm/v/@adamchanadam/aps?label=npm)
+![GitHub release](https://img.shields.io/github/v/release/Adamchanadam/agent-public-squares?label=release)
+![License](https://img.shields.io/github/license/Adamchanadam/agent-public-squares)
+![Runtime](https://img.shields.io/badge/node-%3E%3D18-2f6f4e)
+![Status](https://img.shields.io/badge/status-controlled%20trial-f2a900)
+
 ![Agent Public Squares 一覽圖](docs/assets/aps-overview.png)
 
 它適合需要多人合作、AI 代理分工、項目交接和可追蹤 handoff packet 的小團隊或個人項目。每個交接包只發給一位協作對象；APS 不是群聊、不是自動派工，也不會自動通知對方。
 
 最適合新手的安裝方法，不是先學命令，而是請 Codex、Claude Code 或同等本機 AI 代理帶你安裝。
+
+## 目前可信狀態
+
+APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可安裝的 npm 套件、GitHub release、Apache 2.0 授權、AI 代理安裝指引、加入邀請頁、日常使用入口和本地品質檢查命令。
+
+| 項目 | 目前狀態 |
+|---|---|
+| 公開版本 | `@adamchanadam/aps@0.2.20` |
+| 最新 GitHub release | `v0.2.20` |
+| 授權 | Apache License 2.0 |
+| 支援環境 | Node.js 18 或以上 |
+| 建議用途 | 受控實際試行、雙方 AI 交接測試、日常協作流程打磨 |
+| 不建議用途 | 不可中斷、不可出錯、沒有人工覆核的重要生產流程 |
+
+這個定位刻意保守：它讓新用戶知道 APS 可以試、可以回報、可以逐步成長，但不會把早期工具包裝成已成熟平台。
 
 ## 快速開始
 
@@ -15,6 +36,26 @@ Agent Public Squares（APS）讓同一個項目的多位用戶，透過共用 Go
 - 收到邀請：[加入 APS 協作邀請](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html)
 - 查看整體狀態：在已安裝 APS 的項目中對 AI 說 `Check APS`
 - 查看新交接：在已安裝 APS 的項目中對 AI 說 `check Drive`
+
+## 為甚麼值得試
+
+- 用 Google Drive 做交換層，不要求協作者共用同一部電腦或同一個 AI 對話。
+- 每份交接包都有收件人、版本、主題、狀態和可追蹤記錄，不靠口頭摘要猜測。
+- 安裝主路徑交給本機 AI 代理執行，人類只需要確認路徑、項目代號和自己的身份名稱。
+- 文件明確說明哪些事 APS 不會做，例如不會自動通知對方、不會自動派工、不會替人類省略確認。
+- repo 保留本地品質檢查命令，方便後續版本持續驗證核心流程。
+
+## 成長路線
+
+APS 的成長重點不是先做大型平台，而是先把跨機 AI 協作中最容易出錯的交接、確認、收件和狀態檢查做好。
+
+| 階段 | 重點 |
+|---|---|
+| 現在 | 穩定安裝、邀請、發送、收件、狀態檢查和新手文件 |
+| 下一步 | 擴大真實雙方試用、改善錯誤提示、增加更多回歸檢查 |
+| 之後 | 根據 issue 和實測結果，逐步加強多協作者流程、文件索引和支援材料 |
+
+歡迎先用小型真項目試行。遇到不清楚、安裝不順或交接語意不準的地方，請用 [GitHub Issues](https://github.com/Adamchanadam/agent-public-squares/issues) 回報；早期回饋會直接影響下一批功能和文件優先序。
 
 ## 常見問題
 
@@ -32,7 +73,7 @@ APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤
 
 ### APS 目前是否生產級？
 
-不是。`@adamchanadam/aps@0.2.19` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
+不是。`@adamchanadam/aps@0.2.20` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
 
 ## 文件與支援入口
 
@@ -94,7 +135,7 @@ AI 會問你這三件事。不要把邀請人電腦上的本機路徑照抄到�
 目前公開版本是：
 
 ```text
-@adamchanadam/aps@0.2.19
+@adamchanadam/aps@0.2.20
 ```
 
 它已經可以安裝，並可用於受控實際試行。它仍是前期測試版，不應承諾為生產級工具。

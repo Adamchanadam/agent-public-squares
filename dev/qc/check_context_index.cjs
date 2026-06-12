@@ -2,12 +2,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const apsBin = path.join(repoRoot, 'bin', 'aps.js');
 const evidenceRoot = path.join(repoRoot, 'dev', 'qc', 'evidence');
 const runRoot = fs.mkdtempSync(path.join(evidenceRoot, 'context-index-regression-'));
 const hubRoot = path.join(runRoot, 'hub');
+const apsConfigPath = path.join(repoRoot, '.aps', 'config.json');
+const existingApsConfig = fs.existsSync(apsConfigPath) ? fs.readFileSync(apsConfigPath, 'utf8') : null;
 
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -225,6 +228,33 @@ function publishReadyProject(project) {
   );
 }
 
+function writeTempApsConfig(project, agentId) {
+  writeFile(
+    apsConfigPath,
+    `${JSON.stringify({
+      hubRoot,
+      projectSlug: project,
+      agentId,
+      otherAgentId: null,
+      role: null,
+      createdAt: '2026-06-12T00:00:00.000Z',
+      version: 1,
+    }, null, 2)}\n`,
+  );
+}
+
+function runApsProcess(args) {
+  const result = spawnSync(process.execPath, [apsBin, ...args], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+  };
+}
+
 try {
   fs.mkdirSync(evidenceRoot, { recursive: true });
 
@@ -243,6 +273,28 @@ try {
     1,
     ['交接資料未齊', '缺少', '共同目標', '證據位置'],
   );
+
+  writeTempApsConfig('starter_pack_demo', 'adam');
+  const peerResult = runApsProcess(['peer', 'add', '--agent-id', 'user2', '--display-name', 'User 2']);
+  const peerOutput = outputOf(peerResult);
+  assert(peerResult.status === 0, `peer add starter pack: expected exit 0, got ${peerResult.status}`, peerOutput);
+  const starterPath = path.join(hubRoot, '_hub', 'starter-pack-starter_pack_demo-user2.md');
+  const starter = fs.readFileSync(starterPath, 'utf8');
+  for (const text of [
+    'adam 想邀請你一同用 Agent Public Squares（APS）進行 AI 跨機協作。',
+    'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html',
+    '給人看的逐步詳解',
+    'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html',
+    '項目代號要跟我完全一樣',
+    '\nstarter_pack_demo\n',
+    '\nuser2\n',
+    '你在自己本機的 AI Project 目錄如常打開 AI 工具即可',
+    'Google Drive 共用資料夾只是 APS 用來同步交接資料',
+  ]) {
+    assert(starter.includes(text), `starter pack: missing ${text}`, starter);
+  }
+  assert(!starter.includes('你大致要做這幾件事： ☁️'), 'starter pack: invitation must not collapse into one paragraph', starter);
+  console.log('PASS starter pack invitation is readable and AI-agent led');
 
   publishReadyProject('strict_publish_complete');
   expectPublishCase(
@@ -727,5 +779,10 @@ try {
 
   console.log('Project Context Index regression checks passed.');
 } finally {
+  if (existingApsConfig === null) {
+    fs.rmSync(path.dirname(apsConfigPath), { recursive: true, force: true });
+  } else {
+    writeFile(apsConfigPath, existingApsConfig);
+  }
   fs.rmSync(runRoot, { recursive: true, force: true });
 }

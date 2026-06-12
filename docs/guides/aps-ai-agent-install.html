@@ -86,30 +86,33 @@
 </nav>
 
 <header class="cover">
-  <div class="eyebrow">給本機 AI 代理讀</div>
-  <h1>帶用戶安裝與設定 Agent Public Squares</h1>
-  <p class="subtitle">本頁不是給普通聊天 AI 使用。你必須是能讀寫本機項目資料夾、能執行終端機命令、能上網核對文件的本機代理型 AI，例如 Codex 或 Claude Code。APS 會把同一項目中協作者之間的任務交接，整理成共用 Google Drive 資料夾中的一對一 handoff packet。</p>
+  <div class="eyebrow">只給本機 AI 代理讀</div>
+  <h1>本頁是 AI 代理安裝指令，不是人類手動教學</h1>
+  <p class="subtitle">人類用戶只需要把本頁交給能操作本機資料夾與終端機的 AI 代理，例如 Codex 或 Claude Code。AI 代理必須先讀完整頁面，再向用戶確認路徑與寫入計劃；人類不需要自行逐條執行下面的命令。</p>
 </header>
 
 <section>
+  <h2>AI 代理先讀摘要</h2>
+  <ul>
+    <li>目前工作目錄應是用戶自己的 AI Project 目錄。</li>
+    <li>不要在 Google Drive 共用資料夾內安裝 APS；它只作 APS 交接同步區。</li>
+    <li>AI 先做只讀檢查，再列出寫入計劃，等用戶確認後才執行。</li>
+    <li>新安裝路徑是 Agent Handoff Kit → npm install → APS init → APS doctor。</li>
+    <li>既有 APS 項目走升級路徑，不要重建共用 Drive 資料夾。</li>
+    <li>安裝後先建立項目共同簡報，不要直接邀請協作者或發交接包。</li>
+  </ul>
+</section>
+
+<section>
   <h2>任務定位</h2>
-  <p>你的任務是帶非技術用戶在目前本機項目資料夾安裝並設定 Agent Public Squares。用戶會提供三項資料：Google Drive 本機路徑、項目代號、自己的 agent id。你不可猜測這三項。</p>
+  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝並設定 Agent Public Squares。用戶會提供三項資料：Google Drive 本機路徑、項目代號、自己的 agent id。你不可猜測這三項。</p>
   <div class="callout warn">
     <strong>安全邊界：</strong>任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼、影響哪些路徑，並取得用戶確認。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
   </div>
 </section>
 
 <section>
-  <h2>用戶可複製的起步 prompt</h2>
-  <p class="lede">若用戶未提供明確任務，可要求他把以下整段貼給本機代理型 AI。</p>
-  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝和設定 Agent Public Squares：
-https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
-
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供。</pre>
-</section>
-
-<section>
-  <h2>先做只讀檢查</h2>
+  <h2>AI 的安裝前只讀檢查</h2>
   <ol class="steps">
     <li><strong>確認能力。</strong>如果你不能讀寫本機資料夾或不能執行命令，停止並告訴用戶要改用 Codex、Claude Code 或同等本機代理型 AI。</li>
     <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
