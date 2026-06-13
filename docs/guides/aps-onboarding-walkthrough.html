@@ -159,10 +159,13 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 <section>
   <h2>人工備用命令</h2>
   <p class="lede">一般新手不用自己打。只有在 AI 代理要求你手動執行，或你想排錯時才看這段。</p>
-  <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init
+  <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init --dry-run --root "&lt;目前項目資料夾&gt;"
+npx --yes @adamchanadam/agent-handoff-kit@latest init --yes --root "&lt;目前項目資料夾&gt;"
 npm install --save-dev @adamchanadam/aps@latest
-npx aps init
+npx aps init --dry-run
+npx aps init --hub-root "&lt;Google Drive 本機路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的_APS_名稱&gt;
 npx aps doctor</pre>
+  <p>不要用 <code>npx aps init --help</code> 查用法；查用法請用 <code>npx aps --help</code>。非互動終端先用 <code>--dry-run</code> 預覽，正式設定時帶齊 <code>--hub-root</code>、<code>--project</code>、<code>--agent-id</code>。</p>
 </section>
 
 <footer>

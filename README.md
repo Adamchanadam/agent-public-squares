@@ -20,8 +20,8 @@ APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可�
 
 | 項目 | 目前狀態 |
 |---|---|
-| 公開版本 | `@adamchanadam/aps@0.2.22` |
-| 最新 GitHub release | `v0.2.22` |
+| 公開版本 | `@adamchanadam/aps@0.2.23` |
+| 最新 GitHub release | `v0.2.23` |
 | 授權 | Apache License 2.0 |
 | 支援環境 | Node.js 18 或以上 |
 | 建議用途 | 受控實際試行、雙方 AI 交接測試、日常協作流程打磨 |
@@ -74,7 +74,7 @@ APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤
 
 ### APS 目前是否生產級？
 
-不是。`@adamchanadam/aps@0.2.22` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
+不是。`@adamchanadam/aps@0.2.23` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
 
 ## 文件與支援入口
 
@@ -133,7 +133,7 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 - 證據或檔案在哪裡
 - 還有甚麼風險或未決事項
 
-對方那邊不用靠記憶猜。他只要在自己的項目資料夾叫 AI `check Drive`，AI 就會從共用 Drive 資料夾讀取交接包，先整理摘要與風險，再判斷能否接手。你亦可以說 `Check APS`，查看整個項目的收件、發件、協作對象、下一步和風險摘要。
+對方那邊不用靠記憶猜。他應先在自己的項目資料夾叫 AI `Check APS`，核對自己是否已收到並確認最新版共同目標與分工，再決定是否讀普通交接。當某件交接被判斷為可開工，才叫 AI `check Drive` 讀交接包正文、證據與請他做的事。`Check APS` 會查看收件、發件、協作對象、共同目標與分工、下一步、風險和排錯用同步資料；同時會更新本機 HTML dashboard。個人行動頁是 `_context/dashboard_<APS名稱>.html`；共用 `_context/dashboard.html` 只是入口頁，用來選自己的 APS 名稱，不應當成任何人的待辦頁。
 
 ## 功能一覽
 
@@ -182,8 +182,8 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 
 | 想做的事 | 指令 / 說法 | APS 會做甚麼 |
 |---|---|---|
-| 查看整體狀態 | `check-aps` | 整理收件、發件、協作對象、下一步和風險 |
-| 生成儀表板 | `dashboard` | 產生本機唯讀 HTML 概覽快照 |
+| 查看整體狀態 | `check-aps` | 先判斷能否推進、卡在哪、下一步要叫 AI 做甚麼；再整理收件、發件、協作對象、共同目標與分工、風險和排錯用同步資料，並按需更新本機 HTML dashboard |
+| 生成儀表板 | `dashboard` | 產生本機唯讀 HTML 營運快照；個人頁是 `_context/dashboard_<APS名稱>.html`，共用 `_context/dashboard.html` 只是入口 |
 | 建立背景索引 | `context` / `context add` / `context html` | 把已讀交接整理成項目背景索引；只作背景，不取代交接包 |
 
 ### APS 不會做的事
@@ -201,7 +201,7 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 目前公開版本是：
 
 ```text
-@adamchanadam/aps@0.2.22
+@adamchanadam/aps@0.2.23
 ```
 
 它已經可以安裝，並可用於受控實際試行。它仍是前期測試版，不應承諾為生產級工具。
@@ -224,11 +224,15 @@ Agent Public Squares 不是自動通知系統。
 如果你熟悉終端機，也可以手動執行。新項目順序是：
 
 ```powershell
-npx --yes @adamchanadam/agent-handoff-kit@latest init
+npx --yes @adamchanadam/agent-handoff-kit@latest init --dry-run --root "<目前項目資料夾>"
+npx --yes @adamchanadam/agent-handoff-kit@latest init --yes --root "<目前項目資料夾>"
 npm install --save-dev @adamchanadam/aps@latest
-npx aps init
+npx aps init --dry-run
+npx aps init --hub-root "<Google Drive 本機路徑>" --project <項目代號> --agent-id <自己的_APS_名稱>
 npx aps doctor
 ```
+
+不要用 `npx aps init --help` 查用法，因為 `init` 可能進入互動邏輯。查用法請用 `npx aps --help`；非互動終端要用 `--dry-run` 預覽，正式設定時傳入 `--hub-root`、`--project`、`--agent-id`。
 
 舊項目升級：
 

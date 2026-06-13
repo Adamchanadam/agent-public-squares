@@ -131,7 +131,7 @@
     <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
     <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化；已存在時，不要重複初始化，先跑健康檢查，必要時才建議升級。</li>
     <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
-    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 APS 名稱。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer。</li>
+    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 APS 名稱。Google Drive 本機路徑要由用戶在 Windows 檔案總管打開目標共用資料夾，點地址列後複製完整本機路徑；不要用瀏覽器網址，不要照抄別人電腦上的 <code>G:\...</code> 或 <code>C:\...</code>。如果你看不到該路徑或不能確認它存在，停下來請用戶先處理同步。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer。</li>
     <li><strong>確認 Google Drive 目標資料夾可離線使用。</strong>請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
   </ol>
   <figure>
@@ -198,7 +198,8 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
       <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>；新項目已初始化，既有項目已健康檢查，必要升級已經用戶確認。</td></tr>
       <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 APS 名稱。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
-      <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，讀取整體 APS 狀態：收件、發件、協作對象、下一步、風險與按需 dashboard。它不是自動派工，也不是背景自動監察。</td></tr>
+      <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，先回答現在能否推進、卡在哪、下一句要叫 AI 做甚麼；再讀取項目代號、共同目標與分工、收件、發件、協作對象、風險與排錯用同步資料。它不是自動派工，也不是背景自動監察。</td></tr>
+      <tr><td>HTML dashboard</td><td><code>check-aps</code> 會按需更新個人頁 <code>_context/dashboard_&lt;APS名稱&gt;.html</code>，並更新共用入口 <code>_context/dashboard.html</code>。個人頁才可顯示「待我處理」「我交出去的事」和下一步；共用入口只用來選自己的 APS 名稱頁，不可冒充任何一位用戶視角。本機共用 Drive 路徑只適用於這部電腦，不可放入給對方的通知。</td></tr>
       <tr><td>下一步</td><td>先帶用戶建立「共同目標與分工」，確認共同目標、參與者、角色、第一輪分工、不可做事項、驗收標準、第一個邀請對象與第一輪交接對象；確認後，必須問是否本機保存、發給 confirmed peer 確認，或先邀請對方再發確認包。示範人名不得當作固定預設。</td></tr>
     </tbody>
   </table>

@@ -32,7 +32,7 @@ description: Sets up and runs cross-machine collaboration between AI agents on t
 - 新手遇到技術操作時,AI 要主動提供協助,不要只把責任推回用戶。若問題涉及 Google Drive、Google Drive Connector、MCP、Claude Code、Codex、npm、GitHub、作業系統權限、雲端分享或其他外部工具設定,必須先查官方文件或官方產品說明,再用繁體中文整理成可照做的步驟。未查到官方來源時,只能標示為未核實,不得憑 LLM 內建記憶作答。
 - **品牌與版本分流硬規則**:APS 與 Agent Handoff Kit 是不同產品層。APS skill 不得輸出 Agent Handoff Kit 的啟動卡、貓圖 banner、`continuity ready` 或 `Agent Handoff Kit v<版本>`。若需要提版本,只能分開列明:「APS CLI: 由 `npx aps doctor` 或 `npx aps --help` 實測所得」;「Agent Handoff Kit: 只有實際執行 kit doctor 或讀到已驗證本地紀錄時才可列明,否則寫未核實」。不得把 APS package 版本當成 Agent Handoff Kit 版本。
 - **候選版本測試規則**:若用戶正在測試未發布候選版,先核對 `npx aps --help` 或 `npx aps doctor` 顯示的 APS CLI 版本。若它仍是 npm 最新公開版,不得聲稱正在測試候選版;需改用本地 CLI 路徑或先把本地 package 安裝到該 UAT 專案。
-- **新安裝 / 升級分流硬規則**:沒有 `.aps/config.json` 的項目走新安裝:先確認 Agent Handoff Kit 已初始化;若缺 `AGENTS.md`、`dev/RULE_PACKS.md` 或 `dev/PROJECT_INDEX.md`,先執行或提示用戶執行 `npx --yes @adamchanadam/agent-handoff-kit@latest init`,再 `npm install --save-dev @adamchanadam/aps@latest` 與 `npx aps init`。已有 `.aps/config.json` 的項目走升級:先 `npm install --save-dev @adamchanadam/aps@latest`,再 `npx aps upgrade`。升級時不得要求用戶重建共用 Drive 資料夾,不得覆寫既有交接包、outbox、ack 或共用 Drive 資料夾的協定檔。
+- **新安裝 / 升級分流硬規則**:沒有 `.aps/config.json` 的項目走新安裝:先確認 Agent Handoff Kit 已初始化;若缺 `AGENTS.md`、`dev/RULE_PACKS.md` 或 `dev/PROJECT_INDEX.md`,非互動終端先用 `npx --yes @adamchanadam/agent-handoff-kit@latest init --dry-run --root "<目前項目資料夾>"` 預演,用戶確認後才用 `init --yes --root "<目前項目資料夾>"` 正式初始化。再執行 `npm install --save-dev @adamchanadam/aps@latest`。APS 初始化不要直接跑裸 `npx aps init`,也不要用 `npx aps init --help` 查用法;查用法用 `npx aps --help`,預演用 `npx aps init --dry-run`,正式設定必須傳入 `--hub-root`、`--project`、`--agent-id`。已有 `.aps/config.json` 的項目走升級:先 `npm install --save-dev @adamchanadam/aps@latest`,再 `npx aps upgrade`。升級時不得要求用戶重建共用 Drive 資料夾,不得覆寫既有交接包、outbox、ack 或共用 Drive 資料夾的協定檔。
 - **agent_id 一致性硬規則**:`agent_id` 是整個共用 Drive 資料夾共用的身份名稱,不是每部電腦各自重新命名的暱稱。三問安裝時,每一方只設定自己的名稱;普通邀請只交代 project 與加入方法,不替對方預先取名或建 lane。受邀者完成自己電腦上的 `init` 後,其自選名稱才成為技術身份。文內 `adam`、`jay`、`fanny`、`jackie` 等只作示範,不得當作產品預設、固定角色或 hard-coded 流程。若兩邊名稱不一致,AI 必須先提醒會讀錯 `from_<agent>` 通道,導致 inbox 看不到交接包或共用 Drive 資料夾內出現多套 lane,再協助用戶用 `npx aps config` 或 `npx aps upgrade` 對齊。
 - **Project Peers 硬規則**:一個 APS project 可以有多位 peers,但每個 packet 仍只可發給一個 peer。`otherAgentId` 是舊二人相容預設,不是整個 project 永久只能合作一人的限制。用戶說「邀請協作者加入這個 APS project」時,普通主路徑是 `npx aps peer invite`:生成可轉發邀請,讓對方在自己的電腦選定 APS 名稱並完成設定;此命令不得預先建立對方 lane、ack 或 peer card。只有雙方已明確約定對方技術身份時,才用 `npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>` 建立 provisional peer 與 starter pack。用戶說「把這部分交給某位協作者」時,先用 `npx aps peers` 確認該 peer 是否已 confirmed;若 confirmed,才用 `npx aps publish --to <對方_agent_id> ...`;若 provisional 或未出現,先輸出邀請 / starter pack 通知。不得建立多收件人 packet、群組 lane 或自動通知對方 AI。
 - **項目開局對齊硬規則**:第一位用戶新安裝完成後,或任何用戶第一次說「教我用 APS / 下一步 / 怎樣開始」而項目尚未有清楚共同口徑時,AI 必須先帶用戶建立「共同目標與分工」,再邀請 peer、發測試包或發第一輪正式交接。共同目標與分工是 project-level shared baseline:同一個 APS project 只可有一份「目前有效」基準;它可有版本和修訂,但不可由不同 peer 各自建立平行版本。這份基準至少包含共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。這八項是最低欄位;AI 可按項目增加截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制等欄位,但不得刪除會影響共同口徑的核心欄位。AI 可從對話和檔案可靠整理草稿,不足才問最多三個關鍵問題。未經用戶確認共同目標與分工前,不得把模糊分工寫入 APS packet,不得把邀請對象當成已定任務收件人,也不得聲稱團隊口徑已一致。用戶確認後,AI 必須主動問是否落地:本機保存、發給 confirmed peer 確認,或在對方未加入時先邀請並於 confirmed 後發確認包;不得只把基準留在對話中而不標示未落地。若項目已有基準,後加入 peer 必須先取得或確認最新基準,不可自行重建另一份。若有三位或以上 confirmed peers,同一基準要逐一發給受影響 peer 確認;APS 沒有群發確認。
@@ -62,7 +62,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 - **項目開局對齊**:用戶語句出現「建立共同目標與分工」「建立共同簡報」「項目共同目標」「先定分工」「開局對齊」「kickoff」「alignment」「project brief」「第一輪分工」「多人項目點開始」等,或安裝完成後 AI 發現尚未有明確共同目標 / 分工 / 驗收標準 → 進入「項目開局對齊子流程」(第 4.2 節)。「共同簡報」只視為舊稱或觸發別名;主流程名稱使用「共同目標與分工」。
 - **一語交接 / 發佈**:用戶語句出現「幫我將當前任務交接給 B」「把目前任務整理成 APS 交接包給對方」「我有嘢俾 X」「post to X」「交份嘢」「publish」「我做完份嘢,要俾 [對方]」等,或語意指向「將當前任務、目前上下文或已完成工作交給對方」的同類語句 → 進入「發佈子流程」(第 6 節)。
 - **邀請 peer / peer 狀態**:用戶語句出現「邀請指定協作者加入 APS」「新增協作對象」「生成給指定協作者的 starter pack」「對方收到未」「看看對方有沒有處理」等,或語意指向「管理 project peer 或查發送狀態」的同類語句 → 進入「Project Peers 子流程」(第 5.1 節)。
-- **APS 整體狀態**:用戶語句明確出現「Check APS」「check-aps」「檢查 APS 狀態」「APS 狀態」等,代表要看整體 APS 狀態,包括收件、發件、peer、下一步、風險和按需 dashboard。先進入「首次使用子流程」(第 5 節),並使用 `npx aps check-aps`。不要把泛稱「狀態」「check」「下一步」單獨當作 APS 觸發。
+- **APS 整體狀態**:用戶語句明確出現「Check APS」「check-aps」「檢查 APS 狀態」「APS 狀態」等,代表要看整體 APS 狀態。輸出必須先回答「現在能否推進、卡在哪、下一句要叫 AI 做甚麼」,再整理共同目標與分工、收件、發件、peer、風險、按需 dashboard 和排錯用同步資料。本機共用 Drive 路徑只作本機打開資料夾 / 排錯用途,不要放在首屏搶過工作判斷。先進入「首次使用子流程」(第 5 節),並使用 `npx aps check-aps`。不要把泛稱「狀態」「check」「下一步」單獨當作 APS 觸發。
 - **收件**:用戶語句出現「check Drive」「check Hub」「Hub 有新嘢」「X 嗰邊有冇新嘢」「check inbox」「未消化」「[對方] 整咗咩」等,或語意指向「查看對方有甚麼新東西交過來」的同類語句 → 進入「收件子流程」(第 7 節)。
 - **共識確認**:用戶語句出現「理解不一致」「不是做同一任務」「brief 不一致」「要求不同」「先確認共識」「不要先做」「alignment」「clarification」等,或 AI 讀取交接包後發現共同目標、任務範圍、檔案版本、交付要求與本方已知狀態不一致 → 進入「共識確認子流程」(第 8 節)。
 - **出錯 / 補救**:用戶語句出現「Drive 同步唔到」「X 話收唔到」「sync stuck」「conflict」「出錯」「Claude Code 唔識個 skill」「Agent Handoff Kit 未 init」「對方未 share」等,或語意指向「跨機合作流程中的某環節出錯需要補救」的同類語句 → 進入「補救子流程」(第 9 節)。
@@ -82,12 +82,12 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 3. **三項決定(三問安裝)**:逐項問,接著記入內部狀態 — 共用 Drive 資料夾完整路徑、項目代號、你自己的名稱(own agent_id)。**不問對方是誰,也不問第一個交接包由誰先發**;起手方向由 CLI 自動推斷,只作預設提示,不用於授權。
    - 問「你自己的名稱」時,按「agent_id 一致性硬規則」提醒:這是共用 Drive 資料夾內的共享身份,日後邀請對方時雙方須沿用同一套身份名稱。
 4. **預設值確認**:列預設值,等用戶回「OK」或指明想改哪一件 + 改成甚麼。
-5. **執行 CLI 設置**— 優先使用互動式 `npx aps init`,不要手寫 Hub skeleton、Bridge Pack 或 starter pack:
+5. **執行 CLI 設置**— 優先使用 CLI 的非互動參數,不要手寫 Hub skeleton、Bridge Pack 或 starter pack:
    - 先確認目前工作目錄已執行 `npm install --save-dev @adamchanadam/aps@latest`。
-   - 執行 `npx aps init`。互動式只問三項:按前面已確認的 `hub_root`、`project_slug`、`own_agent_id` 回答。**不會問對方 agent_id,也不會問角色 A / B**。
-   - 工具列出寫入計劃後,先向用戶覆述即將寫入的位置;取得用戶確認後才輸入 `yes`。
+   - 非互動終端不要直接跑 `npx aps init`,也不要用 `npx aps init --help` 查用法;查用法用 `npx aps --help`。先執行 `npx aps init --dry-run` 預演,把即將寫入的位置覆述給用戶。
+   - 用戶確認後,用已確認三項資料執行 `npx aps init --hub-root "<Google Drive 本機路徑>" --project <project_slug> --agent-id <own_agent_id>`。**不會問對方 agent_id,也不會問角色 A / B**。
    - 成功後驗證 `dev/rules/aps-bridge.md`、`.aps/config.json`、共用 Drive 資料夾的 `_hub/PROTOCOL.md`、自己的 `from_<own_agent_id>/outbox.log.md` 與 `_ack/<own_agent_id>.ack.json` 均存在。**三問安裝只設定用戶自己這一邊:不會建立對方通道,也不會生成 starter pack —— 那些在邀請對方時(第 6 步 / 第 5.1 節)才產生。**
-   - 若需要 AI 或腳本代為執行非互動流程,使用 `npx aps init --hub-root ... --project ... --agent-id ...`(`--other-agent-id` 與 `--role A|B` 可選,只設自己即可)。不得使用含尖括號 `<>` 或 `...` 的 placeholder。
+   - 若需要 AI 或腳本代為執行非互動流程,不得使用含尖括號 `<>` 或 `...` 的 placeholder;必須把用戶確認過的真實本機路徑、project slug 和 own agent id 寫入命令。
 6. **邀請對方**:
    - 三問安裝**不會**生成 starter pack。當用戶想邀請新協作者時(可以即時,亦可以日後),普通主路徑用 `npx aps peer invite` 生成開放邀請。這只寫入 `_hub/open-invite-<項目>.md`,不建立對方 lane、ack 或 peer card;對方會在自己的電腦選定 APS 名稱。
    - 若雙方已約定對方的 APS 技術名稱,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 與 starter pack。
@@ -192,12 +192,12 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    ```text
    npx aps check-aps
    ```
-   它輸出對話可讀的 APS 整體狀態摘要,並按需更新 `_context/dashboard.html`。狀態摘要會把已同步資料中可追溯的線索整理成「下一步」:你要處理甚麼、哪些交接等待對方、哪些風險要先核對。這只是唯讀整理,不是自動派工,也不是背景自動監察;只有用戶明確要求 `Check APS` 或 AI 在 APS 流程內需要刷新狀態時才執行。
+   它輸出對話可讀的 APS 整體狀態摘要,並按需更新個人頁 `_context/dashboard_<APS名稱>.html` 與共用入口 `_context/dashboard.html`。狀態摘要必須先回答現在能否推進、卡在哪、下一句要叫 AI 做甚麼;再整理項目代號、共同目標與分工、peer 確認、收件、發件、風險和排錯用同步資料。若有 confirmed peer 但未見 `shared_goal_and_roles` 基準,下一步是先建立或補發共同目標與分工,不是發普通測試包。若有 pending 交接,必須逐件判斷「可開工 / 需退回補資料 / 先確認共同目標 / 等待對方修訂」,不可把 pending 一律寫成「你要處理」。本機共用 Drive 路徑和 packet / outbox / ack 說明應降到排錯區。這只是唯讀整理,不是自動派工,也不是背景自動監察;只有用戶明確要求 `Check APS` 或 AI 在 APS 流程內需要刷新狀態時才執行。
    需要只生成 HTML 快照時,使用:
    ```text
    npx aps dashboard
    ```
-   它生成 `_context/dashboard.html`,只讀 packet / outbox / ack / peer cards / context log,不會自動通知、不會 consume、不會 close。
+   它生成 `_context/dashboard_<APS名稱>.html` 個人行動頁,並生成 / 更新 `_context/dashboard.html` 共用入口。個人頁才可顯示「待我處理」「我交出去的事」和下一步;共用入口只列出各 APS 名稱的個人頁,不得冒充任何一位用戶視角。這些 HTML 只讀 packet / outbox / ack / peer cards / context log,不會自動通知、不會 consume、不會 close。個人頁首屏應先顯示開工判斷、卡點和下一步,每個主要資料項都應有行動出口。當用戶要核對目標、分工、收件、發件、風險,或需要把狀態展示給旁邊的人看時,應主動提及可打開自己的 dashboard。HTML 可以在排錯區顯示本機共用 Drive 路徑並提供打開資料夾連結,但必須標明只適用於這部電腦,不得把該路徑放入給對方的通知。
    Dashboard 可以反映已同步資料內的明確狀態,例如對方 ack 已記錄、交接已收結或已撤回;但不得把「已寫入共用 Drive 資料夾」說成「對方已收到通知」。
 5. **順手看收件箱**:
    ```text

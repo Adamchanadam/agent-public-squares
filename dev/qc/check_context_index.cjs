@@ -477,10 +477,12 @@ try {
   const declineDashboard = runApsProcess(['dashboard']);
   const declineDashboardOutput = outputOf(declineDashboard);
   assert(declineDashboard.status === 0, `decline dashboard: expected exit 0, got ${declineDashboard.status}`, declineDashboardOutput);
-  const declineDashboardHtml = fs.readFileSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard.html'), 'utf8');
+  const declineDashboardHtml = fs.readFileSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard_adam.html'), 'utf8');
+  const declineDashboardIndexHtml = fs.readFileSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard.html'), 'utf8');
   for (const text of ['對方退回', 'missing source file', 'revise 修訂', 'withdraw 撤回', 'close 收結']) {
     assert(declineDashboardHtml.includes(text), `decline dashboard html: missing ${text}`, declineDashboardHtml);
   }
+  assert(declineDashboardIndexHtml.includes('共用索引，不是個人待辦頁'), 'decline dashboard index: missing shared-index boundary', declineDashboardIndexHtml);
   console.log('PASS decline marks packet returned and surfaces sender next action');
 
   const identityProjectRoot = makeHandoffProject('identity-conflict-project');
@@ -859,13 +861,27 @@ try {
   inboxPacket('dashboard_daily', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary');
   writeFile(
     path.join(hubRoot, 'dashboard_daily', 'from_adam', 'outbox.log.md'),
-    '2026-05-31T12:10:00Z | publish | 20260531T121000Z__release_review v1 | to:jay | items:1\n',
+    [
+      '2026-05-31T12:05:00Z | publish | 20260531T120500Z__shared_goal_and_roles v1 | to:jay | items:1',
+      '2026-05-31T12:10:00Z | publish | 20260531T121000Z__release_review v1 | to:jay | items:1',
+      '',
+    ].join('\n'),
+  );
+  writeFile(
+    path.join(hubRoot, 'dashboard_daily', 'from_adam', 'packets', '20260531T120500Z__shared_goal_and_roles__v1', 'packet.md'),
+    `---\npacket_id: 20260531T120500Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: dashboard_daily\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-05-31T12:05:00Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"確認這份共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## 共同目標\n用 APS 驗證一個人可快速看懂項目現況、分工與下一步。\n\n## 每人角色\nadam 負責發起與整理; jay 負責確認可讀性與回覆。\n\n## 第一輪分工\nadam 發出共同目標與分工; jay 確認或指出不一致。\n\n## 驗收標準\nDashboard 首屏能看到共同目標、角色分工、交接同步和下一步。\n`,
   );
   writeFile(
     path.join(hubRoot, 'dashboard_daily', 'from_adam', 'packets', '20260531T121000Z__release_review__v1', 'packet.md'),
-    `---\npacket_id: 20260531T121000Z__release_review\nversion: 1\nfrom: adam\nto: jay\nproject: dashboard_daily\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-05-31T12:10:00Z\nssot_refs: []\nscope: \"release_review\"\nitems:\n  - id: \"確認 Dashboard 是否可讀\"\n---\n\n# release_review\n\n## 共同目標\n確認 Daily Index 是否比純 context overview 更有用。\n`,
+    `---\npacket_id: 20260531T121000Z__release_review\nversion: 1\nfrom: adam\nto: jay\nproject: dashboard_daily\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-05-31T12:10:00Z\nssot_refs: []\nscope: \"release_review\"\nitems:\n  - id: \"確認 Dashboard 是否可讀\"\n---\n\n# release_review\n\n## 共同目標\n確認 APS 營運總覽是否比純 context overview 更有用。\n`,
   );
   writeAck('dashboard_daily', 'jay', [
+    {
+      packet_id: '20260531T120500Z__shared_goal_and_roles',
+      version: 1,
+      result: 'Confirmed shared goal and roles v1',
+      at: '2026-05-31T12:20:00Z',
+    },
     {
       packet_id: '20260531T121000Z__release_review',
       version: 1,
@@ -883,8 +899,19 @@ try {
     ],
     status: 'background_only',
     workstream: 'dashboard',
-    current_focus: 'Daily Index should show pending handoffs, sent status, and suggested reading.',
+    current_focus: 'APS operations overview should show whether work can move, pending handoffs, sent status, and evidence sources.',
   });
+  writeTempApsConfig('dashboard_no_baseline', 'adam');
+  writeFile(path.join(hubRoot, 'dashboard_no_baseline', 'from_adam', 'outbox.log.md'), '');
+  writeFile(path.join(hubRoot, 'dashboard_no_baseline', 'from_jay', 'outbox.log.md'), '');
+  writeFile(
+    path.join(hubRoot, 'dashboard_no_baseline', '_peers', 'agents', 'adam.json'),
+    `${JSON.stringify({ project: 'dashboard_no_baseline', agent_id: 'adam', display_name: 'Adam', lane: 'from_adam', status: 'active', peer_state: 'confirmed' }, null, 2)}\n`,
+  );
+  writeFile(
+    path.join(hubRoot, 'dashboard_no_baseline', '_peers', 'agents', 'jay.json'),
+    `${JSON.stringify({ project: 'dashboard_no_baseline', agent_id: 'jay', display_name: 'Jay', lane: 'from_jay', status: 'active', peer_state: 'confirmed' }, null, 2)}\n`,
+  );
 
   expectCase(
     'valid context',
@@ -987,10 +1014,11 @@ try {
     ['已生成唯讀 HTML 大局速覽', 'overview.html'],
   );
   const overviewHtml = fs.readFileSync(path.join(hubRoot, 'context_add', '_context', 'overview.html'), 'utf8');
-  assert(overviewHtml.includes('執行真相一律以 packet / outbox / ack 為準'), 'context html: missing packet authority warning', overviewHtml);
+  assert(overviewHtml.includes('APS 營運總覽'), 'context html: missing operations overview title', overviewHtml);
+  assert(overviewHtml.includes('資料是否同步'), 'context html: missing troubleshooting sync section', overviewHtml);
   assert(overviewHtml.includes('daily_summary'), 'context html: missing generated context workstream', overviewHtml);
   assert(overviewHtml.includes('packet:jay:20260531T120000Z__daily_summary:v1'), 'context html: missing source ref', overviewHtml);
-  assert(!overviewHtml.includes(path.join(hubRoot, 'context_add')), 'context html: should not expose local absolute project path', overviewHtml);
+  assert(overviewHtml.includes('這只適用於這部電腦，不要放入給對方的通知'), 'context html: local path should be marked machine-local', overviewHtml);
   console.log('PASS context html contains safe overview content');
   expectCase(
     'context html marks conflict freshness as bad',
@@ -1002,55 +1030,173 @@ try {
   assert(conflictHtml.includes('badge bad') && conflictHtml.includes('與 packet 衝突'), 'context html: conflict freshness should use bad badge', conflictHtml);
   console.log('PASS context html uses bad badge for conflict freshness');
   expectDashboardCase(
-    'dashboard creates daily index',
+    'dashboard creates operations overview',
     ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay'],
     0,
-    ['已生成唯讀 Daily Index', 'dashboard.html'],
+    ['已生成唯讀 APS 營運總覽', '個人 dashboard', 'dashboard_adam.html', '共用入口', 'dashboard.html'],
   );
-  const dashboardHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html'), 'utf8');
+  const dashboardHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard_adam.html'), 'utf8');
+  const dashboardIndexHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html'), 'utf8');
   for (const text of [
-    '下一步',
-    '這裡只整理已同步資料中可追溯的行動線索，不是自動派工。',
-    '你要處理',
+    'APS 營運總覽',
+    '新手決策視角',
+    '頁面擁有人',
+    '👤 個人頁',
+    '只看這個 APS 名稱的待辦',
+    '不是你？返回共用入口',
+    '自己',
+    '對方',
+    '🔎 現在怎樣做',
+    '🚀 待我處理',
+    '看到 pending 不等於可以直接做',
+    '開工判斷',
+    '⚠️ 需退回補資料',
+    '🎯 共同目標與分工',
+    '確認進度',
+    '用 APS 驗證一個人可快速看懂項目現況、分工與下一步。',
+    'adam 負責發起與整理; jay 負責確認可讀性與回覆。',
+    '👥 逐人確認狀態',
+    '已確認',
+    '🔧 資料是否同步',
+    '此頁只讀，不會通知對方',
     '建議下一步',
-    '今日要看',
-    '我發出的交接',
-    '建議先讀',
-    '項目背景',
-    '風險與未決',
+    '📤 我交出去的事',
+    '📎 證據來源',
+    '🗂️ 背景資料',
+    '👥 誰在這個項目',
+    '⚠️ 風險與未決',
     'daily_summary',
     '對方已標記處理',
     'ack 已記錄',
-    '可以反映已存在的 ack / close / withdraw 狀態',
     '不推斷對方是否已看到通知',
+    '打開資料夾',
+    '共用 Drive 本機路徑',
     'Google Docs',
     'https://docs.google.com/document/d/demo-project-context-index',
-    '執行真相一律以 packet / outbox / ack 為準',
+    '技術來源：已同步的 packet / outbox / ack / context',
   ]) {
     assert(dashboardHtml.includes(text), `dashboard html: missing ${text}`, dashboardHtml);
   }
-  assert(!dashboardHtml.includes(hubRoot), 'dashboard html: should not expose local absolute hub path in action or risk sources', dashboardHtml);
-  console.log('PASS dashboard contains daily index sections and Google Docs link');
+  assert(dashboardHtml.includes(hubRoot), 'dashboard html: should show local hub path in troubleshooting area', dashboardHtml);
+  assert(!dashboardHtml.includes('<h2>今日要看</h2>'), 'dashboard html: should not keep a separate 今日要看 section', dashboardHtml);
+  assert(!dashboardHtml.includes('<strong>執行真相一律以 packet / outbox / ack 為準。</strong>'), 'dashboard html: should not lead with packet authority warning', dashboardHtml);
+  for (const text of [
+    'APS dashboard 入口',
+    '共用索引，不是個人待辦頁',
+    '🧭 共用入口，不是個人待辦',
+    'dashboard_adam.html',
+    '如果你不是 adam，不要照這頁處理待辦',
+    'dashboard_jay.html 尚未生成',
+    '每次執行 <code>Check APS</code> 或 <code>dashboard</code> 時，APS 會根據 peer 清單與已生成檔案重新計算此表。',
+    '生成狀態',
+    '✅ 已生成：adam 的個人頁（本次更新）',
+    '🚀 尚未生成：jay 需要在自己的本機項目資料夾執行 Check APS',
+    '請打開自己的 APS 名稱頁',
+  ]) {
+    assert(dashboardIndexHtml.includes(text), `dashboard index html: missing ${text}`, dashboardIndexHtml);
+  }
+  assert(!dashboardIndexHtml.includes('以 adam 視角查看'), 'dashboard index html: should not claim to be adam perspective', dashboardIndexHtml);
+  assert(!dashboardIndexHtml.includes('待我處理'), 'dashboard index html: should not include personal action sections', dashboardIndexHtml);
+  console.log('PASS dashboard contains operations overview sections and Google Docs link');
   expectCheckApsCase(
     'check-aps shows full APS status and updates dashboard',
     ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay'],
     0,
     [
       'APS 整體狀態',
+      '共同目標與分工: 20260531T120500Z__shared_goal_and_roles v1: 1/1 已確認',
+      '開工判斷',
       '待你處理: 1',
-      '你發出的交接: 1',
-      '尚未看到對方處理: 0',
-      '下一步',
-      '[你要處理]',
-      '[先核對風險]',
+      '你交出去的事: 2',
+      '等待對方: 0',
+      '用 APS 驗證一個人可快速看懂項目現況、分工與下一步。',
+      '逐人確認: jay: 已確認',
+      '資料是否同步（排錯用）',
+      'HTML dashboard',
+      '目前判斷',
+      '待我處理',
+      '[⚠️ 需退回補資料]',
+      '[🔎 先核對風險]',
       '來源:',
-      '今日要看',
-      '我發出的交接',
+      '我交出去的事',
       '協作對象',
-      'Dashboard 已按需更新',
+      '個人 dashboard 已按需更新',
+      '共用 dashboard 入口已按需更新',
       '不是背景自動監察',
     ],
   );
+  expectCheckApsCase(
+    'check-aps routes confirmed peers to shared goal baseline before task packets',
+    ['--hub-root', hubRoot, '--project', 'dashboard_no_baseline', '--agent-id', 'adam'],
+    0,
+    [
+      '共同目標與分工: 未見目前有效基準',
+      '[🔎 先建立基準]',
+      '不要先發普通任務包',
+      'shared_goal_and_roles',
+      '資料是否同步（排錯用）',
+    ],
+  );
+  writeTempApsConfig('dashboard_dynamic_names', 'mary');
+  for (const peerId of ['mary', 'tom', 'fanny']) {
+    writeFile(path.join(hubRoot, 'dashboard_dynamic_names', `from_${peerId}`, 'outbox.log.md'), '');
+    writeFile(
+      path.join(hubRoot, 'dashboard_dynamic_names', '_peers', 'agents', `${peerId}.json`),
+      `${JSON.stringify({
+        project: 'dashboard_dynamic_names',
+        agent_id: peerId,
+        display_name: peerId.toUpperCase(),
+        lane: `from_${peerId}`,
+        status: 'active',
+        peer_state: 'confirmed',
+      }, null, 2)}\n`,
+    );
+  }
+  expectDashboardCase(
+    'dashboard index is driven by arbitrary APS names',
+    ['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names', '--agent-id', 'mary'],
+    0,
+    ['dashboard_mary.html', 'dashboard.html'],
+  );
+  const dynamicIndexHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', 'dashboard.html'), 'utf8');
+  const dynamicPersonalHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', 'dashboard_mary.html'), 'utf8');
+  for (const text of [
+    '✅ 已生成：mary 的個人頁（本次更新）',
+    '🚀 尚未生成：tom 需要在自己的本機項目資料夾執行 Check APS',
+    '🚀 尚未生成：fanny 需要在自己的本機項目資料夾執行 Check APS',
+    'dashboard_tom.html 尚未生成',
+    'dashboard_fanny.html 尚未生成',
+  ]) {
+    assert(dynamicIndexHtml.includes(text), `dynamic dashboard index: missing ${text}`, dynamicIndexHtml);
+  }
+  for (const text of ['自己', '<strong>mary</strong>', '對方', '<strong>tom</strong>', '<strong>fanny</strong>']) {
+    assert(dynamicPersonalHtml.includes(text), `dynamic personal dashboard: missing ${text}`, dynamicPersonalHtml);
+  }
+  const dynamicCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names', '--agent-id', 'mary']);
+  const dynamicCheckApsOutput = outputOf(dynamicCheckAps);
+  assert(dynamicCheckAps.status === 0, `dynamic check-aps: expected exit 0, got ${dynamicCheckAps.status}`, dynamicCheckApsOutput);
+  for (const text of ['本機代理: mary', 'fanny: 已確認', 'tom: 已確認', 'dashboard_mary.html']) {
+    assert(dynamicCheckApsOutput.includes(text), `dynamic check-aps: missing ${text}`, dynamicCheckApsOutput);
+  }
+  for (const staleSnippet of [
+    'dashboard_adam.html',
+    'dashboard_jay.html',
+    'dashboard_user_2.html',
+    'adam 的個人頁',
+    'jay 的個人頁',
+    'user_2 的個人頁',
+    '本機代理: adam',
+    '逐人確認: jay',
+    'user_2 →',
+    '>adam<',
+    '>jay<',
+    '>user_2<',
+  ]) {
+    assert(!dynamicIndexHtml.includes(staleSnippet), `dynamic dashboard index: leaked stale demo snippet ${staleSnippet}`, dynamicIndexHtml);
+    assert(!dynamicPersonalHtml.includes(staleSnippet), `dynamic personal dashboard: leaked stale demo snippet ${staleSnippet}`, dynamicPersonalHtml);
+    assert(!dynamicCheckApsOutput.includes(staleSnippet), `dynamic check-aps: leaked stale demo snippet ${staleSnippet}`, dynamicCheckApsOutput);
+  }
+  console.log('PASS dashboard and check-aps are driven by arbitrary APS names');
   expectInboxCase(
     'inbox daily brief includes context as background',
     ['--hub-root', hubRoot, '--project', 'context_inbox', '--agent-id', 'adam', '--from', 'jay'],

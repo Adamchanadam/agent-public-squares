@@ -753,7 +753,7 @@ async function runInteractiveInit() {
     }
     console.log('');
     console.log('✅ APS 設定完成 (已設定你自己這一邊)。');
-    console.log('🚀 下一步:在這個項目資料夾打開 AI 工具,輸入「教我用 APS」。AI 應讀取現有設定、檢查共用 Drive 資料夾,先建立項目共同簡報;已有 confirmed peer 時才建議測試交接或正式交接。');
+    console.log('🚀 下一步:在這個項目資料夾打開 AI 工具,輸入「教我用 APS」。AI 應讀取現有設定、檢查共用 Drive 資料夾,先建立共同目標與分工;已有 confirmed peer 並完成基準確認後,才建議測試交接或正式交接。');
     console.log('🤝 想搵人一齊做?隨時可以邀請對方,幾時加都可以:');
     console.log('   • 在 AI 工具直接講「邀請新協作者加入呢個項目」,AI 會生成可轉發邀請。');
     console.log('   • 或用終端機指令 `npx aps peer invite`。');
@@ -1265,6 +1265,93 @@ function inboxActionLines(item) {
 
 function inboxAttentionText(item) {
   return noticeAttentionFromBody(item.body);
+}
+
+function packetHasAnyHeading(body, patterns) {
+  return patterns.some((pattern) => firstLineAfterHeading(body, pattern));
+}
+
+function packetBodyWithoutActionHeadings(body) {
+  return packetBodyText(body)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && !/^[-*]\s+id\s*:/i.test(line))
+    .filter((line) => !/^(共同目標|請對方做的事|風險|摘要|目標|每人角色|角色|第一輪分工|驗收標準|證據位置|不應誤解|交叉點)\s*$/i.test(line))
+    .join('\n');
+}
+
+function actionabilityPromptFor(item, sourceId) {
+  const topic = packetTopic(item.packetId);
+  if (item.actionability && item.actionability.state === 'return') {
+    return `請讀 ${sourceId} 的 ${topic} v${item.version}，判斷是否資料不足；若不足，幫我生成退回理由。`;
+  }
+  if (item.actionability && item.actionability.state === 'clarify_goal') {
+    return `請先核對共同目標與分工，再決定是否處理 ${sourceId} 的 ${topic} v${item.version}。`;
+  }
+  if (item.actionability && item.actionability.state === 'wait_revision') {
+    return `請等 ${sourceId} 修訂 ${topic} v${item.version}，暫時不要標記已處理。`;
+  }
+  return `請讀 ${sourceId} 的 ${topic} v${item.version}，先做完整性預檢，再決定是否處理。`;
+}
+
+function assessPendingActionability(item, { sharedGoal = null } = {}) {
+  const topic = packetTopic(item.packetId);
+  const scope = String(item.scope || '').trim();
+  if (topic === 'shared_goal_and_roles' || scope === 'shared_goal_and_roles') {
+    return {
+      state: 'clarify_goal',
+      label: '先確認共同目標',
+      reason: '這不是普通任務，是共同目標與分工基準。先確認同意、部分同意或有異議。',
+      next: '先讀共同目標與分工正文；確認後才處理普通交接。',
+    };
+  }
+  if (!sharedGoal || sharedGoal.state === 'missing') {
+    return {
+      state: 'clarify_goal',
+      label: '先釐清共同目標',
+      reason: '目前未見有效共同目標與分工；不應先處理普通任務。',
+      next: '先要求對方發出或補發 shared_goal_and_roles。',
+    };
+  }
+  if (sharedGoal.state === 'declined' || sharedGoal.state === 'partial' || sharedGoal.state === 'incoming_pending') {
+    return {
+      state: 'clarify_goal',
+      label: '先釐清共同目標',
+      reason: `共同目標與分工仍是「${sharedGoal.label}」；普通任務可能建立在未確認口徑上。`,
+      next: '先完成共同目標與分工確認或釐清，再處理普通任務。',
+    };
+  }
+  const body = String(item.body || '');
+  const hasAction = (item.items && item.items.length > 0) || packetHasAnyHeading(body, [/(請對方做的事|請.*做|requested action|action requested)/i]);
+  const hasGoal = packetHasAnyHeading(body, [/(共同目標|common goal|目標)/i]);
+  const hasEvidence = packetHasAnyHeading(body, [/(證據位置|證據|來源|reference|ssot|檔案|file)/i]) || /\bhttps?:\/\//i.test(body);
+  const hasRisk = packetHasAnyHeading(body, [/(風險|未決|注意|risk|open question)/i]);
+  const bodyContent = packetBodyWithoutActionHeadings(body);
+  const actionText = [
+    ...(item.items || []),
+    firstLineAfterHeading(body, /(請對方做的事|請.*做|requested action|action requested)/i) || '',
+  ].join(' ');
+  const looksLikeReviewMissingObject = /(確認|審閱|review|check|判斷|是否適合|是否可用)/i.test(actionText)
+    && !/(候選|原文|如下|：|:|「|」|『|』|https?:\/\/)/.test(bodyContent);
+  const missing = [];
+  if (!hasAction) missing.push('未清楚列出要你做的事');
+  if (!hasGoal) missing.push('未列明共同目標');
+  if (looksLikeReviewMissingObject) missing.push('要求審閱或確認，但沒有提供要審閱的實際內容');
+  if (!hasEvidence) missing.push('未列明證據或來源位置');
+  if (missing.length > 0) {
+    return {
+      state: 'return',
+      label: '需退回補資料',
+      reason: missing.join('；'),
+      next: '請對方修訂原交接，補齊缺少資料；補齊前不要標記已處理。',
+    };
+  }
+  return {
+    state: 'actionable',
+    label: '可開工',
+    reason: hasRisk ? '交接有任務、共同目標、證據或來源，並列出風險。' : '交接有任務、共同目標、證據或來源；未見阻塞缺口。',
+    next: '先讀完整交接內容，做本機對接檢查；通過後再處理或回覆。',
+  };
 }
 
 function contextInboxBrief(report) {
@@ -1985,6 +2072,183 @@ function ownOutgoingPackets({ hubRoot, projectSlug, agentId }) {
   return items;
 }
 
+function ackStateForPacket({ hubRoot, projectSlug, agentId, packetId, version }) {
+  const ackPath = path.join(projectDir(hubRoot, projectSlug), '_ack', `${agentId}.ack.json`);
+  if (!fs.existsSync(ackPath)) return { state: 'missing_ack', label: '未見 ack', ackPath };
+  try {
+    const ack = readJson(ackPath);
+    const consumed = (ack.consumed || []).find((entry) => entry.packet_id === packetId && Number(entry.version) === Number(version));
+    const declined = (ack.declined || []).find((entry) => entry.packet_id === packetId && Number(entry.version) === Number(version));
+    if (declined) return { state: 'declined', label: '已退回 / 有異議', ackPath, entry: declined };
+    if (consumed) return { state: 'confirmed', label: '已確認', ackPath, entry: consumed };
+    return { state: 'pending', label: '未確認', ackPath };
+  } catch (err) {
+    return { state: 'ack_error', label: `ack 讀取失敗: ${err.message}`, ackPath };
+  }
+}
+
+function sharedGoalTopicFrom({ packetId, summary }) {
+  const topic = packetTopic(packetId);
+  const scope = String(summary && summary.scope ? summary.scope : '').trim();
+  if (topic === 'shared_goal_and_roles' || scope === 'shared_goal_and_roles') return 'shared_goal_and_roles';
+  if (topic === 'shared_goal_and_roles_clarification' || scope === 'shared_goal_and_roles_clarification') return 'shared_goal_and_roles_clarification';
+  return topic;
+}
+
+function scanSharedGoalPackets({ hubRoot, projectSlug }) {
+  const projectPath = projectDir(hubRoot, projectSlug);
+  if (!fs.existsSync(projectPath)) return [];
+  const packets = [];
+  for (const lane of fs.readdirSync(projectPath, { withFileTypes: true })) {
+    if (!lane.isDirectory() || !lane.name.startsWith('from_')) continue;
+    const senderId = lane.name.slice('from_'.length);
+    const packetsDir = path.join(projectPath, lane.name, 'packets');
+    if (!fs.existsSync(packetsDir)) continue;
+    for (const folder of fs.readdirSync(packetsDir, { withFileTypes: true })) {
+      if (!folder.isDirectory()) continue;
+      const match = folder.name.match(/^(.+)__v(\d+)$/);
+      if (!match) continue;
+      const packetId = match[1];
+      const version = Number(match[2]);
+      const summary = readPacketSummary(hubRoot, projectSlug, senderId, packetId, version);
+      const topic = sharedGoalTopicFrom({ packetId, summary });
+      if (topic !== 'shared_goal_and_roles' && topic !== 'shared_goal_and_roles_clarification') continue;
+      let createdAt = '';
+      try {
+        const header = parsePacketHeader(summary.packetPath);
+        createdAt = header.created_at || '';
+      } catch (_) { /* keep empty createdAt */ }
+      packets.push({ senderId, packetId, version, summary, topic, createdAt });
+    }
+  }
+  packets.sort((a, b) => {
+    const byTime = String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    if (byTime) return byTime;
+    const byId = String(b.packetId).localeCompare(String(a.packetId));
+    if (byId) return byId;
+    return b.version - a.version;
+  });
+  return packets;
+}
+
+function sharedGoalSummaryFromBody(body) {
+  return {
+    goal: firstLineAfterHeading(body, /(共同目標|common goal|目標)/i) || '未在基準包內摘出共同目標',
+    roles: firstLineAfterHeading(body, /(每人角色|角色|參與者|participants|roles)/i) || '未在基準包內摘出角色分工',
+    firstRound: firstLineAfterHeading(body, /(第一輪分工|first.*split|first round)/i) || '未在基準包內摘出第一輪分工',
+    acceptance: firstLineAfterHeading(body, /(驗收標準|acceptance)/i) || '未在基準包內摘出驗收標準',
+  };
+}
+
+function sharedGoalStatus({ hubRoot, projectSlug, agentId, peers }) {
+  const confirmedPeerIds = peers
+    .filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive')
+    .map((peer) => peer.agent_id)
+    .sort();
+  const packets = scanSharedGoalPackets({ hubRoot, projectSlug });
+  const baselines = packets.filter((packet) => packet.topic === 'shared_goal_and_roles');
+  const clarifications = packets.filter((packet) => packet.topic === 'shared_goal_and_roles_clarification');
+  if (baselines.length === 0) {
+    return {
+      state: 'missing',
+      label: '未見目前有效基準',
+      summary: {
+        goal: '未建立',
+        roles: '未建立',
+        firstRound: '未建立',
+        acceptance: '未建立',
+      },
+      confirmations: confirmedPeerIds.map((peerId) => ({ peerId, label: '未發給此 peer 確認', state: 'not_sent' })),
+      latest: null,
+      clarifications,
+    };
+  }
+  const latest = baselines[0];
+  const target = latest.summary.to || '';
+  const confirmations = confirmedPeerIds.map((peerId) => {
+    if (target !== peerId) return { peerId, label: '未見此 peer 對最新版確認', state: 'not_targeted' };
+    return { peerId, ...ackStateForPacket({ hubRoot, projectSlug, agentId: peerId, packetId: latest.packetId, version: latest.version }) };
+  });
+  if (target === agentId) {
+    confirmations.unshift({
+      peerId: agentId,
+      ...ackStateForPacket({ hubRoot, projectSlug, agentId, packetId: latest.packetId, version: latest.version }),
+    });
+  }
+  const hasDecline = confirmations.some((item) => item.state === 'declined');
+  const hasPending = confirmations.some((item) => item.state === 'pending' || item.state === 'missing_ack' || item.state === 'ack_error' || item.state === 'not_targeted' || item.state === 'not_sent');
+  let state = 'confirmed';
+  let label = '最新版已確認';
+  if (hasDecline) {
+    state = 'declined';
+    label = '有 peer 退回或提出異議';
+  } else if (target === agentId && confirmations[0] && confirmations[0].state === 'pending') {
+    state = 'incoming_pending';
+    label = '你收到共同目標與分工，尚未確認';
+  } else if (hasPending) {
+    state = 'partial';
+    label = '已有基準，但未完成所有相關 peer 確認';
+  }
+  return {
+    state,
+    label,
+    summary: sharedGoalSummaryFromBody(latest.summary.body),
+    confirmations,
+    latest,
+    clarifications,
+  };
+}
+
+function sharedGoalProgressText(sharedGoal) {
+  if (!sharedGoal || !sharedGoal.latest) return '未見基準';
+  const confirmations = sharedGoal.confirmations || [];
+  if (confirmations.length === 0) return sharedGoal.label;
+  const confirmed = confirmations.filter((item) => item.state === 'confirmed').length;
+  const declined = confirmations.filter((item) => item.state === 'declined').length;
+  const pending = confirmations.length - confirmed - declined;
+  const parts = [`${confirmed}/${confirmations.length} 已確認`];
+  if (pending > 0) parts.push(`${pending} 未確認`);
+  if (declined > 0) parts.push(`${declined} 有異議`);
+  return `${sharedGoal.latest.packetId} v${sharedGoal.latest.version}: ${parts.join('，')}`;
+}
+
+function sharedGoalCanStartText(sharedGoal) {
+  if (!sharedGoal || sharedGoal.state === 'missing') return '不可發普通任務包：先建立共同目標與分工';
+  if (sharedGoal.state === 'confirmed') return '可按已確認分工處理普通交接';
+  if (sharedGoal.state === 'incoming_pending') return '不可先做普通任務：你尚未確認共同目標與分工';
+  if (sharedGoal.state === 'declined') return '不可先做普通任務：有人退回或提出異議';
+  return '暫不建議發普通任務包：仍有受影響 peer 未確認基準';
+}
+
+function sharedGoalPeerNextStep(item) {
+  if (item.state === 'confirmed') return '已可按此基準處理相關交接';
+  if (item.state === 'declined') return '先讀異議，發釐清包或修訂共同目標與分工';
+  if (item.state === 'not_sent' || item.state === 'not_targeted') return '用 shared_goal_and_roles 一對一補發確認包';
+  if (item.state === 'missing_ack' || item.state === 'ack_error') return '先核對對方 ack 檔與 Drive 同步';
+  return '提醒對方 check Drive 並明確確認、部分同意或提出異議';
+}
+
+function actionBadgeClass(item) {
+  if (item.state === 'return' || item.state === 'declined') return 'bad';
+  if (item.state === 'clarify_goal' || item.state === 'wait_revision' || item.lane === '先核對風險' || item.lane === '等對方') return 'warn';
+  return 'ok';
+}
+
+function dashboardDecisionIcon(line) {
+  if (/資料不足|退回|不可|風險|未見|卡住/.test(line || '')) return '⚠️';
+  if (/沒有明確|核對|等待|釐清/.test(line || '')) return '🔎';
+  return '✅';
+}
+
+function actionLaneIcon(item) {
+  const lane = item && item.lane ? item.lane : '';
+  if (/退回|不足/.test(lane)) return '⚠️';
+  if (/核對|釐清|建立/.test(lane)) return '🔎';
+  if (/等待|等對方/.test(lane)) return '⏳';
+  if (/可開工/.test(lane)) return '✅';
+  return '📌';
+}
+
 function packetSourceRef(agentId, packetId, version) {
   return `packet:${agentId}:${packetId}:v${version}`;
 }
@@ -2003,8 +2267,24 @@ function sourceRefDisplay(ref) {
   return `<code>${htmlEscape(value)}</code>`;
 }
 
-function collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport }) {
+function localFileHref(filePath) {
+  const resolved = path.resolve(String(filePath || '')).replace(/\\/g, '/');
+  return `file:///${resolved.split('/').map((part, index) => {
+    if (index === 0 && /^[A-Za-z]:$/.test(part)) return part;
+    return encodeURIComponent(part);
+  }).join('/')}`;
+}
+
+function collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport, sharedGoal }) {
   const reads = [];
+  if (sharedGoal && sharedGoal.latest) {
+    reads.push({
+      title: `共同目標與分工 v${sharedGoal.latest.version}`,
+      type: '項目基準',
+      why: '這是目前可讀到的項目共同口徑；發第一輪任務前應先核對。',
+      ref: packetSourceRef(sharedGoal.latest.senderId, sharedGoal.latest.packetId, sharedGoal.latest.version),
+    });
+  }
   for (const group of incomingGroups) {
     for (const item of group.pending) {
       reads.push({
@@ -2047,20 +2327,33 @@ function collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport 
 
 function buildDashboardData({ hubRoot, projectSlug, agentId, config }) {
   const contextReport = readProjectContext({ hubRoot, projectSlug });
-  const incomingGroups = dashboardIncomingGroups({ hubRoot, projectSlug, agentId, config });
   const outgoingPackets = ownOutgoingPackets({ hubRoot, projectSlug, agentId });
   const peers = listProjectPeers({ hubRoot, projectSlug, config }).peers;
   const identityIssues = scanIdentityIssues({ hubRoot, projectSlug });
-  const suggestedReads = collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport });
-  return { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, identityIssues, suggestedReads };
+  const sharedGoal = sharedGoalStatus({ hubRoot, projectSlug, agentId, peers });
+  const incomingGroups = dashboardIncomingGroups({ hubRoot, projectSlug, agentId, config }).map((group) => ({
+    ...group,
+    pending: (group.pending || []).map((item) => ({
+      ...item,
+      actionability: assessPendingActionability(item, { sharedGoal }),
+    })),
+  }));
+  const suggestedReads = collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport, sharedGoal });
+  return { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, identityIssues, suggestedReads, sharedGoal };
 }
 
 function hideLocalPaths(value) {
   return String(value || '').replace(/[A-Za-z]:[\\/][^\s<>"']+/g, '(本機路徑已隱藏)');
 }
 
-function dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues = [] }) {
+function dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues = [], sharedGoal = null }) {
   return [
+    ...(sharedGoal && sharedGoal.state === 'declined' ? [{
+      message: '共同目標與分工有 peer 退回或提出異議；未釐清前不應發第一輪任務包。',
+      owner: '共同目標與分工',
+      source: sharedGoal.latest ? packetSourceRef(sharedGoal.latest.senderId, sharedGoal.latest.packetId, sharedGoal.latest.version) : 'shared_goal_and_roles',
+      next: '先用 shared_goal_and_roles_clarification 或修訂版處理不一致。',
+    }] : []),
     ...identityIssues.map((issue) => ({
       message: issue.message,
       owner: issue.owner || '身份結構',
@@ -2092,16 +2385,37 @@ function dashboardRiskItems({ incomingGroups, contextReport, peers, identityIssu
   return dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues }).map((record) => record.message);
 }
 
-function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId }) {
+function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId, sharedGoal, peers }) {
   const actions = [];
-  for (const item of pendingItems.slice(0, 5)) {
-    const actionText = inboxActionLines(item).map((line) => line.replace(/^- /, '').trim()).filter(Boolean).join('；')
-      || '先讀交接包正文，判斷是否可以處理。';
+  const confirmedPeers = peers.filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive');
+  if (sharedGoal && sharedGoal.state === 'missing') {
     actions.push({
-      lane: '你要處理',
+      lane: '先建立基準',
+      item: '共同目標與分工: 未見目前有效基準',
+      next: confirmedPeers.length > 0
+        ? '先建立共同目標與分工，然後用 shared_goal_and_roles 一對一發給 confirmed peer 確認；不要先發普通任務包。'
+        : '先建立共同目標與分工。若要邀請協作者，先定清楚共同目標、角色、第一輪分工與驗收標準。',
+      source: 'shared_goal_and_roles',
+    });
+  } else if (sharedGoal && (sharedGoal.state === 'partial' || sharedGoal.state === 'incoming_pending')) {
+    actions.push({
+      lane: sharedGoal.state === 'incoming_pending' ? '你要確認' : '等確認',
+      item: `共同目標與分工: ${sharedGoal.label}`,
+      next: sharedGoal.state === 'incoming_pending'
+        ? '先讀 shared_goal_and_roles 正文，確認同意、部分同意或有異議，再寫具體 ack。'
+        : '先完成受影響 peer 的一對一確認，再發第一輪正式任務包。',
+      source: sharedGoal.latest ? packetSourceRef(sharedGoal.latest.senderId, sharedGoal.latest.packetId, sharedGoal.latest.version) : 'shared_goal_and_roles',
+    });
+  }
+  for (const item of pendingItems.slice(0, 5)) {
+    const actionability = item.actionability || assessPendingActionability(item, { sharedGoal });
+    actions.push({
+      lane: actionability.label,
       item: `${item.from} → ${agentId}: ${packetTopic(item.packetId)} v${item.version}`,
-      next: actionText,
+      next: `${actionability.next} 可對 AI 說：「${actionabilityPromptFor(item, item.from)}」`,
       source: packetSourceRef(item.from, item.packetId, item.version),
+      state: actionability.state,
+      reason: actionability.reason,
     });
   }
   for (const item of outgoingPackets.filter((packet) => packet.state === 'waiting').slice(0, 5)) {
@@ -2131,55 +2445,100 @@ function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agen
   return actions.slice(0, 12);
 }
 
+function dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal }) {
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
+  const pendingByState = pendingItems.reduce((map, item) => {
+    const state = item.actionability ? item.actionability.state : 'actionable';
+    map[state] = (map[state] || 0) + 1;
+    return map;
+  }, {});
+  const lines = [];
+  if (pendingByState.return > 0) {
+    lines.push(`目前有 ${pendingByState.return} 件交接資料不足，應先退回請對方補資料。`);
+  } else if (pendingByState.clarify_goal > 0) {
+    lines.push(`目前有 ${pendingByState.clarify_goal} 件交接要先釐清共同目標與分工。`);
+  } else if (pendingItems.length > 0) {
+    lines.push(`有 ${pendingItems.length} 件需要你處理。`);
+  } else {
+    lines.push('目前沒有需要你處理的新交接。');
+  }
+  lines.push(`共同目標與分工：${sharedGoalProgressText(sharedGoal)}。`);
+  lines.push(`開工判斷：${sharedGoalCanStartText(sharedGoal)}。`);
+  if (waitingOutgoing.length > 0) {
+    lines.push(`你有 ${waitingOutgoing.length} 件交接仍在等對方處理。`);
+  } else {
+    lines.push('沒有看到你發出的交接被卡住。');
+  }
+  if (blockers.length > 0) {
+    lines.push(`有 ${blockers.length} 項需要先核對的阻塞風險。`);
+  } else if (riskRecords.length > 0) {
+    lines.push(`有 ${riskRecords.length} 項提醒，處理前先核對最新交接紀錄。`);
+  } else {
+    lines.push('未見阻塞風險。');
+  }
+  return lines;
+}
+
 function renderProjectDashboardSummary(dashboard) {
-  const { projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers } = dashboard;
+  const { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, sharedGoal } = dashboard;
   const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
-  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues: dashboard.identityIssues });
+  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues: dashboard.identityIssues, sharedGoal });
   const riskItems = riskRecords.map((record) => record.message);
-  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId });
+  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId, sharedGoal, peers });
+  const statusLines = dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal });
   const lines = [
     '🧭 APS 整體狀態',
     `📁 項目: ${projectSlug}`,
     `👤 本機代理: ${agentId}`,
     '',
+    '🔎 目前判斷',
+    ...statusLines.map((line) => `- ${line}`),
+    '',
+    `🎯 共同目標與分工: ${sharedGoalProgressText(sharedGoal)}`,
+    `🧩 開工判斷: ${sharedGoalCanStartText(sharedGoal)}`,
+    '',
+    '📊 數量摘要',
     `📬 待你處理: ${pendingItems.length}`,
-    `📤 你發出的交接: ${outgoingPackets.length}`,
-    `⏳ 尚未看到對方處理: ${waitingOutgoing.length}`,
+    `📤 你交出去的事: ${outgoingPackets.length}`,
+    `⏳ 等待對方: ${waitingOutgoing.length}`,
     `👥 協作對象: ${peers.length}`,
     `⚠️ 風險與提醒: ${riskItems.length}`,
     '',
-    '🚀 下一步',
+    '🚀 待我處理',
   ];
   if (actionItems.length === 0) {
     if (peers.length === 0) {
-      lines.push('- 目前未有協作對象。先建立或更新項目共同簡報;要邀請新協作者時用 `npx aps peer invite`,讓對方自行選 APS 名稱。');
+      lines.push('- 目前未有協作對象。先建立或更新共同目標與分工；要邀請新協作者時用 `npx aps peer invite`，讓對方自行選 APS 名稱。');
     } else {
-      lines.push('- 目前沒有明確下一步。若要推進,先建立或更新項目共同簡報,再按需發出一對一交接。');
+      lines.push('- 目前沒有明確下一步。若要推進，先核對共同目標與分工，再按需發出一對一交接。');
     }
   } else {
     for (const item of actionItems.slice(0, 8)) {
-      lines.push(`- [${item.lane}] ${item.item}`);
+      lines.push(`- [${actionLaneIcon(item)} ${item.lane}] ${item.item}`);
       lines.push(`  建議: ${item.next}`);
+      if (item.reason) lines.push(`  判斷: ${item.reason}`);
       lines.push(`  來源: ${item.source}`);
     }
   }
   lines.push('');
-  lines.push(
-    '📬 今日要看',
-  );
-  if (pendingItems.length === 0) {
-    lines.push('- 目前沒有待你處理的新交接。');
+  lines.push('🎯 共同目標與分工');
+  lines.push(`- 確認進度: ${sharedGoalProgressText(sharedGoal)}`);
+  lines.push(`- 開工判斷: ${sharedGoalCanStartText(sharedGoal)}`);
+  if (sharedGoal.latest) {
+    lines.push(`- 最新版本: ${sharedGoal.latest.packetId} v${sharedGoal.latest.version}（${sharedGoal.latest.senderId} → ${sharedGoal.latest.summary.to || '(未記錄)'}）`);
+  }
+  lines.push(`- 共同目標: ${sharedGoal.summary.goal}`);
+  lines.push(`- 角色分工: ${sharedGoal.summary.roles}`);
+  lines.push(`- 第一輪分工: ${sharedGoal.summary.firstRound}`);
+  if (sharedGoal.confirmations.length === 0) {
+    lines.push('- peer 確認: 未有 confirmed peer 需要確認。');
   } else {
-    for (const item of pendingItems.slice(0, 5)) {
-      lines.push(`- ${item.from} → ${agentId}: ${packetTopic(item.packetId)} v${item.version}`);
-      lines.push(`  交了甚麼: ${inboxWhatSummary(item)}`);
-      const actions = inboxActionLines(item).map((line) => line.replace(/^- /, '').trim()).filter(Boolean);
-      if (actions.length > 0) lines.push(`  請你做: ${actions.join('；')}`);
-    }
+    lines.push(`- 逐人確認: ${sharedGoal.confirmations.map((item) => `${item.peerId}: ${item.label}，下一步 ${sharedGoalPeerNextStep(item)}`).join('；')}`);
   }
   lines.push('');
-  lines.push('📤 我發出的交接');
+  lines.push('📤 我交出去的事');
   if (outgoingPackets.length === 0) {
     lines.push('- 目前沒有由你發出的交接紀錄。');
   } else {
@@ -2211,7 +2570,14 @@ function renderProjectDashboardSummary(dashboard) {
     }
   }
   lines.push('');
-  lines.push('🔎 邊界:這是按需讀取本機已同步資料的狀態摘要,不代表對方已收到人手通知或已完成 Google Drive 同步。');
+  lines.push('🔁 資料是否同步（排錯用）');
+  lines.push(`- 共用 Drive 本機路徑: ${hubRoot}（只適用於這部電腦，不要發給對方）`);
+  lines.push(`- 收件通道: ${incomingGroups.length} 條 peer lane 已讀取；待你處理 ${pendingItems.length} 件。`);
+  lines.push(`- 發件紀錄: ${outgoingPackets.length} 件已發交接；等待對方 ${waitingOutgoing.length} 件。`);
+  lines.push(`- 背景索引: ${contextReport.entries.length} 條；提醒 ${contextReport.issues.length} 項。`);
+  lines.push(`- HTML dashboard: \`check-aps\` 會按需更新個人頁 \`_context/${dashboardFileNameForAgent(agentId)}\`，並更新共用入口 \`_context/dashboard.html\`。`);
+  lines.push('');
+  lines.push('🔎 邊界:這是按需讀取本機已同步資料的狀態摘要，不代表對方已收到人手通知或已完成 Google Drive 同步。共用 Drive 路徑只供本機用戶打開本機資料夾，不應放入給對方的通知。');
   return lines.join('\n');
 }
 
@@ -2280,8 +2646,8 @@ function renderContextOverviewHtml({ report, projectSlug, dashboard = null }) {
   </div>
 </header>
 <div class="callout">
-  <strong>執行真相一律以 packet / outbox / ack 為準。</strong>
-  本頁只由 <code>_context/from_*/context.log.md</code> 派生，供人快速閱讀；若與 packet 不一致，以 packet / outbox / ack 為準。
+  <strong>這頁只作背景索引。</strong>
+  真正開工前，請先讀最新交接包、發件紀錄與處理回條；如果這頁與最新交接不一致，先叫 AI 核對最新交接。
 </div>
 <section>
   <h2>背景索引</h2>
@@ -2313,31 +2679,30 @@ function writeContextOverviewHtml({ hubRoot, projectSlug, report }) {
 }
 
 function renderProjectDashboardHtml(dashboard) {
-  const { projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads } = dashboard;
+  const { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads, sharedGoal } = dashboard;
   const generatedAt = isoNow();
   const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
   const contextErrors = contextReport.issues.filter((issue) => issue.severity === 'error');
   const contextWarnings = contextReport.issues.filter((issue) => issue.severity !== 'error');
-  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues: dashboard.identityIssues });
-  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId });
+  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues: dashboard.identityIssues, sharedGoal });
+  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId, sharedGoal, peers });
+  const statusLines = dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal });
+  const primaryDecision = statusLines[0] || '目前沒有明確下一步。';
+  const firstAction = actionItems[0] || null;
+  const firstActionPrompt = firstAction ? (firstAction.next.match(/「(.+)」/) || [null, firstAction.next])[1] : null;
+  const primaryDecisionIcon = dashboardDecisionIcon(primaryDecision);
   const emptyActionText = peers.length === 0
-    ? '目前未有協作對象。先建立或更新項目共同簡報;要邀請新協作者時用 `npx aps peer invite`,讓對方自行選 APS 名稱。'
-    : '目前沒有明確下一步。若要推進,先建立或更新項目共同簡報,再按需發出一對一交接。';
+    ? '目前未有協作對象。先建立或更新共同目標與分工；要邀請新協作者時用 `npx aps peer invite`，讓對方自行選 APS 名稱。'
+    : '目前沒有明確下一步。若要推進，先核對共同目標與分工，再按需發出一對一交接。';
   const actionRows = actionItems.map((item) => `<tr>
-      <td><span class="badge ${item.lane === '先核對風險' ? 'warn' : item.lane === '等對方' ? 'warn' : 'ok'}">${htmlEscape(item.lane)}</span></td>
+      <td><span class="badge ${actionBadgeClass(item)}">${actionLaneIcon(item)} ${htmlEscape(item.lane)}</span></td>
       <td>${htmlEscape(item.item)}</td>
+      <td>${htmlEscape(item.reason || '可按建議下一步處理。')}</td>
       <td>${htmlEscape(item.next)}</td>
       <td><code>${htmlEscape(item.source)}</code></td>
-    </tr>`).join('\n') || `<tr><td colspan="4" class="muted">${htmlEscape(emptyActionText)}</td></tr>`;
-  const incomingRows = pendingItems.map((item) => `<tr>
-      <td>${htmlEscape(item.from)}</td>
-      <td>${htmlEscape(packetTopic(item.packetId))}</td>
-      <td>v${htmlEscape(item.version)}</td>
-      <td>${htmlEscape(inboxWhatSummary(item))}</td>
-      <td>${inboxActionLines(item).map((line) => htmlEscape(line.replace(/^- /, ''))).join('<br>')}</td>
-      <td><code>${htmlEscape(packetSourceRef(item.from, item.packetId, item.version))}</code></td>
-    </tr>`).join('\n') || '<tr><td colspan="6" class="muted">目前沒有待你處理的新交接。</td></tr>';
+    </tr>`).join('\n') || `<tr><td colspan="5" class="muted">${htmlEscape(emptyActionText)}</td></tr>`;
+  const statusRows = statusLines.map((line) => `<li>${htmlEscape(line)}</li>`).join('\n');
   const outgoingRows = outgoingPackets.map((item) => `<tr>
       <td>${htmlEscape(item.toId || '(未記錄)')}</td>
       <td>${htmlEscape(packetTopic(item.packetId))}</td>
@@ -2369,24 +2734,53 @@ function renderProjectDashboardHtml(dashboard) {
       <td><span class="badge ${peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn'}">${htmlEscape(peer.peer_state || peer.status || 'unknown')}</span></td>
       <td>${peer.is_self ? '本機 agent' : peer.is_default_peer ? '預設 peer' : 'project peer'}</td>
     </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見 peer card；舊二人設定仍可透過本機設定運作。</td></tr>';
+  const identityCards = peers
+    .slice()
+    .sort((a, b) => (a.agent_id === agentId ? -1 : b.agent_id === agentId ? 1 : String(a.agent_id).localeCompare(String(b.agent_id))))
+    .map((peer, index) => {
+      const isSelf = peer.agent_id === agentId;
+      const role = isSelf ? '自己' : peers.filter((item) => item.agent_id !== agentId).length > 1 ? `對方 ${index}` : '對方';
+      const state = peer.peer_state || peer.status || 'unknown';
+      const stateLabel = peer.peer_state === 'confirmed' ? '已確認' : peer.status === 'inactive' ? '停用' : state;
+      const badgeClass = peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn';
+      return `<div class="identitycard ${isSelf ? 'self' : 'peer'}">
+        <span class="role">${htmlEscape(role)}</span>
+        <strong>${htmlEscape(peer.agent_id)}</strong>
+        <span class="display">${htmlEscape(peer.display_name || peer.agent_id)}</span>
+        <span class="badge ${badgeClass}">${htmlEscape(stateLabel)}</span>
+      </div>`;
+    }).join('\n') || `<div class="identitycard self"><span class="role">自己</span><strong>${htmlEscape(agentId)}</strong><span class="display">本機代理</span><span class="badge warn">未見 peer card</span></div>`;
   const riskRows = riskRecords.map((item) => `<tr>
       <td>${htmlEscape(item.owner)}</td>
       <td>${htmlEscape(item.message)}</td>
       <td>${htmlEscape(item.next)}</td>
       <td><code>${htmlEscape(item.source)}</code></td>
     </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見阻塞風險。仍須以最新 packet / outbox / ack 作準。</td></tr>';
+  const confirmationRows = sharedGoal.confirmations.map((item) => `<tr>
+      <td>${htmlEscape(item.peerId)}</td>
+      <td>${sharedGoal.latest ? `v${htmlEscape(sharedGoal.latest.version)}` : '<span class="muted">未見基準</span>'}</td>
+      <td><span class="badge ${item.state === 'confirmed' ? 'ok' : item.state === 'declined' ? 'bad' : 'warn'}">${htmlEscape(item.label)}</span></td>
+      <td>${htmlEscape(item.entry && (item.entry.result || item.entry.reason) ? (item.entry.result || item.entry.reason) : '未記錄')}</td>
+      <td>${htmlEscape(sharedGoalPeerNextStep(item))}</td>
+    </tr>`).join('\n') || '<tr><td colspan="5" class="muted">目前未有 confirmed peer 需要確認。</td></tr>';
+  const syncRows = [
+    ['收件通道', `${incomingGroups.length} 條 peer lane 已讀取`, `待你處理 ${pendingItems.length} 件`],
+    ['發件紀錄', `${outgoingPackets.length} 件已發交接`, `尚未看到對方處理 ${waitingOutgoing.length} 件`],
+    ['共同目標與分工', sharedGoalProgressText(sharedGoal), sharedGoalCanStartText(sharedGoal)],
+    ['背景索引', `${contextReport.entries.length} 條`, `${contextReport.issues.length} 項提醒 / 錯誤`],
+  ].map((row) => `<tr><td>${htmlEscape(row[0])}</td><td>${htmlEscape(row[1])}</td><td>${htmlEscape(row[2])}</td></tr>`).join('\n');
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${htmlEscape(projectSlug)} Daily Index - Agent Public Squares</title>
+<title>${htmlEscape(projectSlug)} APS 營運總覽 - Agent Public Squares</title>
 <style>
   :root { --ink:#1d2430; --soft:#566174; --bg:#f4f0e7; --paper:#fffdf8; --line:#d7cdbc; --accent:#285d74; --ok:#2e7d4f; --warn:#9a5a1b; --bad:#b64234; --mono:ui-monospace, "Cascadia Code", Consolas, monospace; --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; --serif:"Noto Serif TC","PMingLiU",Georgia,serif; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.68; padding:24px 16px 52px; }
   main { max-width:1120px; margin:0 auto; }
-  nav, section, .callout, .metric { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
+  nav, section, .callout, .metric, .decision, .ownerbar, .identitycard { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
   nav { display:flex; flex-wrap:wrap; gap:8px 18px; padding:10px 14px; margin-bottom:20px; font-size:14px; }
   .brand { font-family:var(--serif); font-weight:700; }
   header { padding:22px 0; border-bottom:1px solid var(--line); margin-bottom:18px; }
@@ -2395,6 +2789,20 @@ function renderProjectDashboardHtml(dashboard) {
   p { margin:0 0 12px; color:var(--soft); }
   section { padding:20px 22px; margin-bottom:18px; overflow:auto; }
   .callout { border-left:4px solid var(--bad); padding:13px 15px; margin-bottom:18px; color:var(--soft); }
+  .decision { border-left:5px solid var(--accent); padding:18px 20px; margin-bottom:18px; }
+  .decision strong { display:block; font-size:22px; color:var(--ink); margin-bottom:6px; }
+  .ownerbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:11px 14px; margin-bottom:14px; border-left:5px solid var(--accent); }
+  .ownerbar .label { color:var(--soft); font-size:13px; }
+  .ownerbar .name { font-family:var(--serif); font-size:28px; font-weight:700; line-height:1; color:var(--ink); }
+  .ownerbar .hint { color:var(--soft); font-size:13px; }
+  .identitygrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin:0 0 16px; }
+  .identitycard { padding:13px 14px; border-left:6px solid var(--line); }
+  .identitycard.self { border-left-color:var(--accent); background:#eef5f7; }
+  .identitycard.peer { border-left-color:#9a5a1b; }
+  .identitycard .role { display:block; color:var(--soft); font-size:13px; font-weight:700; }
+  .identitycard strong { display:block; font-family:var(--serif); font-size:30px; line-height:1.1; margin:2px 0; color:var(--ink); }
+  .identitycard .display { display:block; color:var(--soft); margin-bottom:8px; }
+  .copyline { font-family:var(--mono); font-size:13px; background:#ece5d4; border-radius:4px; padding:8px 10px; color:var(--ink); word-break:break-word; }
   .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0 20px; }
   .metric { padding:14px 15px; }
   .metric strong { display:block; font-size:28px; line-height:1.1; }
@@ -2416,67 +2824,194 @@ function renderProjectDashboardHtml(dashboard) {
 </head>
 <body>
 <main>
-<nav><span class="brand">Agent Public Squares</span><span>Project Dashboard</span><span class="muted">Daily Index</span></nav>
+<nav><span class="brand">Agent Public Squares</span><span>🧭 APS 營運總覽</span><span class="muted">新手決策視角</span></nav>
 <header>
-  <p class="muted">今日項目索引</p>
+  <div class="ownerbar" aria-label="頁面擁有人">
+    <span class="label">👤 個人頁</span>
+    <span class="name">${htmlEscape(agentId)}</span>
+    <span class="hint">只看這個 APS 名稱的待辦</span>
+    <a href="dashboard.html">不是你？返回共用入口</a>
+  </div>
+  <div class="identitygrid" aria-label="自己與對方">
+    ${identityCards}
+  </div>
   <h1>${htmlEscape(projectSlug)}</h1>
-  <p>${htmlEscape(agentId)} 的唯讀日常索引：先看未處理交接，再看自己發出的狀態，最後讀背景與延伸文檔。</p>
+  <p>這頁先回答現在能否推進、下一步做甚麼、哪一件事需要先退回或等待。</p>
   <div class="metrics">
-    <div class="metric"><strong>${pendingItems.length}</strong><span>待你處理</span></div>
-    <div class="metric"><strong>${outgoingPackets.length}</strong><span>你發出的交接</span></div>
-    <div class="metric"><strong>${waitingOutgoing.length}</strong><span>尚未看到對方處理</span></div>
-    <div class="metric"><strong>${contextErrors.length + contextWarnings.length}</strong><span>背景索引提醒</span></div>
+    <div class="metric"><strong>${pendingItems.length}</strong><span>📬 待你處理</span></div>
+    <div class="metric"><strong>${outgoingPackets.length}</strong><span>📤 你交出去的事</span></div>
+    <div class="metric"><strong>${waitingOutgoing.length}</strong><span>⏳ 等待對方</span></div>
+    <div class="metric"><strong>${sharedGoal.state === 'confirmed' ? '可' : '停'}</strong><span>${sharedGoal.state === 'confirmed' ? '✅' : '⚠️'} 普通交接開工</span></div>
   </div>
   <p class="muted">生成時間：${htmlEscape(generatedAt)}</p>
 </header>
-<div class="callout"><strong>執行真相一律以 packet / outbox / ack 為準。</strong> Dashboard 只讀共用 Drive 資料夾內已同步的資料，可以反映已存在的 ack / close / withdraw 狀態；但它本身不會自動通知、不會替任何人標記處理、不會收結交接。</div>
+<div class="decision">
+  <strong>${primaryDecisionIcon} ${htmlEscape(primaryDecision)}</strong>
+  <p>🎯 項目基準：${htmlEscape(sharedGoalCanStartText(sharedGoal))}</p>
+  <p>🚀 下一步</p>
+  <p>${firstAction ? htmlEscape(firstActionPrompt) : htmlEscape(emptyActionText)}</p>
+  ${firstAction ? `<p class="copyline">${htmlEscape(firstActionPrompt)}</p>` : ''}
+</div>
 <section>
-  <h2>下一步</h2>
-  <p>這裡只整理已同步資料中可追溯的行動線索，不是自動派工。</p>
-  <table><thead><tr><th>分類</th><th>事項</th><th>建議</th><th>來源</th></tr></thead><tbody>${actionRows}</tbody></table>
+  <h2>🔎 現在怎樣做</h2>
+  <p>這裡只放會改變下一步的判斷；不是資料同步清單。</p>
+  <ul>${statusRows}</ul>
 </section>
 <section>
-  <h2>今日要看</h2>
-  <p>這裡等同把日常「check Drive」結果放在首屏。</p>
-  <table><thead><tr><th>來源</th><th>主題</th><th>版本</th><th>交了甚麼</th><th>請你做</th><th>來源</th></tr></thead><tbody>${incomingRows}</tbody></table>
+  <h2>🚀 待我處理</h2>
+  <p>每件交接先判斷能否開工；看到 pending 不等於可以直接做。</p>
+  <table><thead><tr><th>開工判斷</th><th>事項</th><th>原因</th><th>建議下一步</th><th>來源</th></tr></thead><tbody>${actionRows}</tbody></table>
 </section>
 <section>
-  <h2>我發出的交接</h2>
+  <h2>🎯 共同目標與分工</h2>
+  <p>這是普通交接能否開工的項目基準。三位或以上協作者時，要看每位受影響 peer 是否已確認同一個最新版本。</p>
+  <table><tbody>
+    <tr><th>確認進度</th><td>${htmlEscape(sharedGoalProgressText(sharedGoal))}</td></tr>
+    <tr><th>開工判斷</th><td>${htmlEscape(sharedGoalCanStartText(sharedGoal))}</td></tr>
+    <tr><th>最新版本</th><td>${sharedGoal.latest ? `${htmlEscape(sharedGoal.latest.packetId)} v${htmlEscape(sharedGoal.latest.version)}（${htmlEscape(sharedGoal.latest.senderId)} → ${htmlEscape(sharedGoal.latest.summary.to || '(未記錄)')}）` : '<span class="muted">未見 shared_goal_and_roles</span>'}</td></tr>
+    <tr><th>共同目標</th><td>${htmlEscape(sharedGoal.summary.goal)}</td></tr>
+    <tr><th>角色分工</th><td>${htmlEscape(sharedGoal.summary.roles)}</td></tr>
+    <tr><th>第一輪分工</th><td>${htmlEscape(sharedGoal.summary.firstRound)}</td></tr>
+    <tr><th>驗收標準</th><td>${htmlEscape(sharedGoal.summary.acceptance)}</td></tr>
+  </tbody></table>
+  <h3>👥 逐人確認狀態</h3>
+  <table><thead><tr><th>peer</th><th>版本</th><th>狀態</th><th>說明</th><th>下一步</th></tr></thead><tbody>${confirmationRows}</tbody></table>
+</section>
+<section>
+  <h2>📤 我交出去的事</h2>
   <p>這裡不推斷對方是否已看到通知；只顯示共用 Drive 資料夾內可讀到的明確狀態，例如 ack 已記錄、已收結或已撤回。</p>
   <table><thead><tr><th>收件人</th><th>主題</th><th>版本</th><th>狀態</th><th>摘要</th><th>來源</th></tr></thead><tbody>${outgoingRows}</tbody></table>
 </section>
 <section>
-  <h2>建議先讀</h2>
-  <p>先讀這些來源，再決定是否處理、回覆或收結。</p>
+  <h2>📎 證據來源</h2>
+  <p>需要核對時才讀這些來源；不要讓來源清單蓋過下一步。</p>
   <table><thead><tr><th>標題</th><th>類型</th><th>為甚麼要讀</th><th>連結 / 來源</th></tr></thead><tbody>${readRows}</tbody></table>
 </section>
 <section>
-  <h2>項目背景</h2>
+  <h2>🗂️ 背景資料</h2>
   <p>Project Context Index 只作背景，不可覆蓋最新交接要求。</p>
   <table><thead><tr><th>Agent</th><th>工作流</th><th>新鮮度</th><th>目前焦點</th><th>來源</th></tr></thead><tbody>${contextRows}</tbody></table>
 </section>
 <section>
-  <h2>協作對象</h2>
+  <h2>👥 誰在這個項目</h2>
   <table><thead><tr><th>Agent</th><th>顯示名稱</th><th>狀態</th><th>備註</th></tr></thead><tbody>${peerRows}</tbody></table>
 </section>
 <section>
-  <h2>風險與未決</h2>
-  <p>每項風險都必須能追溯來源；若來源不清,先核對最新 packet / outbox / ack。</p>
+  <h2>⚠️ 風險與未決</h2>
+  <p>每項風險都要能轉成下一步；內部來源只放在證據欄。</p>
   <table><thead><tr><th>相關對象</th><th>風險</th><th>建議下一步</th><th>來源</th></tr></thead><tbody>${riskRows}</tbody></table>
 </section>
-<footer>Generated by <code>npx aps dashboard</code>. Read-only Daily Index.</footer>
+<section>
+  <h2>🔧 資料是否同步</h2>
+  <p>排錯時才看這裡。此頁只讀，不會通知對方、不會標記完成、不會收結交接。</p>
+  <table><thead><tr><th>項目</th><th>狀態</th><th>補充</th></tr></thead><tbody>${syncRows}</tbody></table>
+  <p class="muted">共用 Drive 本機路徑：<a href="${htmlEscape(localFileHref(hubRoot))}">打開資料夾</a> <code>${htmlEscape(hubRoot)}</code>。這只適用於這部電腦，不要放入給對方的通知。</p>
+  <p class="muted">技術來源：已同步的 packet / outbox / ack / context。若畫面與實際聊天不一致，先請 AI 讀最新交接包核對。</p>
+</section>
+<footer>Generated by <code>npx aps dashboard</code>. Read-only APS operations snapshot.</footer>
 </main>
 </body>
 </html>
 `;
 }
 
-function writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config, fileName = 'dashboard.html' }) {
-  const outputPath = path.join(contextDir(hubRoot, projectSlug), fileName);
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+function dashboardFileNameForAgent(agentId) {
+  return `dashboard_${agentId}.html`;
+}
+
+function renderDashboardIndexHtml({ hubRoot, projectSlug, agentId, peers, currentDashboardFile }) {
+  const generatedAt = isoNow();
+  const contextPath = contextDir(hubRoot, projectSlug);
+  const peerIds = Array.from(new Set([
+    agentId,
+    ...peers.map((peer) => peer.agent_id).filter(Boolean),
+  ])).sort();
+  const rows = peerIds.map((peerId) => {
+    const fileName = dashboardFileNameForAgent(peerId);
+    const filePath = path.join(contextPath, fileName);
+    const exists = fs.existsSync(filePath);
+    const stat = exists ? fs.statSync(filePath) : null;
+    const label = `${exists ? '✅' : '⚠️'} ${peerId}${peerId === agentId ? '（剛更新）' : ''}`;
+    const page = exists
+      ? `<a href="${htmlEscape(fileName)}">${htmlEscape(fileName)}</a>`
+      : `<span class="muted">${htmlEscape(fileName)} 尚未生成</span>`;
+    const updated = stat ? stat.mtime.toISOString() : '未生成';
+    const state = exists
+      ? `✅ 已生成：${peerId} 的個人頁${peerId === agentId ? '（本次更新）' : '（上次生成）'}`
+      : `🚀 尚未生成：${peerId} 需要在自己的本機項目資料夾執行 Check APS`;
+    return `<tr><td>${htmlEscape(label)}</td><td>${page}</td><td>${htmlEscape(updated)}</td><td>${htmlEscape(state)}</td></tr>`;
+  }).join('\n') || '<tr><td colspan="4" class="muted">目前未見任何 APS 用戶。</td></tr>';
+  return `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${htmlEscape(projectSlug)} APS dashboard 入口 - Agent Public Squares</title>
+<style>
+  :root { --ink:#1d2430; --soft:#566174; --bg:#f4f0e7; --paper:#fffdf8; --line:#d7cdbc; --accent:#285d74; --mono:ui-monospace, "Cascadia Code", Consolas, monospace; --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; --serif:"Noto Serif TC","PMingLiU",Georgia,serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.68; padding:24px 16px 52px; }
+  main { max-width:920px; margin:0 auto; }
+  nav, section { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
+  nav { display:flex; flex-wrap:wrap; gap:8px 18px; padding:10px 14px; margin-bottom:20px; font-size:14px; }
+  .brand { font-family:var(--serif); font-weight:700; }
+  header { padding:22px 0; border-bottom:1px solid var(--line); margin-bottom:18px; }
+  h1 { font-family:var(--serif); font-size:40px; line-height:1.12; margin:0 0 8px; }
+  h2 { font-family:var(--serif); font-size:24px; margin:0 0 6px; }
+  p { margin:0 0 12px; color:var(--soft); }
+  section { padding:20px 22px; margin-bottom:18px; overflow:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 10px; }
+  th { background:#e4edf0; color:var(--accent); white-space:nowrap; }
+  code { font-family:var(--mono); font-size:12px; background:#ece5d4; border-radius:3px; padding:1px 5px; word-break:break-word; }
+  a { color:var(--accent); font-weight:700; }
+  .muted { color:#7a8493; }
+  footer { text-align:center; color:#7a8493; font-size:12px; margin-top:26px; }
+  @media (max-width: 760px) { h1 { font-size:32px; } }
+</style>
+</head>
+<body>
+<main>
+<nav><span class="brand">Agent Public Squares</span><span>🧭 APS dashboard 入口</span><span class="muted">共用索引，不是個人待辦頁</span></nav>
+<header>
+  <p class="muted">項目共用入口</p>
+  <h1>${htmlEscape(projectSlug)}</h1>
+  <p><strong>🧭 共用入口，不是個人待辦。</strong>每位用戶的個人待辦、已發事項和下一步都不同，請打開自己的 APS 名稱頁。</p>
+  <p class="muted">🧑 剛更新的是 ${htmlEscape(agentId)} 的個人頁：<a href="${htmlEscape(currentDashboardFile)}">${htmlEscape(currentDashboardFile)}</a>。如果你不是 ${htmlEscape(agentId)}，不要照這頁處理待辦。</p>
+  <p class="muted">生成時間：${htmlEscape(generatedAt)}</p>
+</header>
+<section>
+  <h2>🧭 選擇自己的 APS 視角</h2>
+  <p>👥 多人項目會有多個個人頁；每次執行 <code>Check APS</code> 或 <code>dashboard</code> 時，APS 會根據 peer 清單與已生成檔案重新計算此表。</p>
+  <table><thead><tr><th>APS 名稱</th><th>個人 dashboard</th><th>最後生成</th><th>生成狀態</th></tr></thead><tbody>${rows}</tbody></table>
+</section>
+<section>
+  <h2>⚠️ 不要照別人的頁開工</h2>
+  <p>如果你不是該 APS 名稱本人，不要根據該頁面的個人待辦採取行動。請在你自己的本機項目資料夾執行 <code>Check APS</code>，讓 APS 生成你的個人視角頁。</p>
+  <p class="muted">📁 本機 Drive 路徑（排錯用）：<a href="${htmlEscape(localFileHref(hubRoot))}">打開資料夾</a> <code>${htmlEscape(hubRoot)}</code>。這只適用於這部電腦，不要放入給對方的通知。</p>
+</section>
+<footer>📄 由 APS 生成。這是共用入口頁，不是任何人的個人待辦頁。</footer>
+</main>
+</body>
+</html>
+`;
+}
+
+function writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config, fileName = dashboardFileNameForAgent(agentId) }) {
+  const contextPath = contextDir(hubRoot, projectSlug);
+  const outputPath = path.join(contextPath, fileName);
+  const indexPath = path.join(contextPath, 'dashboard.html');
+  fs.mkdirSync(contextPath, { recursive: true });
   const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } });
   fs.writeFileSync(outputPath, renderProjectDashboardHtml(dashboard), 'utf8');
-  return outputPath;
+  fs.writeFileSync(indexPath, renderDashboardIndexHtml({
+    hubRoot,
+    projectSlug,
+    agentId,
+    peers: dashboard.peers,
+    currentDashboardFile: fileName,
+  }), 'utf8');
+  return { dashboardPath: outputPath, indexPath };
 }
 
 function packetStatus({ hubRoot, projectSlug, agentId, packetId }) {
@@ -3132,7 +3667,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps check-aps
                                   查看 APS 整體狀態:收件、發件、協作對象、下一步、風險;並按需更新 dashboard
   npx aps dashboard
-                                  生成唯讀 Project Dashboard / Daily Index HTML
+                                  生成唯讀 APS 營運總覽 HTML
   npx aps status --packet-id <id>
                                   查看自己發出的交接包目前狀態
   npx aps context
@@ -3301,7 +3836,7 @@ if (subcommand === 'init' && args.length === 0) {
     console.log('如要刷新既有安裝,請執行 `npx aps init --refresh-skill`;工具會先備份舊 skill,再安裝新版本。');
   } else {
     console.log('✅ 設定完成。如果 Claude Code 或 Codex 未即時看到 APS skill,請重新啟動該 AI 工具。');
-    console.log('🚀 下一步:打開 AI 工具並輸入「教我用 APS」。AI 應讀取 `.aps/config.json`,檢查共用 Drive 資料夾,先建立項目共同簡報;已有 confirmed peer 時才建議測試交接或正式交接。');
+    console.log('🚀 下一步:打開 AI 工具並輸入「教我用 APS」。AI 應讀取 `.aps/config.json`,檢查共用 Drive 資料夾,先建立共同目標與分工;已有 confirmed peer 並完成基準確認後,才建議測試交接或正式交接。');
   }
   console.log('');
   console.log('手動 Bridge Pack 備用命令仍可使用:');
@@ -3947,11 +4482,12 @@ if (subcommand === 'dashboard') {
     process.exit(1);
   }
   try {
-    const outputPath = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
-    console.log('🧭 APS Project Dashboard');
-    console.log('✅ 已生成唯讀 Daily Index。');
-    console.log(`📄 HTML: ${outputPath}`);
-    console.log('⚠️ 注意:Dashboard 只作日常索引;真正執行仍以 packet / outbox / ack 為準。');
+    const { dashboardPath, indexPath } = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
+    console.log('🧭 APS 營運總覽');
+    console.log('✅ 已生成唯讀 APS 營運總覽。');
+    console.log(`📄 個人 dashboard: ${dashboardPath}`);
+    console.log(`📄 共用入口: ${indexPath}`);
+    console.log('🔎 這是本機唯讀頁；先看能否推進、卡在哪、下一步叫 AI 做甚麼。');
   } catch (err) {
     console.error(`❌ dashboard 生成失敗:${err.message}`);
     process.exit(1);
@@ -3979,9 +4515,10 @@ if (subcommand === 'check-aps') {
   try {
     const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: dashboardConfig });
     console.log(renderProjectDashboardSummary(dashboard));
-    const outputPath = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
+    const { dashboardPath, indexPath } = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
     console.log('');
-    console.log(`📄 Dashboard 已按需更新: ${outputPath}`);
+    console.log(`📄 個人 dashboard 已按需更新: ${dashboardPath}`);
+    console.log(`📄 共用 dashboard 入口已按需更新: ${indexPath}`);
     console.log('⚠️ 注意:這不是背景自動監察;只有你要求 Check APS 時才重新讀取和生成。');
   } catch (err) {
     console.error(`❌ Check APS 失敗:${err.message}`);
