@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APS AI 代理安裝指引 — Install Agent Public Squares with Codex or Claude Code</title>
-<meta name="description" content="AI-agent-readable installation guide for Agent Public Squares. Use Codex, Claude Code, or another local AI agent to install APS, configure Google Drive handoff, run aps doctor, and prepare first collaboration packets safely.">
+<title>APS AI 代理安裝與升級指引 — Install or Upgrade Agent Public Squares with Codex or Claude Code</title>
+<meta name="description" content="AI-agent-readable install and upgrade guide for Agent Public Squares. Use Codex, Claude Code, or another local AI agent to install APS, upgrade an existing APS project, configure Google Drive handoff, run aps doctor, and prepare first collaboration packets safely.">
 <link rel="canonical" href="https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html">
 <meta property="og:type" content="article">
-<meta property="og:title" content="APS AI 代理安裝指引">
-<meta property="og:description" content="Install Agent Public Squares with a local AI agent, shared Google Drive, aps init, and aps doctor.">
+<meta property="og:title" content="APS AI 代理安裝與升級指引">
+<meta property="og:description" content="Install or upgrade Agent Public Squares with a local AI agent, shared Google Drive, aps init or aps upgrade, and aps doctor.">
 <meta property="og:url" content="https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html">
 <meta property="og:site_name" content="Agent Public Squares">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="APS AI 代理安裝指引">
-<meta name="twitter:description" content="AI-agent-readable APS install guide for Codex, Claude Code, Google Drive handoff, and aps doctor.">
+<meta name="twitter:title" content="APS AI 代理安裝與升級指引">
+<meta name="twitter:description" content="AI-agent-readable APS install and upgrade guide for Codex, Claude Code, Google Drive handoff, and aps doctor.">
 <style>
   :root {
     --ink: #1b2230;
@@ -79,7 +79,7 @@
   <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
   <a class="site-nav__link" href="../index.html">入口</a>
   <a class="site-nav__link" href="index.html">教學中心</a>
-  <a class="site-nav__link site-nav__link--active" href="aps-ai-agent-install.html">AI 代理安裝</a>
+  <a class="site-nav__link site-nav__link--active" href="aps-ai-agent-install.html">AI 代理安裝 / 升級</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
   <span class="site-nav__hint">2026-06-13</span>
@@ -87,8 +87,8 @@
 
 <header class="cover">
   <div class="eyebrow">只給本機 AI 代理讀</div>
-  <h1>本頁是 AI 代理安裝指令，不是人類手動教學</h1>
-  <p class="subtitle">人類用戶只需要把本頁交給能操作本機資料夾與終端機的 AI 代理，例如 Codex 或 Claude Code。AI 代理必須先讀完整頁面，再向用戶確認路徑與寫入計劃；人類不需要自行逐條執行下面的命令。</p>
+  <h1>本頁是 AI 代理安裝與升級指令，不是人類手動教學</h1>
+  <p class="subtitle">人類用戶只需要把本頁交給能操作本機資料夾與終端機的 AI 代理，例如 Codex 或 Claude Code。AI 代理必須先讀完整頁面，判斷目前項目是新安裝還是既有 APS 項目升級，再向用戶確認路徑與寫入計劃；人類不需要自行逐條執行下面的命令。</p>
 </header>
 
 <section>
@@ -98,8 +98,9 @@
     <li>不要在 Google Drive 共用資料夾內安裝 APS；它只作 APS 交接同步區。</li>
     <li>AI 先做只讀檢查，再列出寫入計劃，等用戶確認後才執行。</li>
     <li>非互動終端不要直接跑會等待鍵盤輸入的裸命令；先用 <code>--dry-run</code> 預覽，正式執行時用工具自己的 <code>--yes</code>。</li>
+    <li>本頁同時適用於新安裝與既有 APS 項目升級。先檢查 <code>.aps/config.json</code>；有就升級，沒有才新安裝。</li>
     <li>新安裝路徑是 Agent Handoff Kit → npm install → APS init → APS doctor。</li>
-    <li>既有 APS 項目走升級路徑，不要重建共用 Drive 資料夾。</li>
+    <li>既有 APS 項目走升級路徑：npm install → APS upgrade → APS doctor。不要重建共用 Drive 資料夾，不要重跑 <code>aps init</code>。</li>
     <li>安裝後先建立共同目標與分工，不要直接邀請協作者或發交接包。</li>
     <li>若項目已有共同目標與分工，後加入 peer 要先取得最新版，不要自行重建另一份。</li>
   </ul>
@@ -107,7 +108,7 @@
 
 <section>
   <h2>任務定位</h2>
-  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝並設定 Agent Public Squares。用戶會提供 Google Drive 本機路徑與項目代號；自己的 APS 名稱由用戶本人決定。普通邀請不會替受邀者預先取名，你不可猜測這些資料。</p>
+  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝或升級 Agent Public Squares。第一步永遠是只讀檢查目前資料夾是否已有 <code>.aps/config.json</code>：已有者代表這是既有 APS 項目，應走升級路徑；沒有者才走新安裝路徑。用戶會提供或確認 Google Drive 本機路徑與項目代號；自己的 APS 名稱由用戶本人決定。普通邀請不會替受邀者預先取名，你不可猜測這些資料。</p>
   <div class="callout warn">
     <strong>安全邊界：</strong>任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼、影響哪些路徑，並取得用戶確認。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
   </div>
@@ -172,9 +173,10 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
 
 <section>
   <h2>既有項目升級路徑</h2>
-  <p class="lede">如果已有 <code>.aps/config.json</code>，不要重建共用 Drive 資料夾。</p>
+  <p class="lede">如果已有 <code>.aps/config.json</code>，這就是 APS 新版本升級流程。不要重建共用 Drive 資料夾，不要重跑 <code>aps init</code>，不要覆寫既有交接、ack、peer 或共同目標與分工。</p>
   <ol class="steps">
     <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前項目、共用 Drive 資料夾、自己的 APS 名稱。</li>
+    <li>向用戶說明這次只會更新本地 npm 套件、刷新 APS 橋接與技能，並做健康檢查；不會改 Google Drive 權限，不會刪除或重建既有交接資料。</li>
     <li>取得確認後，更新 npm 套件：
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
     </li>
@@ -182,6 +184,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
       <pre>npx aps upgrade</pre>
     </li>
     <li>跑 <code>npx aps doctor</code>，把結果翻譯成普通用戶看得懂的狀態。</li>
+    <li>升級完成後，提醒用戶重新開啟本機 AI 工具或重新載入 skill，避免舊 skill 還停留在升級前版本。</li>
   </ol>
 </section>
 
