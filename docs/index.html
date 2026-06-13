@@ -23,7 +23,7 @@
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "description": "Agent Public Squares helps people working on the same project hand tasks between their local AI agents through a shared Google Drive folder, with one-to-one packets, check Drive, and Check APS status.",
-  "softwareVersion": "0.2.21",
+  "softwareVersion": "0.2.22",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "url": "https://adamchanadam.github.io/agent-public-squares/docs/index.html",
   "codeRepository": "https://github.com/Adamchanadam/agent-public-squares",
@@ -124,7 +124,7 @@
   <a class="site-nav__link" href="guides/aps-ai-agent-install.html">AI 代理安裝</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-06-12</span>
+  <span class="site-nav__hint">2026-06-13</span>
 </nav>
 
 <header class="cover">
@@ -151,7 +151,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
   <div class="flow-wrap" aria-label="Agent Public Squares 宏觀操作流程圖">
     <svg class="flow-svg" viewBox="0 0 420 720" role="img" aria-labelledby="flow-title flow-desc">
       <title id="flow-title">Agent Public Squares 宏觀操作流程</title>
-      <desc id="flow-desc">三泳道流程圖：用戶 1 先安裝 APS 並定好項目共識，再邀請用戶 2；用戶 2 在自己的電腦接入後，用戶 1 建立一對一交接包，用戶 2 查看、處理或回覆。</desc>
+      <desc id="flow-desc">三泳道流程圖：用戶 1 先安裝 APS 並定好共同目標與分工，再邀請用戶 2；用戶 2 在自己的電腦接入後，用戶 1 建立一對一交接包，用戶 2 查看、處理或回覆。</desc>
       <defs>
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
           <path d="M0,0 L0,6 L9,3 z" fill="#2f5d7c"></path>
@@ -175,7 +175,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 
       <rect class="flow-box flow-box--person" x="30" y="192" width="98" height="82"></rect>
       <text class="flow-step" x="44" y="214">02</text>
-      <text class="flow-label" x="79" y="234" text-anchor="middle">定項目共識</text>
+      <text class="flow-label" x="79" y="234" text-anchor="middle">定目標分工</text>
       <text class="flow-small" x="79" y="254" text-anchor="middle">目標、角色</text>
       <text class="flow-small" x="79" y="270" text-anchor="middle">分工、驗收</text>
 
@@ -259,7 +259,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
   <ul>
     <li>同一個項目可以有多位協作對象。</li>
     <li>每一次交接仍是一對一，不是群發。</li>
-    <li>第一位用戶安裝後，應先由 AI 建立項目共識，定好共同目標、角色、第一輪分工和驗收標準；實際參與者和 APS 名稱由用戶提供或確認。</li>
+    <li>第一位用戶安裝後，應先由 AI 建立共同目標與分工，定好共同目標、參與者、角色、第一輪分工、不可做事項、驗收標準、第一個邀請對象和第一輪交接對象；實際參與者和 APS 名稱由用戶提供或確認。</li>
     <li>APS 不會自動通知對方，也不會自動打開對方的 AI。</li>
     <li>AI 會生成可複製的通知文字，由你貼到 WhatsApp、Email 或平常使用的通訊工具。</li>
   </ul>
@@ -268,16 +268,16 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 <section>
   <h2>目前狀態</h2>
   <p><span class="badge ok">公眾可用</span><span class="badge warn">前期測試版</span></p>
-  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.21</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，應先建立項目共識；示範人名不可當作固定預設，實際參與者和 APS 名稱由用戶確認。項目共識確認後，再做一次測試交接，確認雙方 Google Drive 同步與 AI 設定正常。</p>
+  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.22</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，應先建立共同目標與分工；示範人名不可當作固定預設，實際參與者和 APS 名稱由用戶確認。共同目標與分工確認後，再按需要本機保存、發給 confirmed peer 確認，或先邀請協作者。</p>
 </section>
 
 <section>
   <h2>下一步</h2>
-  <p>如果你是第一次安裝，直接使用上方 prompt。安裝成功後，先叫 AI 建立項目共識，再邀請協作者。若你是收到別人的 APS 邀請，請看 <a href="guides/aps-join-invite.html">收到邀請的加入頁</a>。若你想看完整教學入口，前往 <a href="guides/index.html">教學中心</a>。</p>
+  <p>如果你是第一次安裝，直接使用上方 prompt。安裝成功後，先叫 AI 建立共同目標與分工，再邀請協作者。若你是收到別人的 APS 邀請，請看 <a href="guides/aps-join-invite.html">收到邀請的加入頁</a>。若你想看完整教學入口，前往 <a href="guides/index.html">教學中心</a>。</p>
 </section>
 
 <footer>
-  Agent Public Squares · 公眾入口 · 最新更新 2026-06-12
+  Agent Public Squares · 公眾入口 · 最新更新 2026-06-13
 </footer>
 
 </main>
