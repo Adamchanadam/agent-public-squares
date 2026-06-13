@@ -330,8 +330,8 @@
     <article class="tier amber">
       <h3>🟡 外發前檢</h3>
       <p><strong>別名</strong>：<code>跑外發前檢</code> / <code>release-check</code> / <code>handover-verify</code></p>
-      <p><strong>時機</strong>:物件離開本工作目錄之前(推送遠端 / 分享教學或維護者頁 / 傳橋接規則包、starter pack 或設置指引予協作夥伴)。</p>
-      <p><strong>覆蓋</strong>：快檢 4 項 + 9 項：</p>
+      <p><strong>時機</strong>:物件離開本工作目錄之前(推送遠端 / 分享教學或維護者頁 / 傳開放邀請、指定 starter pack 或設置指引予協作夥伴)。</p>
+      <p><strong>覆蓋</strong>：快檢全部 + 外發前檢區塊：</p>
       <ul>
         <li>跨工作目錄佔位符審核</li>
         <li>README / 入口 / 教學 / 維護者 / skill / CLI 跨面交叉閱讀</li>
@@ -343,14 +343,14 @@
         <li>Google Drive 已驗證主路徑與其他同步資料夾未驗證邊界檢查</li>
         <li>User-facing 文檔內容與產品模型深審(改寫後全頁模型一致、多 peer 框架、圖文對齊 CLI)</li>
       </ul>
-      <p><strong>驗收</strong>：13 項全過。<br><strong>失敗</strong>：handover stop。</p>
+      <p><strong>驗收</strong>：快檢與本段列出的外發前檢區塊全過。<br><strong>失敗</strong>：handover stop。</p>
     </article>
 
     <article class="tier red">
       <h3>🔴 全面檢</h3>
       <p><strong>別名</strong>：<code>跑全面檢</code> / <code>full-check</code> / <code>full-audit</code></p>
       <p><strong>時機</strong>：跨機往返測試 / 協定升版 / 引入新 AI 程式 / 治理工具重大升級之前。</p>
-      <p><strong>覆蓋</strong>：外發前檢 + 6 項人工 / 跨工作目錄：</p>
+      <p><strong>覆蓋</strong>：外發前檢全部 + 人工 / 跨工作目錄項：</p>
       <ul>
         <li>跨工作目錄審核</li>
         <li>協定往返流程回歸測試</li>
@@ -359,7 +359,7 @@
         <li>審核報告輸出</li>
         <li>規格與實際 runtime 行為落差審核</li>
       </ul>
-      <p><strong>驗收</strong>：19 項 + report committed。<br><strong>失敗</strong>：逐條列阻擋項。</p>
+      <p><strong>驗收</strong>：三條主線、主要流程、外發前檢區塊與人工 / 跨工作目錄項逐項收口,並提交審核報告。<br><strong>失敗</strong>：逐條列阻擋項。</p>
     </article>
 
   </div>
@@ -380,12 +380,12 @@
       </tr>
       <tr>
         <td>發佈前可信度</td>
-        <td>任何會離開本工作目錄的內容,包括 README、GitHub Pages、npm package、Bridge Pack、starter pack、walkthrough、QC 卡片、維護者頁,皆須讓外部讀者理解並按當前狀態操作。</td>
+        <td>任何會離開本工作目錄的內容,包括 README、GitHub Pages、npm package、Bridge Pack、開放邀請、指定 starter pack、walkthrough、QC 卡片、維護者頁,皆須讓外部讀者理解並按當前狀態操作。</td>
         <td>外人可能照文件操作卻撞上未核實、未發佈或不完整流程。</td>
       </tr>
       <tr>
         <td>協定實際運行正確性</td>
-        <td>共用 Drive 資料夾協定、橋接規則包樣板、實際工作目錄、發件記錄、收件記錄、單寫通道、交接包版本、啟動時待處理計算、修訂 / 撤回 / 收結行為、Handoff Kit APS route registration 與 project-index registration 須有實際操作記錄或對應工作目錄證據。</td>
+        <td>共用 Drive 資料夾協定、橋接規則包樣板、實際工作目錄、發件記錄、收件記錄、單寫通道、交接包版本、啟動時待處理計算、修訂 / 退回 / 撤回 / 收結行為、Handoff Kit APS route registration 與 project-index registration 須有實際操作記錄或對應工作目錄證據。</td>
         <td>文檔說得通,但實際共享資料夾流程未必跑得通。</td>
       </tr>
     </tbody>
@@ -418,7 +418,7 @@
       </tr>
       <tr>
         <td>Project Peers 逐一交接隔離</td>
-        <td>涉及 project-level peers 時,全面檢不可只跑二人往返。須至少驗證 A → B 單收件交接與 A → C 單收件交接各自 consume；<code>inbox --all</code> / <code>inbox --from</code> 不可顯示不屬於自己的 packet；錯收件人 <code>consume</code> 必須被拒絕；<code>status --packet-id</code> 只查本機 agent 自己發出的 packet。</td>
+        <td>涉及 project-level peers 時,全面檢不可只跑二人往返。須至少驗證 A → B 單收件交接與 A → C 單收件交接各自 consume 或 decline；<code>inbox --all</code> / <code>inbox --from</code> 不可顯示不屬於自己的 packet；錯收件人 <code>consume</code> 必須被拒絕；<code>status --packet-id</code> 只查本機 agent 自己發出的 packet。普通邀請須用 <code>peer invite</code> 生成開放邀請,受邀者 APS 名稱由本人決定;身份結構須由 <code>doctor</code> / <code>Check APS</code> 揭示 lane、ack、peer card 的 agent / project / lane 錯配。</td>
       </tr>
       <tr>
         <td>補交與共識確認</td>
@@ -430,7 +430,7 @@
       </tr>
       <tr>
         <td>可行動狀態面</td>
-        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、下一步、風險與按需 dashboard。它只整理本機已同步資料中可追溯的行動線索,不是自動派工;不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。</td>
+        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、下一步、風險與按需 dashboard。它只整理本機已同步資料中可追溯的行動線索,不是自動派工;不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。若對方已 <code>decline</code>,發件方狀態面須顯示退回原因與 revise / withdraw / close 下一步。</td>
       </tr>
       <tr>
         <td>新安裝與版本升級落地</td>
@@ -528,7 +528,7 @@
   <h2>典型用法</h2>
   <ul>
     <li><strong>🟢 快檢</strong>:commit 前 spot-check;五區段執行完之後之 baseline 驗證;改完 doc 試 anchor 不斷</li>
-    <li><strong>🟡 外發前檢</strong>:push remote 之前;傳 Bridge Pack / starter pack / 設置指引予協作夥伴之前;新教學頁或維護者頁分享予外人之前</li>
+    <li><strong>🟡 外發前檢</strong>:push remote 之前;傳開放邀請 / 指定 starter pack / 設置指引予協作夥伴之前;新教學頁或維護者頁分享予外人之前</li>
     <li><strong>🔴 全面檢</strong>：跨機往返落地之前；協定升版之前；引入新 AI 程式之前；連續多輪工作後重置基線</li>
   </ul>
 </section>
@@ -594,7 +594,7 @@
 </section>
 
 <footer>
-  Agent Public Squares · 分層 QC 參考卡 · 建立 2026-05-21 S6 · 同步 2026-05-28 · 單一真源於 <code>dev/qc/triggers.md</code>
+  Agent Public Squares · 分層 QC 參考卡 · 建立 2026-05-21 S6 · 同步 2026-06-12 · 單一真源於 <code>dev/qc/triggers.md</code>
 </footer>
 
 </main>

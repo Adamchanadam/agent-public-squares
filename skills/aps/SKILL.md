@@ -5,7 +5,7 @@ description: Sets up and runs cross-machine collaboration between AI agents on t
 
 # Agent Public Squares — 跨機合作 skill
 
-> **狀態:** npm package `@adamchanadam/aps` 屬前期測試版,確切版本以 `npx aps --help` 或 `npx aps doctor` 實測為準。套件提供 `bridge-pack`、互動式 `init` 技能安裝、既有項目 `upgrade`、初始共用 Drive 資料夾 skeleton、Bridge Pack、starter pack、最小 `publish` / `inbox` / `consume` / `close` 指令,以及 `revise`、`withdraw`、只讀 `doctor`、`context` / `context add` / `context html`、`dashboard`、`check-drive`、`check-aps`、`config`、`.aps/config.json` 專案本地設定、`publish --body-file`、`revise --body-file` 與短命令日用流程。Project Peers + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 project 可有多位 peers、每次仍是一對一 packet。設置完成後日常命令可省略共用 Drive 資料夾 / project / agent 長參數。專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。此檔是可隨 npm package 發出的 skill runtime 規格草稿。設置對話 wording 的精簡隨包版本見 `references/setup-dialogue.md`;repo 內長版維護稿見 `docs/plans/2026-05-23-aps-skill-dialogue-script.md`。
+> **狀態:** npm package `@adamchanadam/aps` 屬前期測試版,確切版本以 `npx aps --help` 或 `npx aps doctor` 實測為準。套件提供 `bridge-pack`、互動式 `init` 技能安裝、既有項目 `upgrade`、初始共用 Drive 資料夾 skeleton、Bridge Pack、starter pack、最小 `publish` / `inbox` / `consume` / `decline` / `close` 指令,以及 `revise`、`withdraw`、只讀 `doctor`、`context` / `context add` / `context html`、`dashboard`、`check-drive`、`check-aps`、`config`、`.aps/config.json` 專案本地設定、`publish --body-file`、`revise --body-file` 與短命令日用流程。Project Peers + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 project 可有多位 peers、每次仍是一對一 packet。設置完成後日常命令可省略共用 Drive 資料夾 / project / agent 長參數。專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。此檔是可隨 npm package 發出的 skill runtime 規格草稿。設置對話 wording 的精簡隨包版本見 `references/setup-dialogue.md`;repo 內長版維護稿見 `docs/plans/2026-05-23-aps-skill-dialogue-script.md`。
 
 ## 1. 此 skill 的職責
 
@@ -33,8 +33,8 @@ description: Sets up and runs cross-machine collaboration between AI agents on t
 - **品牌與版本分流硬規則**:APS 與 Agent Handoff Kit 是不同產品層。APS skill 不得輸出 Agent Handoff Kit 的啟動卡、貓圖 banner、`continuity ready` 或 `Agent Handoff Kit v<版本>`。若需要提版本,只能分開列明:「APS CLI: 由 `npx aps doctor` 或 `npx aps --help` 實測所得」;「Agent Handoff Kit: 只有實際執行 kit doctor 或讀到已驗證本地紀錄時才可列明,否則寫未核實」。不得把 APS package 版本當成 Agent Handoff Kit 版本。
 - **候選版本測試規則**:若用戶正在測試未發布候選版,先核對 `npx aps --help` 或 `npx aps doctor` 顯示的 APS CLI 版本。若它仍是 npm 最新公開版,不得聲稱正在測試候選版;需改用本地 CLI 路徑或先把本地 package 安裝到該 UAT 專案。
 - **新安裝 / 升級分流硬規則**:沒有 `.aps/config.json` 的項目走新安裝:先確認 Agent Handoff Kit 已初始化;若缺 `AGENTS.md`、`dev/RULE_PACKS.md` 或 `dev/PROJECT_INDEX.md`,先執行或提示用戶執行 `npx --yes @adamchanadam/agent-handoff-kit@latest init`,再 `npm install --save-dev @adamchanadam/aps@latest` 與 `npx aps init`。已有 `.aps/config.json` 的項目走升級:先 `npm install --save-dev @adamchanadam/aps@latest`,再 `npx aps upgrade`。升級時不得要求用戶重建共用 Drive 資料夾,不得覆寫既有交接包、outbox、ack 或共用 Drive 資料夾的協定檔。
-- **agent_id 一致性硬規則**:`agent_id` 是整個共用 Drive 資料夾共用的身份名稱,不是每部電腦各自重新命名的暱稱。三問安裝時,每一方只設定自己的名稱;對方透過邀請(`peer add`)加入,不在安裝時填寫。雙方仍須沿用同一套身份名稱。文內 `adam`、`jay`、`fanny`、`jackie` 等只作示範,不得當作產品預設、固定角色或 hard-coded 流程;實際參與者與 agent id 必須由用戶提供,或由 AI 從項目上下文可靠整理後交用戶確認。若兩邊名稱不一致,AI 必須先提醒會讀錯 `from_<agent>` 通道,導致 inbox 看不到交接包或共用 Drive 資料夾內出現多套 lane,再協助用戶用 `npx aps config` 或 `npx aps upgrade` 對齊。
-- **Project Peers 硬規則**:一個 APS project 可以有多位 peers,但每個 packet 仍只可發給一個 peer。`otherAgentId` 是舊二人相容預設,不是整個 project 永久只能合作一人的限制。用戶說「邀請協作者加入這個 APS project」時,先確認對方實際 agent id,再用 `npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>` 建立 provisional peer 與 starter pack;對方未完成設置前,不得把對方當作 confirmed peer 發正式交接。用戶說「把這部分交給某位協作者」時,先用 `npx aps peers` 確認該 peer 是否已 confirmed;若 confirmed,才用 `npx aps publish --to <對方_agent_id> ...`;若 provisional,先輸出 starter pack 通知。不得建立多收件人 packet、群組 lane 或自動通知對方 AI。
+- **agent_id 一致性硬規則**:`agent_id` 是整個共用 Drive 資料夾共用的身份名稱,不是每部電腦各自重新命名的暱稱。三問安裝時,每一方只設定自己的名稱;普通邀請只交代 project 與加入方法,不替對方預先取名或建 lane。受邀者完成自己電腦上的 `init` 後,其自選名稱才成為技術身份。文內 `adam`、`jay`、`fanny`、`jackie` 等只作示範,不得當作產品預設、固定角色或 hard-coded 流程。若兩邊名稱不一致,AI 必須先提醒會讀錯 `from_<agent>` 通道,導致 inbox 看不到交接包或共用 Drive 資料夾內出現多套 lane,再協助用戶用 `npx aps config` 或 `npx aps upgrade` 對齊。
+- **Project Peers 硬規則**:一個 APS project 可以有多位 peers,但每個 packet 仍只可發給一個 peer。`otherAgentId` 是舊二人相容預設,不是整個 project 永久只能合作一人的限制。用戶說「邀請協作者加入這個 APS project」時,普通主路徑是 `npx aps peer invite`:生成可轉發邀請,讓對方在自己的電腦選定 APS 名稱並完成設定;此命令不得預先建立對方 lane、ack 或 peer card。只有雙方已明確約定對方技術身份時,才用 `npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>` 建立 provisional peer 與 starter pack。用戶說「把這部分交給某位協作者」時,先用 `npx aps peers` 確認該 peer 是否已 confirmed;若 confirmed,才用 `npx aps publish --to <對方_agent_id> ...`;若 provisional 或未出現,先輸出邀請 / starter pack 通知。不得建立多收件人 packet、群組 lane 或自動通知對方 AI。
 - **項目開局對齊硬規則**:第一位用戶新安裝完成後,或任何用戶第一次說「教我用 APS / 下一步 / 怎樣開始」而項目尚未有清楚共同口徑時,AI 必須先帶用戶建立「項目共同簡報」,再邀請 peer、發測試包或發第一輪正式交接。共同簡報至少包含共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。這八項是最低欄位;AI 可按項目增加截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制等欄位,但不得刪除會影響共同口徑的核心欄位。AI 可從對話和檔案可靠整理草稿,不足才問最多三個關鍵問題。未經用戶確認共同簡報前,不得把模糊分工寫入 APS packet,不得把邀請對象當成已定任務收件人,也不得聲稱團隊口徑已一致。
 
 ## 3. 起手 routing
@@ -73,7 +73,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 
 觸發來源:第 3 節「初次設置」路由命中。先讀 bundled reference `references/setup-dialogue.md`,再按下列順序執行。若此 skill 是從 npm package 安裝,不要依賴 repo 內 `docs/plans/` 檔案,因為它們不在 npm tarball 內。
 
-1. **打招呼 + 意圖確認**:確認兩件事 — 雲端硬碟是否已裝、用哪一個雲端硬碟。三問安裝只設定用戶自己這一邊,毋須現在就有對方;APS 是邊做邊加,協作對象可在設定好之後隨時用邀請流程(第 5.1 節 `peer add`)加入。若用戶已心中有合作對象,記下名稱留待設定完成後邀請即可,不必在安裝時填寫。
+1. **打招呼 + 意圖確認**:確認兩件事 — 雲端硬碟是否已裝、用哪一個雲端硬碟。三問安裝只設定用戶自己這一邊,毋須現在就有對方;APS 是邊做邊加,協作對象可在設定好之後隨時用邀請流程(第 5.1 節 `peer invite`)加入。若用戶已心中有合作對象,記下名稱留待設定完成後邀請即可,不必在安裝時填寫。
 2. **先決條件 interactive 檢查**:
    - Claude Code:skill 被觸發即代表已在線,毋須額外 check。
    - Agent Handoff Kit:用 Read tool 檢查 `AGENTS.md` 是否存在 + 開頭是否屬 kit-managed core。分支 [A] 已 init → 繼續;分支 [B] 未 init → 提供安裝命令,等用戶完成之後再繼續。
@@ -88,11 +88,12 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    - 工具列出寫入計劃後,先向用戶覆述即將寫入的位置;取得用戶確認後才輸入 `yes`。
    - 成功後驗證 `dev/rules/aps-bridge.md`、`.aps/config.json`、共用 Drive 資料夾的 `_hub/PROTOCOL.md`、自己的 `from_<own_agent_id>/outbox.log.md` 與 `_ack/<own_agent_id>.ack.json` 均存在。**三問安裝只設定用戶自己這一邊:不會建立對方通道,也不會生成 starter pack —— 那些在邀請對方時(第 6 步 / 第 5.1 節)才產生。**
    - 若需要 AI 或腳本代為執行非互動流程,使用 `npx aps init --hub-root ... --project ... --agent-id ...`(`--other-agent-id` 與 `--role A|B` 可選,只設自己即可)。不得使用含尖括號 `<>` 或 `...` 的 placeholder。
-6. **邀請對方並生成 starter pack**:
-   - 三問安裝**不會**生成 starter pack。當用戶想邀請對方時(可以即時,亦可以日後),用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer,CLI 會同時把 starter pack 寫入 `<hub_root>/_hub/starter-pack-<項目>-<對方>.md`。若用戶今次未決定搵邊個,跳過此步,並提醒佢設定好之後隨時可以邀請。
-   - 邀請後,讀取該 starter pack 並生成可複製短訊文本,輸出到 chat 顯示給用戶 copy(skill 不直接寫入 clipboard — OS clipboard API 非 Claude Code 標準 tool;改為明確 surface「以下短訊請 copy 傳給對方」+ blockquote 包圍)。對方完成自己那邊的三問安裝後才成為 confirmed peer。
+6. **邀請對方**:
+   - 三問安裝**不會**生成 starter pack。當用戶想邀請新協作者時(可以即時,亦可以日後),普通主路徑用 `npx aps peer invite` 生成開放邀請。這只寫入 `_hub/open-invite-<項目>.md`,不建立對方 lane、ack 或 peer card;對方會在自己的電腦選定 APS 名稱。
+   - 若雙方已約定對方的 APS 技術名稱,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 與 starter pack。
+   - 邀請後,讀取 invite 或 starter pack,輸出到 chat 顯示給用戶 copy(skill 不直接寫入 clipboard — OS clipboard API 非 Claude Code 標準 tool;改為明確 surface「以下短訊請 copy 傳給對方」+ blockquote 包圍)。對方完成自己那邊的三問安裝後才成為 confirmed peer。
 7. **設置完成後的下一步**:
-   - 三問安裝完成後,項目只有用戶自己一邊,**未有對方可發測試交接**。主路徑不是立即邀請或發包,而是先進入第 4.2 節「項目開局對齊子流程」,建立並確認共同簡報。共同簡報確認後,才建議邀請第一位協作對象(轉第 5.1 節 `peer add`)或建立第一輪交接。
+   - 三問安裝完成後,項目只有用戶自己一邊,**未有對方可發測試交接**。主路徑不是立即邀請或發包,而是先進入第 4.2 節「項目開局對齊子流程」,建立並確認共同簡報。共同簡報確認後,才建議邀請第一位協作對象(轉第 5.1 節 `peer invite`)或建立第一輪交接。
    - 只有當已有 confirmed peer(對方已完成自己那邊的安裝)時,才提議發測試交接。AI 在背後調用當前 CLI,**必須用 `--to <peer>` 指名收件對象**,而不是手寫舊式單檔 packet:
      ```text
      npx aps publish --to <peer_agent_id> --topic setup_test --body "APS setup test from <own_agent_id>."
@@ -148,7 +149,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    ```
 6. **確認閘**:請用戶確認三件事:共同簡報內容正確;第一個邀請對象正確;可以用這份共同簡報作為後續 invite / 第一輪 packet 的基準。用戶未確認前,不要邀請 peer、不要發測試包、不要發正式工作 packet。
 7. **確認後的下一步**:
-   - 若第一個邀請對象未加入,轉第 5.1 節,建立 provisional peer 和 starter pack。邀請通知要附上共同簡報摘要,但不得包含發送方本機 Drive 路徑。
+   - 若第一個邀請對象未加入,轉第 5.1 節,用 `peer invite` 建立開放邀請。邀請通知要附上共同簡報摘要,但不得包含發送方本機 Drive 路徑;對方 APS 名稱由對方自己在本機設定時決定。
    - 若對方已是 confirmed peer,轉第 6 節,用共同簡報加上該 peer 的第一輪任務建立正式交接草稿,再按發送前預檢與確認閘處理。
    - 若用戶只想先保存口徑,留在對話中輸出共同簡報,並提醒下次可說「用這份共同簡報邀請指定協作者」或「用這份共同簡報發第一輪交接給指定協作者」。
 
@@ -193,7 +194,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    `check-drive` 與 `inbox --all` 同底層;日常優先用 `check-drive`,排錯時才講 `inbox`。若沒有待處理項,說「目前沒有 peer 交來的新內容」。若有待處理項,不要立即 consume;轉入收件子流程,先用總覽表與摘要展示。
 6. **給三個自然下一步**:
    - 「先建立項目共同簡報」:若共同目標、參與者、角色、第一輪分工、不可做事項或驗收標準未確認,這是首選;轉入第 4.2 節。
-   - 「邀請新 peer 加入這個 project」:只有共同簡報已確認或用戶明確只做技術邀請時才轉入 Project Peers 子流程,用 `peer add` 生成 provisional peer 與 starter pack。
+   - 「邀請新 peer 加入這個 project」:只有共同簡報已確認或用戶明確只做技術邀請時才轉入 Project Peers 子流程。普通主路徑用 `peer invite` 生成開放邀請;只有對方 APS 技術名稱已約定時才用 `peer add` 生成 provisional peer 與 starter pack。
    - 「把目前任務整理成 APS 交接包」:需先確認收件 peer 與共同口徑;轉入一語交接 / 發佈子流程,先做交接摘要與完整性預檢,經用戶確認後才 publish。
 7. **不要要求用戶記命令**:命令可放在括號或補充句,但主要表達應是「我可以替你檢查 / 發測試包 / 生成給對方的短訊」。若用戶不是在排錯,不要把 `npx aps publish`、`npx aps inbox`、`npx aps consume` 當成主操作指引。
 
@@ -206,7 +207,12 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    npx aps peers
    ```
    若只看到 `.aps/config.json compatibility`,向用戶說明這是舊二人相容視圖,不代表 project 永久只能有一位對方。
-2. **邀請新 peer**:用戶說「邀請某位協作者」時,先確認對方 `agent_id` 的 lower_snake_case 名稱,例如 `reviewer`。然後執行:
+2. **邀請新 peer**:用戶說「邀請某位協作者」時,普通主路徑先生成開放邀請,不要替對方預先取 APS 名稱。執行:
+   ```text
+   npx aps peer invite
+   ```
+   讀取 `_hub/open-invite-<項目>.md`,整理成可貼到 Telegram、WhatsApp 或 Email 的短訊。短訊要包含 `---✂️---` 可直接貼給對方 AI 的區塊;對方 APS 名稱由對方自己在本機設定時決定。
+   只有當用戶明確表示雙方已約定對方 APS 技術名稱,例如 `reviewer`,才執行:
    ```text
    npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>
    ```
@@ -295,7 +301,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 
 ## 7. 收件子流程
 
-觸發來源:第 3 節「收件」路由命中。底層 CLI 已有最小 `inbox` 與 `consume` 指令,可計算對方 outbox 的待處理項並寫入自己的 ack。**此節是技能自然語言包裝規格:可以調用已驗證 CLI;專案已完成一次維護者真實 Google Drive 往返,但每個新項目仍要各自驗證共用 Drive 資料夾路徑、離線存取與同步狀態。**
+觸發來源:第 3 節「收件」路由命中。底層 CLI 已有最小 `inbox`、`consume` 與 `decline` 指令,可計算對方 outbox 的待處理項並寫入自己的 ack。**此節是技能自然語言包裝規格:可以調用已驗證 CLI;專案已完成一次維護者真實 Google Drive 往返,但每個新項目仍要各自驗證共用 Drive 資料夾路徑、離線存取與同步狀態。**
 
 1. **讀取接駁設定**:同發佈子流程,取得 `hub_root`、`project_slug`、`own_agent_id`、`other_agent_id`。
 2. **執行待辦檢查**:
@@ -326,14 +332,20 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 6. **讓用戶決定是否消化**:
    - **讀取並消化**:先 Read 對應 `packet.md` 全文,顯示重點與原文位置;用戶確認後才寫入 ack。
    - **稍後再讀**:不寫 ack。告訴用戶下次再說「check Drive」仍會看到它。
-   - **請對方撤回或修正**:不寫 ack。生成一段通知短訊,請原發包一方用 `npx aps revise ...` 或 `npx aps withdraw ...` 處理;若對方仍使用 0.2.0 或更舊版本而這兩條命令不存在,請原發包一方另發新包,不要手寫 outbox。
+   - **退回 / 不能處理**:若用戶明確表示拒絕、不能接、資料不足或要求退回,用 `decline` 寫入自己的 ack;這代表該版本不再以 pending 形式出現,發件方應 revise、withdraw 或 close。
+   - **請對方撤回或修正但暫不退回**:不寫 ack。生成一段通知短訊,請原發包一方用 `npx aps revise ...` 或 `npx aps withdraw ...` 處理;若對方仍使用 0.2.0 或更舊版本而這兩條命令不存在,請原發包一方另發新包,不要手寫 outbox。
 7. **寫入消化記錄**:
    ```text
    npx aps consume --packet-id <packet_id> --version <version> --result "<one-line result>"
    ```
    `result` 必須是具體一句話,例如 `Read kickoff and preparing reply`;不要只寫 `done`。
-7. **如要回覆**:用戶若要回包,轉入發佈子流程,topic 可用 `<原 topic>_reply`。向用戶確認回覆目標,並協助把目前工作結果整理成對方可直接接手的內容,而不是只說「請自行輸入 publish 命令」。
-8. **如要收結自己之前的包**:只有在用戶是原發包者,且對方已回覆或明確完成後,才進入收結動作:
+8. **寫入退回記錄**:
+   ```text
+   npx aps decline --packet-id <packet_id> --version <version> --reason "<one-line reason>"
+   ```
+   `reason` 必須講清楚不能處理的原因,例如 `Missing source file; please revise with the evidence path`;不要只寫 `no`。
+9. **如要回覆**:用戶若要回包,轉入發佈子流程,topic 可用 `<原 topic>_reply`。向用戶確認回覆目標,並協助把目前工作結果整理成對方可直接接手的內容,而不是只說「請自行輸入 publish 命令」。
+10. **如要收結自己之前的包**:只有在用戶是原發包者,且對方已回覆、退回或明確完成後,才進入收結動作:
    ```text
    npx aps close --packet-id <packet_id> --reason "<reason>"
    ```

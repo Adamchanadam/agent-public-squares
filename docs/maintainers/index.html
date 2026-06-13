@@ -156,7 +156,7 @@
   <a class="site-nav__link site-nav__link--active" href="index.html">維護者規格</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-05-28</span>
+  <span class="site-nav__hint">2026-06-12</span>
 </nav>
 
 <header class="cover">
@@ -261,9 +261,9 @@
   <ul>
     <li>公開頁是否只承諾現有可用能力，未把目標體驗寫成已支援。</li>
     <li>新手教學是否不再要求閱讀或修改內部規格。</li>
-    <li>CLI 是否能用真實或 throw-away 共用 Drive 資料夾跑通 <code>init</code>（三問、只設自己一邊）、<code>doctor</code>、<code>peers</code>、<code>peer add</code>（在此生成 starter pack，並非 init）、<code>peer starter</code>、<code>publish --to &lt;對象&gt;</code>（逐一指名收件）、<code>inbox</code>、<code>consume</code>、<code>close</code>。</li>
+    <li>CLI 是否能用真實或 throw-away 共用 Drive 資料夾跑通 <code>init</code>（三問、只設自己一邊）、<code>doctor</code>、<code>peers</code>、<code>peer invite</code>（普通開放邀請，不預先建立對方身份）、<code>peer add</code>（已知對方 APS 技術名稱時才生成 provisional peer 與指定 starter pack，並非 init）、<code>peer starter</code>、<code>publish --to &lt;對象&gt;</code>（逐一指名收件）、<code>inbox</code>、<code>consume</code>、<code>decline</code>、<code>close</code>。</li>
     <li><code>aps init</code> 是否已註冊 Handoff Kit 可發現路徑：<span class="path">dev\RULE_PACKS.md</span> 有 APS route，<span class="path">dev\PROJECT_INDEX.md</span> 有 APS installed skill block，且 <code>doctor</code> 會檢查這兩項。</li>
-    <li><code>doctor</code> 健康分兩層：本機核心（設定、橋接、上述兩項註冊、共用 Drive 資料夾 root、<span class="path">_hub</span> 的 PROTOCOL/CHANGELOG、自己的 outbox/packets/ack、衝突檔掃描）決定退出碼；協作對象健康只供參考，永不影響退出碼。核對重點：未邀請對方的單邊新裝項目必須通過（exit 0），對方通道缺失不可令 <code>doctor</code> 失敗。</li>
+    <li><code>doctor</code> 健康分兩層：本機核心（設定、橋接、上述兩項註冊、共用 Drive 資料夾 root、<span class="path">_hub</span> 的 PROTOCOL/CHANGELOG、自己的 outbox/packets/ack、衝突檔掃描、身份結構掃描）決定退出碼；協作對象健康只供參考，永不影響退出碼。核對重點：未邀請對方的單邊新裝項目必須通過（exit 0），對方通道缺失不可令 <code>doctor</code> 失敗；lane / ack / peer card 的 agent、project、lane 錯配必須被揭示。</li>
     <li>HTML 不可連結任何本地 <code>.md</code> 規格檔；需要提及時只用 plain path。</li>
     <li>npm 版本、GitHub release、README、GitHub Pages 與本地 <span class="path">package.json</span> 邊界一致。</li>
   </ul>
@@ -283,7 +283,7 @@
 </section>
 
 <footer>
-  Agent Public Squares · 維護者規格 · 最新更新 2026-05-29
+  Agent Public Squares · 維護者規格 · 最新更新 2026-06-12
 </footer>
 
 </main>

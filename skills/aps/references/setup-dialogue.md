@@ -52,7 +52,7 @@
 🚀 下一步你可以選一件事:
 
 A. 我替你邀請協作對象加入這個 project
-   例如你指定的協作者。工具會生成 provisional peer 與 starter pack,對方先完成 Agent Handoff Kit init,再完成 APS 設置後才可正式收交接。
+   工具會生成開放邀請,不預先建立對方 lane、ack 或 peer card;對方在自己電腦選定 APS 名稱並完成設定後,才可正式收交接。
 
 B. 我替你發一個測試交接(需先有 confirmed peer)
    用來確認對方那邊能否看到同一個共用 Drive 資料夾。
@@ -70,9 +70,9 @@ C. 我把目前任務整理成 APS 交接包給指定 peer
 > 一、你的雲端硬碟桌面版是否已安裝,而且可以在本機檔案總管打開檔案?
 > 二、你想用哪一個 Google Drive 本機同步資料夾作為共用位置?目前已驗證主路徑是 Google Drive;其他同步資料夾只可作未正式驗證的實驗路徑。
 
-當用戶日後想邀請對方時(`peer add` 之後),可提供以下短訊讓用戶傳給對方:
+當用戶日後想邀請新協作者時,普通主路徑是 `peer invite`,可提供以下短訊讓用戶傳給對方:
 
-> 我想用 Agent Public Squares 建立一個跨機 AI 協作流程。我已經在我這邊設置好,會傳你一份 starter pack 和幾條安裝指令。你在自己電腦照做即可。
+> 我想用 Agent Public Squares 建立一個跨機 AI 協作流程。我已經在我這邊設置好,會傳你一段可直接貼給 AI 的加入邀請。你在自己電腦照做即可,APS 名稱由你自己決定。
 
 ## 2. 先決條件檢查
 
@@ -131,7 +131,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest init
 正在記錄本項目的 APS 本地設定位置。
 ```
 
-前期測試版已隨包提供 `resources/protocol/PROTOCOL.md`、`resources/protocol/templates/`,並由互動式 `npx aps init` 在三問安裝時寫入用戶自己這一邊的共用 Drive 資料夾 skeleton、Bridge Pack 與 `.aps/config.json`(starter pack 不在安裝時生成,改由邀請對方時 `npx aps peer add` 產生),令後續日常命令毋須重複輸入共用 Drive 資料夾 / project / agent 長參數。互動式 CLI 應以繁體中文解釋每個設定值用途,每一題要有清楚分隔線、題號、標題、短說明與例子,避免一段過輸出;自己的 APS 名稱必須由用戶輸入,不得用維護者名稱或本機使用者名稱作公開預設。尤其要說明共用 Drive 資料夾路徑是使用者電腦上 Google Drive 同步出來的 `Agent_Public_Squares` 資料夾完整路徑。若 CLI 回報找不到 PROTOCOL source,不要假裝已複製。使用以下阻擋句:
+前期測試版已隨包提供 `resources/protocol/PROTOCOL.md`、`resources/protocol/templates/`,並由互動式 `npx aps init` 在三問安裝時寫入用戶自己這一邊的共用 Drive 資料夾 skeleton、Bridge Pack 與 `.aps/config.json`(普通邀請不在安裝時生成,改由邀請對方時 `npx aps peer invite` 產生;只有已約定對方技術身份時才用 `npx aps peer add` 產生指定 starter pack),令後續日常命令毋須重複輸入共用 Drive 資料夾 / project / agent 長參數。互動式 CLI 應以繁體中文解釋每個設定值用途,每一題要有清楚分隔線、題號、標題、短說明與例子,避免一段過輸出;自己的 APS 名稱必須由用戶輸入,不得用維護者名稱或本機使用者名稱作公開預設。尤其要說明共用 Drive 資料夾路徑是使用者電腦上 Google Drive 同步出來的 `Agent_Public_Squares` 資料夾完整路徑。若 CLI 回報找不到 PROTOCOL source,不要假裝已複製。使用以下阻擋句:
 
 > 目前執行環境找不到 PROTOCOL source 檔案。這一步不能假裝完成。需要先確認 package 是否完整安裝,或由已驗證的 Hub template source 讀取。
 
@@ -177,21 +177,33 @@ npx --yes @adamchanadam/agent-handoff-kit@latest init
 
 用戶確認後,下一步才進入邀請 peer 或第一輪交接。若用戶只想先保存口徑,直接在對話中保留共同簡報,並提醒:「下次可以說『用這份共同簡報邀請指定協作者』或『用這份共同簡報發第一輪交接給指定協作者』。」
 
-## 7. 邀請對方時的 starter pack
+## 7. 邀請對方時的開放邀請
 
-當用戶想邀請協作對象時(不是安裝時),用 `npx aps peer add --agent-id <對方> --display-name <名稱>`;CLI 會建立 provisional peer 並把 starter pack 寫入:
+當用戶想邀請新協作對象時(不是安裝時),普通主路徑用:
+
+```text
+npx aps peer invite
+```
+
+CLI 會把開放邀請寫入:
+
+```text
+<hub_root>/_hub/open-invite-<項目>.md
+```
+
+開放邀請本身就是一段可直接轉發的訊息:開首要用發出者名稱或 agent id,例如「adam 想邀請你...」,避免轉發後仍寫「我想邀請你」。訊息再用清楚分段列出幾個關鍵步驟(在 Google Drive 收下並同步共用資料夾、在自己本機的 AI Project 目錄如常打開 AI 工具、把 `---✂️---` 之間整段貼給對方的 AI、項目代號照抄、Google Drive 本機路徑由對方自己提供、APS 名稱由對方自己決定並檢查重名),最後連去人類可讀的逐步詳解頁 `docs/guides/aps-join-invite.html`(內含實際安裝命令與排錯)。逐條 terminal 命令與細節都放在教學頁,不塞進訊息。邀請訊息不可一段過,每個行動點必須獨立分行,讓 Telegram / WhatsApp / Email 轉發後仍可讀。工作資料夾說明必須簡單:受邀者在自己本機的 AI Project 目錄如常打開 AI 工具;Google Drive 共用資料夾只是 APS 用來同步交接資料。不要寫成要對方重新 mount Google Drive、另開無關資料夾,或把共用資料夾當工作目錄。
+
+AI 應讀取該 open invite,把當中的邀請訊息原樣呈現給用戶,讓用戶經 Telegram / WhatsApp / Email 轉發給對方。不要叫對方「打開 Drive 裏的檔案照做」——對方未取得分享前根本看不到那個檔;要把訊息與教學頁連結直接交到對方手上。訊息不可包含發送方本機 Google Drive 路徑。
+
+只有雙方已約定對方的 APS 技術名稱時,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 並把指定 starter pack 寫入:
 
 ```text
 <hub_root>/_hub/starter-pack-<項目>-<對方>.md
 ```
 
-新版 starter pack 本身就是一段可直接轉發的邀請訊息:開首要用發出者名稱或 agent id,例如「adam 想邀請你...」,避免轉發後仍寫「我想邀請你」。訊息再用清楚分段列出幾個關鍵步驟(在 Google Drive 收下並同步共用資料夾、在自己本機的 AI Project 目錄如常打開 AI 工具、叫對方的 AI 讀 AI-agent install page 並代為安裝、項目代號照抄、填對方自己的名字),最後連去人類可讀的逐步詳解頁 `docs/guides/aps-join-invite.html`(內含實際安裝命令與排錯)。逐條 terminal 命令與細節都放在教學頁,不塞進訊息。邀請訊息不可一段過,每個行動點必須獨立分行,讓 Telegram / WhatsApp / Email 轉發後仍可讀。工作資料夾說明必須簡單:受邀者在自己本機的 AI Project 目錄如常打開 AI 工具;Google Drive 共用資料夾只是 APS 用來同步交接資料。不要寫成要對方重新 mount Google Drive、另開無關資料夾,或把共用資料夾當工作目錄。
-
-AI 應讀取該 starter pack,把當中的邀請訊息原樣呈現給用戶,讓用戶經 Telegram / WhatsApp / Email 轉發給對方。不要叫對方「打開 Drive 裏的檔案照做」——對方未取得分享前根本看不到那個檔;要把訊息與教學頁連結直接交到對方手上。訊息不可包含發送方本機 Google Drive 路徑。
-
 聊天中輸出時可這樣交代:
 
-> 已替你建立邀請。下面這段請複製傳給對方;對方可以把 AI-agent install page 交給自己的 AI 工具帶做,也可以看訊息底的人類逐步詳解。
+> 已替你建立邀請。下面這段請複製傳給對方;對方可以把 `---✂️---` 之間的內容直接貼給自己的 AI 工具,也可以看訊息底的人類逐步詳解。
 
 ## 8. 邀請第一位 peer 後的測試交接
 
@@ -287,7 +299,7 @@ npx aps publish --to <peer_agent_id> --topic <topic> --body-file <body_file_path
 
 ## 7.1 有新收件時的顯示順序
 
-有新件時,先說明「我已先讀取內容,尚未標記為已處理」,再按以下順序顯示。不要先貼原始 packet 全文,也不要立即 consume。
+有新件時,先說明「我已先讀取內容,尚未標記為已處理或退回」,再按以下順序顯示。不要先貼原始 packet 全文,也不要立即 consume 或 decline。
 
 ```text
 📬 <other_agent_id> 有 1 個新交接包。
@@ -337,6 +349,10 @@ npx aps publish --to <peer_agent_id> --topic <topic> --body-file <body_file_path
 
 A. <建議動作>
 B. 標記為已處理
+
+C. 退回 / 不能處理
+
+若用戶明確表示拒絕、不能接、資料不足或要求退回,用 `npx aps decline --packet-id <packet_id> --version <version> --reason "<one-line reason>"` 寫入自己的 ack。這代表該版本不再以 pending 形式出現,發件方應 revise、withdraw 或 close。
 C. 稍後再處理
 
 💡 推薦:<A/B/C>。<一句客觀理由>

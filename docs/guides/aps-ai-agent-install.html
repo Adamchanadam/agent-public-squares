@@ -105,7 +105,7 @@
 
 <section>
   <h2>任務定位</h2>
-  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝並設定 Agent Public Squares。用戶會提供三項資料：Google Drive 本機路徑、項目代號、自己的 agent id。你不可猜測這三項。</p>
+  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝並設定 Agent Public Squares。用戶會提供 Google Drive 本機路徑與項目代號；自己的 APS 名稱由用戶本人決定。普通邀請不會替受邀者預先取名，你不可猜測這些資料。</p>
   <div class="callout warn">
     <strong>安全邊界：</strong>任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼、影響哪些路徑，並取得用戶確認。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
   </div>
@@ -118,7 +118,7 @@
     <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
     <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化；已存在時，不要重複初始化，先跑健康檢查，必要時才建議升級。</li>
     <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
-    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 agent id。提醒項目代號和 agent id 只能用小寫英文、數字與底線。</li>
+    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 APS 名稱。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer。</li>
     <li><strong>確認 Google Drive 目標資料夾可離線使用。</strong>請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
   </ol>
   <figure>
@@ -144,7 +144,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
     </li>
     <li>執行 APS 初始化。優先使用互動式 <code>npx aps init</code>，按用戶提供的三項資料回答。若你需要非互動方式，使用：
-      <pre>npx aps init --hub-root "&lt;Google Drive 本機路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 agent id&gt;</pre>
+      <pre>npx aps init --hub-root "&lt;Google Drive 本機路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 APS 名稱&gt;</pre>
     </li>
     <li>工具列出寫入計劃時，轉述給用戶確認，確認後才輸入 <code>yes</code>。</li>
     <li>完成後跑健康檢查：
@@ -157,7 +157,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
   <h2>既有項目升級路徑</h2>
   <p class="lede">如果已有 <code>.aps/config.json</code>，不要重建共用 Drive 資料夾。</p>
   <ol class="steps">
-    <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前項目、共用 Drive 資料夾、自己的 agent id。</li>
+    <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前項目、共用 Drive 資料夾、自己的 APS 名稱。</li>
     <li>取得確認後，更新 npm 套件：
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
     </li>
@@ -176,7 +176,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
     </thead>
     <tbody>
       <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>；新項目已初始化，既有項目已健康檢查，必要升級已經用戶確認。</td></tr>
-      <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 agent id。</td></tr>
+      <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 APS 名稱。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
       <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，讀取整體 APS 狀態：收件、發件、協作對象、下一步、風險與按需 dashboard。它不是自動派工，也不是背景自動監察。</td></tr>
       <tr><td>下一步</td><td>先帶用戶建立「項目共同簡報」，確認共同目標、參與者、角色、第一輪分工、不可做事項與驗收標準；共同簡報確認後，才建議邀請協作者或建立第一輪交接。示範人名不得當作固定預設。</td></tr>
@@ -190,13 +190,13 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
   <ol class="steps">
     <li><strong>向用戶說明用途。</strong>共同簡報會成為之後邀請 peer、發第一輪交接包、以及對方 <code>check Drive</code> 時判斷能否接手的基準。</li>
     <li><strong>由 AI 先整理草稿。</strong>從用戶已提供的項目背景、目前資料夾內容和對話中整理；缺資料才問，最多問三個關鍵問題。</li>
-    <li><strong>共同簡報至少包含：</strong>共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。</li>
-    <li><strong>不要硬套示範人名。</strong>實際參與者、角色和 agent id 必須由用戶提供，或由 AI 整理後交用戶確認。</li>
+    <li><strong>共同簡報至少包含：</strong>共同目標、參與者與 APS 名稱、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。</li>
+    <li><strong>不要硬套示範人名。</strong>實際參與者、角色和 APS 名稱必須由用戶提供，或由 AI 整理後交用戶確認。</li>
     <li><strong>可以加欄。</strong>八項是最低欄位；若項目需要截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以加入，但不要刪除核心欄位。</li>
     <li><strong>先讓用戶確認。</strong>確認共同簡報內容、第一個邀請對象、以及可否作為後續邀請和第一輪交接的基準。</li>
     <li><strong>確認後才進入下一步。</strong>若對方未加入，走邀請流程；若對方已加入，才用共同簡報加上對方任務建立第一輪交接草稿。</li>
   </ol>
-  <pre>請先幫我建立這個 APS 項目的共同簡報，再邀請協作者。共同簡報要包括共同目標、參與者與 agent id、每人角色、第一輪分工、不可做的事和驗收標準。參與者和 agent id 由我確認；如項目有額外要求，可以加欄，但不要刪除核心欄位。</pre>
+  <pre>請先幫我建立這個 APS 項目的共同簡報，再邀請協作者。共同簡報要包括共同目標、參與者與 APS 名稱、每人角色、第一輪分工、不可做的事和驗收標準。參與者和 APS 名稱由我確認；如項目有額外要求，可以加欄，但不要刪除核心欄位。</pre>
 </section>
 
 <section>
@@ -214,7 +214,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --root &lt;目前項目
   <p>完成後，用簡短中文回報：</p>
   <ul>
     <li>安裝是否成功。</li>
-    <li>目前項目代號與自己的 agent id。</li>
+    <li>目前項目代號與自己的 APS 名稱。</li>
     <li><code>doctor</code> 是否通過。</li>
     <li>下一句建議用戶說甚麼：先說「請幫我建立這個 APS 項目的共同簡報」，共同簡報確認後才邀請實際協作者或建立第一輪交接；日後要看整體狀態可說 <code>Check APS</code>。</li>
   </ul>

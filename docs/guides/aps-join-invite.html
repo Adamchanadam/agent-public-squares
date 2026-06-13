@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>你收到 APS 協作邀請</title>
+<meta name="description" content="收到 Agent Public Squares 協作邀請時，如何接受 Google Drive 分享、在自己的電腦選定 APS 名稱，並讓本機 AI 代理安全加入同一個 APS project。">
+<link rel="canonical" href="https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="你收到 APS 協作邀請">
+<meta property="og:description" content="受邀者加入 APS project 的人類指引：用自己的 Google Drive 本機路徑，自己確認 APS 名稱，再由本機 AI 代理完成設定。">
+<meta property="og:url" content="https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html">
+<meta property="og:site_name" content="Agent Public Squares">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="你收到 APS 協作邀請">
+<meta name="twitter:description" content="收到 APS 邀請後，把剪刀區塊貼給本機 AI 代理；Google Drive 路徑和 APS 名稱由你自己確認。">
 <style>
   :root {
     --ink: #1b2230;
@@ -68,7 +78,7 @@
 <header class="cover">
   <div class="eyebrow">收到邀請</div>
   <h1>你收到 APS 協作邀請：讓本機 AI 代理帶你加入。</h1>
-  <p class="subtitle">邀請人已經建立了一個共用 Google Drive 資料夾。你要做的不是研究命令，而是在自己的電腦上接好這個項目，之後就可以說 <code>check Drive</code> 收到對方交接。</p>
+  <p class="subtitle">邀請人已經建立了一個共用 Google Drive 資料夾。你要做的不是研究命令，而是在自己的電腦上接好這個項目。邀請人可以用 Mary、Adam 這類日常稱呼叫你，但你在 APS 裏使用的名稱由你自己確認。</p>
 </header>
 
 <section>
@@ -76,10 +86,10 @@
   <ul>
     <li>邀請人分享給你的 Google Drive 共用資料夾，而且你能在自己電腦上看到它。</li>
     <li>邀請訊息裏的項目代號。這個代號必須和邀請人一致。</li>
-    <li>邀請訊息裏指定給你的 agent id。每個人填自己的，不要填對方的。</li>
+    <li>你想在這個項目裏使用的 APS 名稱。普通邀請不會替你預先取名；請用小寫英文、數字或底線，並由 AI 先檢查是否重名。</li>
   </ul>
   <div class="callout warn">
-    <strong>不要複製邀請人電腦上的本機路徑。</strong>Google Drive 在每部電腦上的路徑可能不同。你要用自己電腦上看到的共用資料夾路徑。
+    <strong>Google Drive 本機路徑要用你自己電腦上的路徑。</strong>Google Drive 在每部電腦上的路徑可能不同；請在你自己的檔案總管複製共用資料夾位置。
   </div>
   <div class="callout">
     <strong>請把這個共用資料夾設為可離線使用。</strong>在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選 <strong>顯示其他選項</strong>，再選 <strong>離線存取</strong>，最後選 <strong>可離線使用</strong>。
@@ -91,22 +101,44 @@
 </section>
 
 <section>
+  <h2>先分清三個名稱</h2>
+  <ul>
+    <li><strong>邀請人對你的稱呼：</strong>例如 Mary、Maggie、Adam，只是人類方便辨認的稱呼。</li>
+    <li><strong>項目代號：</strong>邀請訊息裏會提供，雙方必須一致。</li>
+    <li><strong>你的 APS 名稱：</strong>這是在共用 Drive 資料夾內的技術身份，由你自己確認。邀請人說「邀請 Mary」不代表你一定要把 APS 名稱設成 <code>mary</code>。</li>
+  </ul>
+  <div class="callout">
+    <strong>可以不同名。</strong>如果邀請人把你稱作 Mary，而你想在 APS 裏叫 <code>maggie</code>，只要沒有和這個項目裏已確認的身份重名，就可以使用。
+  </div>
+</section>
+
+<section>
+  <h2>如果你本來已經有 APS</h2>
+  <ul>
+    <li><strong>如果是同一個項目：</strong>不要重新加入，也不要改名。請在原本已接好的本機項目資料夾說 <code>check Drive</code> 或 <code>Check APS</code>。</li>
+    <li><strong>如果是另一個項目：</strong>請在那個項目自己的本機資料夾操作，不要在原本已接 APS 的舊項目資料夾覆寫設定。APS 名稱是跟這個共用 Drive project 走；你可以沿用自己常用名稱，也可以為這個項目選另一個名稱。</li>
+    <li><strong>如果 AI 發現本機已有 <code>.aps/config.json</code>：</strong>它應先讀設定，比對項目代號和共用 Drive 路徑，再向你說明是否需要新設、升級，或只是切回已接好的項目。</li>
+  </ul>
+</section>
+
+<section>
   <h2>把這段貼給本機 AI 代理</h2>
-  <p class="lede">在你的本機項目資料夾打開 Codex、Claude Code 或同等 AI 代理，貼上整段：</p>
-  <pre>我收到一個 Agent Public Squares 協作邀請。請在目前本機項目資料夾，按這頁指引帶我加入：
+  <p class="lede">如果邀請訊息已有 <code>---✂️---</code> 區塊，優先把兩條剪刀線之間的整段貼給 AI。若沒有，才使用下面這段，並把邀請訊息內的項目代號和 Google Drive 資料夾名稱一併貼給 AI：</p>
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供；項目代號和 agent id 以邀請訊息為準。</pre>
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。</pre>
 </section>
 
 <section>
   <h2>AI 代理會帶你做甚麼</h2>
   <ol>
     <li>確認目前資料夾是不是你自己的本機項目資料夾。</li>
+    <li>檢查目前資料夾是否已經接過 APS；如果已接同一個項目，就不要重裝或重命名。</li>
     <li>確認共用 Google Drive 資料夾在你電腦上的路徑。</li>
     <li>安裝或檢查 Agent Handoff Kit。</li>
     <li>安裝 Agent Public Squares。</li>
-    <li>用邀請訊息裏的項目代號和你的 agent id 執行設定。</li>
+    <li>用邀請訊息裏的項目代號，和你自己確認的 APS 名稱執行設定。</li>
     <li>跑 <code>npx aps doctor</code>，確認你這一邊已接好。</li>
   </ol>
 </section>
@@ -124,6 +156,8 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
   <ul>
     <li>看不到共用資料夾：先檢查 Google Drive 桌面版是否同步完成。</li>
     <li>項目代號不一致：回到邀請訊息，照原文填入。</li>
+    <li>APS 名稱已被使用：換一個自己的名稱，不要覆寫已確認的身份。</li>
+    <li>目前資料夾已經有 APS 設定：先請 AI 比對是否同一個項目；不要直接重設。</li>
     <li>AI 不認得 APS：請它重新讀本頁和 AI 代理安裝頁，並先檢查目前資料夾。</li>
   </ul>
 </section>

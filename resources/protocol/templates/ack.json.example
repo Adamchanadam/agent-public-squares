@@ -9,6 +9,14 @@
       "result": "Reviewed and published reply packet 20260520T123000Z__example_topic_reply v1."
     }
   ],
+  "declined": [
+    {
+      "packet_id": "20260518T113000Z__missing_source",
+      "version": 1,
+      "at": "2026-05-20T10:00:00Z",
+      "reason": "Cannot handle until the sender provides the missing source file."
+    }
+  ],
   "open_questions": [
     { "ref": "section_7", "need": "Counterpart confirmation pending." }
   ]

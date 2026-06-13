@@ -23,7 +23,7 @@
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "description": "Agent Public Squares helps people working on the same project hand tasks between their local AI agents through a shared Google Drive folder, with one-to-one packets, check Drive, and Check APS status.",
-  "softwareVersion": "0.2.20",
+  "softwareVersion": "0.2.21",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "url": "https://adamchanadam.github.io/agent-public-squares/docs/index.html",
   "codeRepository": "https://github.com/Adamchanadam/agent-public-squares",
@@ -136,12 +136,12 @@
 <section>
   <h2>先複製這一句</h2>
   <p class="lede">在你想安裝 APS 的本機項目資料夾打開 Codex 或 Claude Code，貼上整段：</p>
-  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝和設定 Agent Public Squares：
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 agent id 由我提供。</pre>
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。</pre>
   <div class="callout">
-    <strong>你要準備三件資料：</strong>Google Drive 同步到本機的共用資料夾路徑、這個合作項目的項目代號、你自己的 agent id。AI 會問你，不需要你事前填表。
+    <strong>你要準備三件資料：</strong>Google Drive 同步到本機的共用資料夾路徑、這個合作項目的項目代號、你自己的 APS 名稱。AI 會問你，不需要你事前填表。
   </div>
 </section>
 
@@ -255,11 +255,11 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 
 <section>
   <h2>APS 解決甚麼問題？</h2>
-  <p>你要把一部分項目任務交給指定協作者時，APS 會把「你接手吧」變成一份可核對的 handoff packet。對方只要在自己的項目資料夾說 <code>check Drive</code>，AI 就能讀到交接內容、版本與已讀狀態。若想看整個 APS 項目的收件、發件、協作對象、下一步與風險摘要，可以說 <code>Check APS</code>；這是按需檢查，只整理本機已同步資料，不是自動派工，也不是背景自動監察。</p>
+  <p>你要把一部分項目任務交給指定協作者時，APS 會把「你接手吧」變成一份可核對的交接包。對方只要在自己的項目資料夾說 <code>check Drive</code>，AI 就能讀到交接內容、版本與已讀狀態。若想看整個 APS 項目的收件、發件、協作對象、下一步與風險摘要，可以說 <code>Check APS</code>；這是按需檢查，只整理本機已同步資料，不是自動派工，也不是背景自動監察。</p>
   <ul>
     <li>同一個項目可以有多位協作對象。</li>
     <li>每一次交接仍是一對一，不是群發。</li>
-    <li>第一位用戶安裝後，應先由 AI 建立項目共識，定好共同目標、角色、第一輪分工和驗收標準；實際參與者和 agent id 由用戶提供或確認。</li>
+    <li>第一位用戶安裝後，應先由 AI 建立項目共識，定好共同目標、角色、第一輪分工和驗收標準；實際參與者和 APS 名稱由用戶提供或確認。</li>
     <li>APS 不會自動通知對方，也不會自動打開對方的 AI。</li>
     <li>AI 會生成可複製的通知文字，由你貼到 WhatsApp、Email 或平常使用的通訊工具。</li>
   </ul>
@@ -268,7 +268,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 <section>
   <h2>目前狀態</h2>
   <p><span class="badge ok">公眾可用</span><span class="badge warn">前期測試版</span></p>
-  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.20</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，應先建立項目共識；示範人名不可當作固定預設，實際參與者和 agent id 由用戶確認。項目共識確認後，再做一次測試交接，確認雙方 Google Drive 同步與 AI 設定正常。</p>
+  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.21</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，應先建立項目共識；示範人名不可當作固定預設，實際參與者和 APS 名稱由用戶確認。項目共識確認後，再做一次測試交接，確認雙方 Google Drive 同步與 AI 設定正常。</p>
 </section>
 
 <section>

@@ -101,6 +101,9 @@ Verbs:
   "consumed": [
     { "packet_id": "...", "version": 1, "at": "<ISO-8601 UTC>", "result": "<one line>" }
   ],
+  "declined": [
+    { "packet_id": "...", "version": 1, "at": "<ISO-8601 UTC>", "reason": "<one line>" }
+  ],
   "open_questions": [
     { "ref": "<id or section>", "need": "<one line>" }
   ]
@@ -108,6 +111,8 @@ Verbs:
 ```
 
 To consume a packet, the receiver records `(packet_id, version)` in their own `_ack/<receiver>.ack.json` `consumed[]` array with a non-empty `result`.
+
+To decline a packet, the receiver records `(packet_id, version)` in their own `_ack/<receiver>.ack.json` `declined[]` array with a non-empty `reason`. A declined version is not pending for the receiver; the sender should revise, withdraw, or close.
 
 ## Receiver Computation
 
@@ -118,7 +123,7 @@ Pending for me, computed by `(packet_id, version)`:
 3. Among remaining groups, take only `publish` and `revise` events.
 4. Within each group, the latest `version` wins.
 5. Filter out versions with `withdraw`.
-6. Compare against my `_ack/<me>.ack.json` `consumed[]`; anything not consumed is pending.
+6. Compare against my `_ack/<me>.ack.json` `consumed[]` and `declined[]`; anything neither consumed nor declined is pending.
 
 ## Sender Duties
 

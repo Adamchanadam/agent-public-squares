@@ -41,7 +41,8 @@ After the kit's normal startup reads finish, before reporting the startup card:
    (b) NO `close` event exists for ANY version of this packet_id (close
        on v1 settles v2 too), AND
    (c) `(packet_id, latest_version)` is not present in my `ack.consumed`, AND
-   (d) `(packet_id, latest_version)` does not appear as a `withdraw` event.
+   (d) `(packet_id, latest_version)` is not present in my `ack.declined`, AND
+   (e) `(packet_id, latest_version)` does not appear as a `withdraw` event.
 5. Report:
    - If empty: one line "APS Hub: no pending items for <agent_id>".
    - If non-empty: a bullet list of `packet_id v<N>` with the packet's `scope`
@@ -82,7 +83,15 @@ If this session produced material that needs to cross to the other agent:
    - `version`: the inbound packet's integer version that you consumed
    - `at`: ISO-8601 UTC timestamp of consumption
    - `result`: one-line plain string describing what you did with it
-7. Update local `dev/DOC_SYNC_REGISTRY.md` row "APS packet publish" with
+7. If you cannot handle an inbound packet version because information is missing
+   or the work is not appropriate, do not add it to `consumed[]`. Add one entry
+   to your own `declined[]` array with these four fields:
+   - `packet_id`: the inbound packet's id (no version suffix)
+   - `version`: the inbound packet's integer version that you declined
+   - `at`: ISO-8601 UTC timestamp of the decline
+   - `reason`: one-line plain string explaining what the sender must revise,
+     withdraw, close, or clarify
+8. Update local `dev/DOC_SYNC_REGISTRY.md` row "APS packet publish" with
    confirmed status and the packet_id.
 
 ## Boundaries (hard rules)
