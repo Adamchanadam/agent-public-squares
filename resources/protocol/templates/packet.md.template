@@ -29,8 +29,45 @@ items:
 
 # REPLACE_WITH_TOPIC_HEADING
 
+## 共同目標
+
+REPLACE: the shared goal this handoff belongs to.
+
+## 本方任務
+
+REPLACE: what the sender has done or is responsible for.
+
+## 對方任務
+
+REPLACE: what the receiver is asked to do. Use "未確認" only when this packet is a clarification, not a normal handoff.
+
+## 交叉點
+
+REPLACE: where the sender and receiver work meet, and why this handoff is needed now.
+
+## 請對方做的事
+
+- REPLACE: concrete action item. Mirror each concrete action in YAML `items`.
+
+## 不應誤解的事
+
+REPLACE: boundaries, non-goals, and actions the receiver must not take.
+
+## 真源指標
+
+REPLACE: receiver-readable source pointers. Use shared Drive files or folders, Google Docs links, file names, versions, pages, sections, tables, dates, or APS packet references. Do not use the sender's local path as the only source.
+
+## 接收方開工條件
+
+REPLACE: what must be true on the receiver side before work can start.
+
+## 風險 / 未決事項
+
+REPLACE: open questions, blockers, or risks.
+
 <!--
-  Body is natural language. Reference items by their id when needed.
-  Attachments go under ./attachments/ relative to this packet folder.
+  Body is natural language, but a formal handoff should be complete enough for a stateless receiver.
+  Reference items by their id when needed.
+  Attachments are not part of the verified APS 0.2.x main path; use receiver-readable source pointers instead.
   After publish, this file is frozen. Revisions = a new __v2 folder with supersedes set.
 -->

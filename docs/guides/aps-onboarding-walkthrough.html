@@ -53,6 +53,17 @@
   .callout strong { color: var(--ink); }
   .callout.warn { border-left-color: var(--bad); background: rgba(185,74,58,0.08); }
   .callout.warn strong { color: var(--bad); }
+  .flow-wrap { overflow-x: auto; margin: 18px 0 20px; border: 1px solid var(--line); border-radius: 6px; background: #fbf8ef; }
+  .flowchart { display: block; min-width: 760px; width: 100%; height: auto; }
+  .flowchart text { font-family: var(--sans); fill: var(--ink); letter-spacing: 0; }
+  .flow-title { font-size: 18px; font-weight: 700; }
+  .flow-label { font-size: 14px; font-weight: 700; }
+  .flow-note { font-size: 12px; fill: var(--ink-soft); }
+  .flow-box { fill: var(--paper); stroke: var(--line); stroke-width: 1.5; rx: 6; }
+  .flow-box-main { fill: var(--accent-soft); stroke: var(--accent); }
+  .flow-box-action { fill: #eef7ef; stroke: var(--ok); }
+  .flow-box-warn { fill: #fff4e8; stroke: var(--warn); }
+  .flow-arrow { stroke: var(--accent); stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
   table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
   th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 10px 12px; }
   th { background: var(--accent-soft); color: var(--accent); font-size: 13px; }
@@ -69,30 +80,30 @@
   <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-06-13</span>
+  <span class="site-nav__hint">2026-06-14</span>
 </nav>
 
 <header class="cover">
-  <div class="eyebrow">人類新手頁</div>
+  <div class="eyebrow">🚀 人類新手頁</div>
   <h1>第一次安裝 APS：把工作交給本機 AI 代理。</h1>
   <p class="subtitle">這頁給非技術用戶看。你不用先理解命令，也不用手動改設定檔。你只要打開能操作本機資料夾的 AI 代理，把指定 prompt 貼給它，然後按它提示確認。</p>
 </header>
 
 <section>
-  <h2>第一步：選對 AI 工具</h2>
+  <h2>✅ 第一步：選對 AI 工具</h2>
   <p>你需要的是本機代理型 AI，例如 Codex、Claude Code 或同等工具。它要能做到三件事：讀寫目前項目資料夾、執行終端機命令、讀網頁。</p>
   <div class="callout warn">
-    <strong>普通網頁聊天不適合直接安裝。</strong>如果 AI 不能操作你的本機資料夾，它只能解釋步驟，不能替你完成安裝。
+    <strong>⚠️ 普通網頁聊天不適合直接安裝。</strong>如果 AI 不能操作你的本機資料夾，它只能解釋步驟，不能替你完成安裝。
   </div>
 </section>
 
 <section>
-  <h2>第二步：打開你的本機項目資料夾</h2>
+  <h2>📁 第二步：打開你的本機項目資料夾</h2>
   <p>在你的電腦上準備一個工作資料夾，用來放這個項目的本機檔案。不要把工作資料夾放在 APS 共用 Drive 資料夾裏面。然後在這個工作資料夾打開 Codex、Claude Code 或同等 AI 代理。</p>
 </section>
 
 <section>
-  <h2>第三步：把 Google Drive 共用資料夾設為可離線使用</h2>
+  <h2>📂 第三步：把 Google Drive 共用資料夾設為可離線使用</h2>
   <p>APS 會把交接包寫入 Google Drive 同步到本機的共用資料夾。為了減少同步延遲和「看得到資料夾但檔案未落地」的問題，請先把這個共用資料夾設為可離線使用。</p>
   <p>在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選 <strong>顯示其他選項</strong>，再選 <strong>離線存取</strong>，最後選 <strong>可離線使用</strong>。</p>
   <figure>
@@ -102,7 +113,7 @@
 </section>
 
 <section>
-  <h2>第四步：貼上這段話</h2>
+  <h2>📋 第四步：貼上這段話</h2>
   <pre>請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
@@ -110,7 +121,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 </section>
 
 <section>
-  <h2>你要準備的三項資料</h2>
+  <h2>📌 你要準備的三項資料</h2>
   <p class="lede">AI 代理會問你，不用現在填在網頁上。</p>
   <table>
     <thead>
@@ -119,16 +130,16 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
     <tbody>
       <tr><td>Google Drive 本機路徑</td><td>你電腦上同步出來的 APS 共用資料夾完整路徑。</td><td><code>G:\我的雲端硬碟\Agent_Public_Squares</code></td></tr>
       <tr><td>項目代號</td><td>這次合作項目的短名。雙方要一樣。</td><td><code>branding_2026</code></td></tr>
-      <tr><td>你的 APS 名稱</td><td>你自己在這個共用資料夾裏的身份。每個人填自己；普通邀請不會替你預先取名，例子不可當作固定預設。</td><td><code>owner</code>、<code>reviewer</code></td></tr>
+      <tr><td>你的 APS 名稱</td><td>你自己在這個共用資料夾裏的身份。每個人填自己；普通邀請不會替你預先取名，例子不可當作固定預設。</td><td><code>adam</code>、<code>jay</code></td></tr>
     </tbody>
   </table>
   <div class="callout">
-    <strong>APS 名稱不是隨手暱稱。</strong>它是共用 Drive 資料夾裏的共享身份。每個人要使用由本人確認、且在項目裏不重名的固定名稱，例如一邊叫 <code>owner</code>，另一邊叫 <code>reviewer</code>；兩邊不要都把自己叫 <code>agent_a</code>。
+    <strong>🔎 APS 名稱不是隨手暱稱。</strong>它是共用 Drive 資料夾裏的共享身份。每個人要使用由本人確認、且在項目裏不重名的固定名稱。這裏用 <code>adam</code> 和 <code>jay</code> 做示範，不代表產品預設；兩邊不要都把自己叫 <code>agent_a</code>。
   </div>
 </section>
 
 <section>
-  <h2>過程中你會看到甚麼？</h2>
+  <h2>🔎 過程中你會看到甚麼？</h2>
   <ul>
     <li>AI 代理會先檢查目前資料夾是否適合安裝。</li>
     <li>它會檢查目前資料夾有沒有 Agent Handoff Kit；沒有才初始化，已有就先健康檢查，必要升級時會先問你。</li>
@@ -137,27 +148,92 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
     <li>最後它會跑健康檢查，告訴你是否成功。</li>
   </ul>
   <div class="callout warn">
-    <strong>請不要跳過確認。</strong>安裝套件、寫設定、寫入共用 Drive 資料夾之前，都應該先由你確認。
+    <strong>⚠️ 請不要跳過確認。</strong>安裝套件、寫設定、寫入共用 Drive 資料夾之前，都應該先由你確認。
   </div>
 </section>
 
 <section>
-  <h2>成功之後下一句說甚麼？</h2>
-  <p>先不要急着邀請對方或發測試包。第一位用戶應先叫 AI 建立「共同目標與分工」，把共同目標、參與者、角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象和第一輪交接對象定好。這是這個 APS project 的目前有效基準，不是每位用戶各自一份的私人草稿；可以修訂出新版本，但不應平行存在兩套互相打架的口徑。人名和 APS 名稱由你提供或確認；示範名稱不可當作固定預設。</p>
-  <pre>請先幫我建立這個 APS 項目的共同目標與分工，再決定是否邀請或發給協作者確認。</pre>
-  <p>共同目標與分工確認後，AI 應先問你是否本機保存、發給 confirmed peer 確認，或先邀請對方。若有三位或以上協作者，同一份基準要逐一發給受影響協作者確認；後加入協作者要先收到最新版，不應自行重建。若只是普通 bugfix、補資料、審閱或單次交付，用普通交接包或修訂包處理，不要把每個任務變更都升格成共同目標修訂。若你要找人一起協作，可以對 AI 說：</p>
-  <pre>邀請我指定的協作者加入這個 APS 項目。</pre>
-  <p>如果對方已經接好，你可以先做一次測試：</p>
-  <pre>幫我發一個 APS 測試交接給我指定的協作者，內容只寫「APS setup test」。</pre>
-  <p>如果對方說他已經發了東西給你，你只要說：</p>
-  <pre>check Drive</pre>
-  <p>如果你想看整個 APS 項目的狀態，包括你收到的、你發出的、協作對象和風險，可以說：</p>
-  <pre>Check APS</pre>
-  <p>這是按需檢查，只整理本機已同步資料中的下一步與風險，不是自動派工，也不是背景自動監察；仍然不會自動通知或打開對方的 AI。</p>
+  <h2>🚀 成功之後，APS 怎樣推進？</h2>
+  <p>安裝成功後，先不要急着邀請對方或發測試包。下一步是建立「共同目標與分工」。直白講，就是先讓 AI 幫你寫一份夠安全開始的起步基準：目標是甚麼、誰在參與、第一步做甚麼、甚麼不可做、怎樣算完成。未定的地方可以先標明，之後一路做一路修。</p>
+
+  <div class="flow-wrap" role="img" aria-label="APS 安裝後推進流程圖">
+    <svg class="flowchart" viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#2f5d7c"></path>
+        </marker>
+      </defs>
+      <text class="flow-title" x="36" y="44">安裝成功後，不用背內部命令；要交接時，明確說用 APS。</text>
+
+      <rect class="flow-box flow-box-main" x="36" y="78" width="220" height="92"></rect>
+      <text class="flow-label" x="58" y="112">1. 建立共同目標與分工</text>
+      <text class="flow-note" x="58" y="140">先做到夠安全開始</text>
+
+      <path class="flow-arrow" d="M256 124 H330"></path>
+
+      <rect class="flow-box" x="330" y="78" width="230" height="92"></rect>
+      <text class="flow-label" x="352" y="112">2. 你確認後才落地</text>
+      <text class="flow-note" x="352" y="140">保存、邀請，或讓對方確認</text>
+
+      <path class="flow-arrow" d="M560 124 H634"></path>
+
+      <rect class="flow-box flow-box-warn" x="634" y="78" width="230" height="92"></rect>
+      <text class="flow-label" x="656" y="112">3. 對方未加入？</text>
+      <text class="flow-note" x="656" y="140">AI 生成可轉發邀請</text>
+
+      <path class="flow-arrow" d="M749 170 V228"></path>
+
+      <rect class="flow-box flow-box-action" x="634" y="228" width="230" height="92"></rect>
+      <text class="flow-label" x="656" y="262">4. 對方自己加入</text>
+      <text class="flow-note" x="656" y="290">自己的電腦、資料夾、Drive 路徑</text>
+
+      <path class="flow-arrow" d="M634 274 H560"></path>
+
+      <rect class="flow-box" x="330" y="228" width="230" height="92"></rect>
+      <text class="flow-label" x="352" y="262">5. 讓對方對齊</text>
+      <text class="flow-note" x="352" y="290">對方確認同一份共同目標與分工</text>
+
+      <path class="flow-arrow" d="M330 274 H256"></path>
+
+      <rect class="flow-box flow-box-action" x="36" y="228" width="220" height="92"></rect>
+      <text class="flow-label" x="58" y="262">6. 把工作交給對方</text>
+      <text class="flow-note" x="58" y="290">AI 先出草稿，你確認後才發出</text>
+
+      <path class="flow-arrow" d="M146 320 V382"></path>
+
+      <rect class="flow-box" x="36" y="382" width="220" height="96"></rect>
+      <text class="flow-label" x="58" y="416">對方接手</text>
+      <text class="flow-note" x="58" y="444">對方 AI 讀取交接內容</text>
+      <text class="flow-note" x="58" y="466">判斷可開工、澄清或退回</text>
+
+      <rect class="flow-box" x="330" y="382" width="230" height="96"></rect>
+      <text class="flow-label" x="352" y="416">發現不清楚？</text>
+      <text class="flow-note" x="352" y="444">先退回補資料或確認共識</text>
+      <text class="flow-note" x="352" y="466">不要硬開工</text>
+
+      <path class="flow-arrow" d="M256 430 H330"></path>
+
+      <rect class="flow-box" x="634" y="382" width="230" height="96"></rect>
+      <text class="flow-label" x="656" y="416">項目有變？</text>
+      <text class="flow-note" x="656" y="444">修訂目前有效基準</text>
+      <text class="flow-note" x="656" y="466">不要另開第二份</text>
+
+      <path class="flow-arrow" d="M560 430 H634"></path>
+    </svg>
+  </div>
+
+  <p>正常情況下，AI 安裝成功後會直接帶你進入下一步，不需要你另外學命令。若 AI 沒有自動接上，你才貼下面這句作為手動觸發：</p>
+  <pre>請先幫我建立這個 APS 項目的共同目標與分工，先做到夠安全開始，再按狀態決定是否保存、邀請協作者、讓對方確認，或整理第一輪交接草稿。</pre>
+
+  <div class="callout">
+    <strong>📌 不用一次填完整計劃。</strong>共同目標與分工不是大表格。起步時先有共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項和最小驗收方式；其他角色、第一輪分工、邀請對象或詳細驗收，可以先寫「未定」。
+  </div>
+
+  <p>你實際要做的是推進自己的項目，不是學 APS。要交給協作者時，最穩定的說法是直接提 APS：<code>請用 APS 把這段工作交接給 Jay，先整理草稿，等我確認後才寫入共用 Drive。</code> 這不是要你學內部命令，而是避免 AI 被普通聊天或其他 skill 誤導成一般工作安排。AI 會整理交接草稿並等你確認後寫入 APS。日常備用入口是：要看整體狀態，說 <code>Check APS</code>；要看對方有沒有新交接，說 <code>check Drive</code>。APS 只整理已同步資料和下一步風險，不會自動通知對方，也不會自動打開對方的 AI。</p>
 </section>
 
 <section>
-  <h2>人工備用命令</h2>
+  <h2>🛠️ 人工備用命令</h2>
   <p class="lede">一般新手不用自己打。只有在 AI 代理要求你手動執行，或你想排錯時才看這段。</p>
   <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init --dry-run --root "&lt;目前項目資料夾&gt;"
 npx --yes @adamchanadam/agent-handoff-kit@latest init --yes --root "&lt;目前項目資料夾&gt;"
@@ -169,7 +245,7 @@ npx aps doctor</pre>
 </section>
 
 <footer>
-  Agent Public Squares · 第一次安裝與測試 · 最新更新 2026-06-13
+  Agent Public Squares · 第一次安裝與測試 · 最新更新 2026-06-14
 </footer>
 
 </main>

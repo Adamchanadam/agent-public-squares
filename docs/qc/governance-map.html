@@ -258,9 +258,10 @@
   <a class="site-nav__link" href="../index.html">入口</a>
   <a class="site-nav__link" href="../guides/index.html">教學中心</a>
   <a class="site-nav__link site-nav__link--active" href="governance-map.html">分層 QC</a>
+  <a class="site-nav__link" href="../maintainers/index.html">維護者規格</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-06-10</span>
+  <span class="site-nav__hint">2026-06-15</span>
 </nav>
 
 <header class="cover">
@@ -269,7 +270,8 @@
   <p class="subtitle">三級觸發詞彙將既有 QC 機制收口成 3 個入口。</p>
   <div class="meta">
     <span>本卡片：參考</span>
-    <span>單一真源：<code>dev/qc/triggers.md</code></span>
+    <span>觸發詞真源：<code>dev/qc/triggers.md</code></span>
+    <span>覆蓋登記真源：<code>OPS dev/qc/QC_COVERAGE_INDEX.md</code></span>
     <span>建立：2026-05-21 S6</span>
   </div>
 </header>
@@ -277,7 +279,16 @@
 <section>
   <h2>設計意圖</h2>
   <p class="lede">過往「全套 QC / 完整 QC / 跑驗收 / 整體 audit」此類含混詞容易令人類與 AI 對驗收範圍理解不一致。三級觸發詞彙鎖定三件事:每級的覆蓋範圍與時間、較高級別自動包含較低級別、含混詞觸發停手反問。</p>
-  <p>本卡片只屬日常閱讀與操作參考;觸發詞、級別定義、覆蓋範圍之單一真源為 <code>dev/qc/triggers.md</code>。若本 HTML 與該檔內容不一致,以該檔為準,並須將本卡片同步修正,不可讓讀者面長期漂移。</p>
+  <p>本卡片只屬日常閱讀與操作參考；觸發詞、級別定義與 QC 結果收口規則之單一真源為 <code>dev/qc/triggers.md</code>。完整流程覆蓋狀態、缺口、阻塞與同步責任之單一真源為 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code>。若本 HTML 與真源不一致，先以真源為準，並須將本卡片同步修正，不可讓讀者面長期漂移。</p>
+</section>
+
+<section>
+  <h2>互聯查閱</h2>
+  <p class="lede">本頁回答「叫 AI 跑哪一級 QC」；維護者頁回答「哪些文件與公開承諾要同步」；OPS 覆蓋熱圖回答「目前哪些流程有 QC、哪些仍有缺口」。</p>
+  <ul>
+    <li><a href="../maintainers/index.html">維護者規格</a>：真源地圖、發佈邊界、維護者核對入口。</li>
+    <li><a id="ops-heatmap-link" href="#">本機 OPS QC 覆蓋熱圖</a><span id="ops-heatmap-note">（只在本機 file:/// 開啟時自動連到 OPS 管理視圖）</span>。</li>
+  </ul>
 </section>
 
 <section>
@@ -414,7 +425,7 @@
       </tr>
       <tr>
         <td>一語交接與雙向預檢</td>
-        <td>發送前須檢查共同目標、任務邊界、交叉點、請對方做的事、證據、風險與敏感資料;收件後也須產生收件報告,檢查是否足夠回應,並核對本機設定、文件資料、任務要求、證據位置與版本狀態是否一致。</td>
+        <td>發送前須檢查共同目標、任務邊界、交叉點、請對方做的事、真源指標、接收方開工條件、風險與敏感資料;收件後也須產生收件報告,檢查是否足夠回應,並核對本機設定、文件資料、任務要求、真源指標、開工條件與版本狀態是否一致。</td>
       </tr>
       <tr>
         <td>Project Peers 逐一交接隔離</td>
@@ -426,11 +437,11 @@
       </tr>
       <tr>
         <td>通知與同步邊界</td>
-        <td>APS 不自動觸發對方 AI,也不保證對方電腦即時同步。AI 應生成可貼到 Telegram / WhatsApp / Email 的摘要式通知,包含重點摘要、注意事項與 <code>check Drive</code> 下一步;對方看不到時先檢查 Drive 同步。</td>
+        <td>APS 不自動觸發對方 AI,也不保證對方電腦即時同步。AI 應生成可貼到 Telegram / WhatsApp / Email 的摘要式通知,包含重點摘要、注意事項與下一步。新手或狀態不明時先提示 <code>Check APS</code>;已確認基準且要讀具體交接時才提示 <code>check Drive</code>。對方看不到時先檢查 Drive 同步。</td>
       </tr>
       <tr>
         <td>可行動狀態面</td>
-        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、下一步、風險與按需 dashboard。它只整理本機已同步資料中可追溯的行動線索,不是自動派工;不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。若對方已 <code>decline</code>,發件方狀態面須顯示退回原因與 revise / withdraw / close 下一步。</td>
+        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、下一步與風險。HTML dashboard 已退役,不可再作日常狀態入口或驗收替代物。它只整理本機已同步資料中可追溯的行動線索,不是自動派工;不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。若對方已 <code>decline</code>,發件方狀態面須顯示退回原因與 revise / withdraw / close 下一步。</td>
       </tr>
       <tr>
         <td>新安裝與版本升級落地</td>
@@ -480,8 +491,8 @@
       </tr>
       <tr>
         <td>日常協作流程</td>
-        <td>一語交接、AI 讀設定、健康檢查、整理上下文、發送前預檢、用戶確認、發佈、生成摘要式通知、接收方 <code>check Drive</code>、用戶按需 <code>Check APS</code> 看整體可行動狀態、收件報告、本機對接檢查、補交 / 共識確認、回覆 / 收結能追蹤同一條邏輯。</td>
-        <td><a class="site-nav__link" href="../guides/aps-onboarding-walkthrough.html#daily">第一次測試交接</a></td>
+        <td>一語交接、AI 讀設定、健康檢查、整理上下文、發送前預檢、用戶確認、發佈、生成摘要式通知、接收方先用 <code>Check APS</code> 核共同基準與整體可行動狀態、再按需要用 <code>check Drive</code> 讀具體交接、收件報告、本機對接檢查、補交 / 共識確認、回覆 / 收結能追蹤同一條邏輯。</td>
+        <td><a class="site-nav__link" href="../guides/aps-onboarding-walkthrough.html">第一次測試交接</a></td>
       </tr>
       <tr>
         <td>多 peer 逐一交接流程</td>
@@ -492,6 +503,78 @@
         <td>出錯補救流程</td>
         <td>Drive 同步延遲、衝突副本、寫錯通道、交接包格式錯誤、版本不對齊、啟動找不到 APS route、設定指向舊 project、對方看不到 packet,皆有偵測、停手、用戶確認、修復或升級路徑。</td>
         <td><a class="site-nav__link" href="../guides/aps-onboarding-walkthrough.html">第一次安裝與測試</a></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>合作階段驗收矩陣</h2>
+  <p class="lede">此矩陣把 APS 由初設到升級維護的合作旅程收口成階段級 QC。全面檢須同時核對 Terminal UX、HTML UX 與 packet 狀態；若加入 APS Live，Live 只可作即時釐清與協作加速層，不可取代 Drive packet / outbox / ack 正式帳本。</p>
+  <table class="params">
+    <thead>
+      <tr><th>合作階段</th><th>Terminal UX</th><th>HTML UX</th><th>packet 狀態</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>初設階段</td>
+        <td><code>init</code> 只設定本機 APS 名稱、project 與共用 Drive 路徑；已有 <code>.aps/config.json</code> 時走升級或切回既有項目，不覆寫。</td>
+        <td>新手頁與 AI 安裝頁須先提醒工作資料夾不可放在 APS 共用 Drive 內，並要求用戶確認寫入前置條件。</td>
+        <td>可建立本方 lane、ack、peer card；不得建立未加入者的 lane 或 ack。</td>
+      </tr>
+      <tr>
+        <td>開局對齊</td>
+        <td><code>Check APS</code> 未見共同目標與分工時，須提示先建立或補發 <code>shared_goal_and_roles</code>，不要先發普通任務包。</td>
+        <td>HTML dashboard 已退役；<code>Check APS</code> terminal 狀態須顯示共同目標與分工狀態、下一步與逐人確認情況，不可把未確認基準寫成可開工。</td>
+        <td><code>shared_goal_and_roles</code> 是 project 基準確認包；可修訂成新版本，不可平行存在兩套互相打架的基準。</td>
+      </tr>
+      <tr>
+        <td>邀請加入</td>
+        <td><code>peer invite</code> 生成開放邀請；受邀者自行確認 APS 名稱。<code>peer add</code> 只用於已約定技術身份。</td>
+        <td>加入邀請頁須分清人類稱呼、project 代號與 APS 名稱；加入後先 <code>Check APS</code> 核對基準。</td>
+        <td>普通邀請不得預建對方 lane / ack / peer card；重名或 project 不一致必須阻擋。</td>
+      </tr>
+      <tr>
+        <td>首次交接</td>
+        <td><code>publish --to</code> 必須單收件；正式交接用 <code>--strict-handoff</code> 檢查共同目標、任務、交叉點、請對方做的事、真源指標、接收方開工條件與風險。</td>
+        <td>公開頁、<code>Check APS</code> 與 APS Live 須保持「一對一交接、人工通知、收件方主動 check Drive」的邊界。</td>
+        <td>新 packet 寫入發件方 lane；版本、收件人、items 與 ssot_refs 須可追蹤。</td>
+      </tr>
+      <tr>
+        <td>日常推進</td>
+        <td><code>Check APS</code> 看整體可行動狀態與共同基準；<code>check Drive</code> 讀具體收件。兩者不得混用。</td>
+        <td><code>Check APS</code> terminal 狀態顯示待我處理、我交出去的事、等待對方、風險與同步資料；不得再生成或要求打開個人 dashboard / 共用 dashboard 入口。</td>
+        <td>pending 計算須以 packet / outbox / ack 為準；context 只可作背景，不可覆蓋正式交接。</td>
+      </tr>
+      <tr>
+        <td>資料不足與解難</td>
+        <td>交接不足時提示補交需求或 <code>decline</code>；理解不一致時提示共識確認，不得硬開工。</td>
+        <td><code>Check APS</code> 須顯示缺口、退回原因與發件方下一步，例如 <code>revise</code>、<code>withdraw</code> 或 <code>close</code>。</td>
+        <td>declined packet 不可仍列為 pending；未補齊或未達成共識前，不得收結原交接。</td>
+      </tr>
+      <tr>
+        <td>多人分工</td>
+        <td>同一 project 可有多位 peers，但每次 <code>publish --to</code> 仍須指定一位收件人；<code>inbox --all</code> 不可越權顯示別人的 packet。</td>
+        <td><code>Check APS</code> 可顯示多位 peer 的確認狀態；不得生成個人 dashboard 或讓使用者照別人的個人頁處理待辦。</td>
+        <td>A → B 與 A → C 須分別驗證 consume 或 decline；錯收件人 consume 必須被拒絕。</td>
+      </tr>
+      <tr>
+        <td>修訂、撤回與收結</td>
+        <td><code>revise</code> 產生新版本；<code>withdraw</code> 只撤回未處理交接；<code>close</code> 只在回覆或完成後收結。</td>
+        <td><code>Check APS</code>、<code>status</code> 與 <code>check Drive</code> 須顯示最新可行動版本與收結狀態，不可把舊版本當最新任務。</td>
+        <td>舊 packet 不可改寫；修訂、撤回、收結皆須保留 outbox 可追蹤記錄。</td>
+      </tr>
+      <tr>
+        <td>升級維護</td>
+        <td>既有項目走 <code>upgrade</code>，不得重跑 <code>init</code> 覆寫身份；升級後跑 <code>doctor</code> 與必要回歸。</td>
+        <td>AI 安裝頁與維護者頁須分清新安裝和既有項目升級；公開頁不可承諾未發布能力。</td>
+        <td>升級不得刪除或重建既有交接、ack、peer 或共同目標與分工。</td>
+      </tr>
+      <tr>
+        <td>APS Live 產品標準驗收</td>
+        <td><code>Check APS</code>、<code>check Drive</code> 或 <code>decline</code> 只可在真實卡點提示「可開 APS Live 釐清」；驗收須先逐項走通 <code>共同基準</code> → <code>已發出</code> → <code>對方查看</code> → <code>可開工判斷</code> → <code>處理 / 補資料</code> → <code>正式更新</code>，再驗 Trystero 通訊。</td>
+        <td>APS Live 不可先做成 dashboard 區塊、空白聊天室或訊息牆；HTML dashboard 已退役，不可作為 Live 或狀態面替代品。合格入口須先有六階段產品流程證據、可驗證通道、接收介面、狀態寫入邊界與確認閘；頁面只顯示階段名稱、同機截圖、local queue 或 console clean 都不可代替流程走通。</td>
+        <td>Live 訊息只可生成待確認草稿；正式狀態仍須回到 terminal，由用戶批准後經 <code>publish</code>、<code>revise</code>、<code>decline</code>、<code>consume</code> 或 <code>close</code> 落帳。</td>
       </tr>
     </tbody>
   </table>
@@ -581,6 +664,18 @@
 </section>
 
 <section>
+  <h2>更新覆蓋視圖</h2>
+  <p class="lede">當開發繼續，OPS 覆蓋熱圖會因為新功能、新測試、新阻塞或已補齊缺口而漂移。要更新管理視圖，不要只改 HTML；先更新 OPS 覆蓋登記表，再同步相關 HTML。</p>
+  <p>下次可直接對 AI 說：</p>
+  <ul>
+    <li>「<strong>更新 QC 覆蓋視圖</strong>」— 讀 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code>，核對最新 QC 證據，更新 <code>aps-qc-coverage-heatmap.html</code>、本頁與維護者頁。</li>
+    <li>「<strong>同步 QC 覆蓋登記表與 HTML</strong>」— 當你知道 QC 機制或覆蓋狀態已改，要求 AI 先改登記表，再同步熱圖和 PUBLIC 參考頁。</li>
+    <li>「<strong>刷新 APS QC 熱圖</strong>」— 只想更新管理視覺時使用；AI 仍須先讀登記表，不能直接憑舊 HTML 改色或改進度條。</li>
+  </ul>
+  <p><strong>驗收要求：</strong>AI 應回報讀過哪些真源、哪些流程狀態有改、哪些頁面已同步，並用瀏覽器載入熱圖、本頁與維護者頁確認沒有錯誤。</p>
+</section>
+
+<section>
   <h2>如何呼叫</h2>
   <p>對 AI 說一句觸發詞即可：</p>
   <ul>
@@ -594,9 +689,18 @@
 </section>
 
 <footer>
-  Agent Public Squares · 分層 QC 參考卡 · 建立 2026-05-21 S6 · 同步 2026-06-12 · 單一真源於 <code>dev/qc/triggers.md</code>
+  Agent Public Squares · 分層 QC 參考卡 · 建立 2026-05-21 S6 · 同步 2026-06-15 · 觸發詞真源 <code>dev/qc/triggers.md</code> · 覆蓋登記真源 <code>OPS dev/qc/QC_COVERAGE_INDEX.md</code>
 </footer>
 
 </main>
+<script>
+(function () {
+  var link = document.getElementById("ops-heatmap-link");
+  var note = document.getElementById("ops-heatmap-note");
+  if (!link || location.protocol !== "file:" || location.href.indexOf("Agent_Public_Squares_PUBLIC") === -1) return;
+  link.href = location.href.replace(/Agent_Public_Squares_PUBLIC\/docs\/qc\/governance-map\.html$/, "Agent_Public_Squares_OPS/outputs/aps-qc-coverage-heatmap.html");
+  if (note) note.textContent = "（本機 OPS 管理視圖）";
+}());
+</script>
 </body>
 </html>

@@ -12,6 +12,8 @@
 const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
+const http = require('http');
+const crypto = require('crypto');
 
 const rawSubcommand = process.argv[2];
 const subcommand = rawSubcommand === 'check-drive' || rawSubcommand === 'check-hub'
@@ -134,13 +136,13 @@ const handoffRequiredSections = [
   {
     key: 'own_task',
     label: '本方任務',
-    pattern: /(^|\n)\s*(#{1,6}\s*)?(本方任務|我方任務|發送方任務|own-side task|sender task)\s*[:：]?/i,
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(本方任務|我方任務|發送方任務|本方已完成|我方已完成|已做甚麼|已完成|own-side task|sender task|sender done)\s*[:：]?/i,
     allowUnknown: false,
   },
   {
     key: 'counterpart_task',
     label: '對方任務',
-    pattern: /(^|\n)\s*(#{1,6}\s*)?(對方任務|收件方任務|counterpart task|receiver task)\s*[:：]?/i,
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(對方任務|收件方任務|對方要做甚麼|Jay 要做甚麼|請.*接手|counterpart task|receiver task)\s*[:：]?/i,
     allowUnknown: true,
   },
   {
@@ -163,8 +165,14 @@ const handoffRequiredSections = [
   },
   {
     key: 'evidence',
-    label: '證據位置',
-    pattern: /(^|\n)\s*(#{1,6}\s*)?(證據位置|證據|關鍵檔案|檔案位置|版本|evidence|source|reference)\s*[:：]?/i,
+    label: '真源指標',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(真源指標|可共享真源|證據位置|證據|關鍵檔案|檔案位置|版本|evidence|source|reference)\s*[:：]?/i,
+    allowUnknown: false,
+  },
+  {
+    key: 'receiver_start_condition',
+    label: '接收方開工條件',
+    pattern: /(^|\n)\s*(#{1,6}\s*)?(接收方開工條件|開工條件|開始前條件|可開工條件|ready to start|start condition)\s*[:：]?/i,
     allowUnknown: false,
   },
   {
@@ -200,6 +208,55 @@ function hasSubstantiveContent(value, allowUnknown) {
   return true;
 }
 
+function containsLocalOnlyPath(text) {
+  return /(?:^|[\s("'`])(?:[A-Za-z]:[\\/]|file:\/\/|\/(?:Users|home|mnt|Volumes)\/)/i.test(String(text || ''));
+}
+
+function stripWindowsLocalPaths(text) {
+  return String(text || '').replace(/(^|[\s("'`])[A-Za-z]:[\\/][^\s<>"']+/g, '$1 ');
+}
+
+function hasLocalPathBoundary(text) {
+  return /本機路徑|只適用於本方|只適用於我方|只適用於這部電腦|對方不可直接使用|local path/i.test(String(text || ''));
+}
+
+function hasShareableSourcePointer(text) {
+  const value = String(text || '').trim();
+  if (!value) return false;
+  const sourcePatterns = [
+    /\bhttps?:\/\//i,
+    /docs\.google\.com|drive\.google\.com/i,
+    /Google Drive|共用 Drive|共享|共用資料夾|shared folder/i,
+    /\bfrom_[A-Za-z0-9_-]+[\\/](?:packets|acks|context)\b/i,
+    /\b(?:docs|skills|src|bin|dev|README|CHANGELOG|_context)[\\/][^\s<>"']+/i,
+    /\b[\w.-]+\.(?:md|html|js|json|docx?|xlsx?|pdf|txt|csv)\b/i,
+    /檔名|文件|資料夾|版本|頁碼|第\s*\d+\s*頁|段落|表格|工作表|packet id|version|v\d+/i,
+  ];
+  return sourcePatterns.some((pattern) => pattern.test(value));
+}
+
+function hasPotentialSecret(text) {
+  const value = String(text || '');
+  const patterns = [
+    /\bsk-(?:ant-)?[A-Za-z0-9_-]{12,}\b/,
+    /\b(?:github_pat_|ghp_|gho_|ghs_)[A-Za-z0-9_]{12,}\b/,
+    /\bntn_[A-Za-z0-9_-]{12,}\b/,
+    /\bsecret_[A-Za-z0-9_-]{12,}\b/,
+    /\bya29\.[A-Za-z0-9._-]{12,}\b/,
+    /\b1\/\/[A-Za-z0-9._-]{12,}\b/,
+    /\bxox[abprs]-[A-Za-z0-9-]{12,}\b/,
+    /\bsl\.[A-Za-z0-9._-]{12,}\b/,
+    /\bAIza[A-Za-z0-9_-]{20,}\b/,
+    /\bAKIA[A-Z0-9]{16}\b/,
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+  ];
+  return patterns.some((pattern) => pattern.test(value));
+}
+
+function pushUnique(list, value) {
+  if (!list.includes(value)) list.push(value);
+}
+
 function handoffReadinessReport(body, items) {
   const text = String(body || '');
   const present = [];
@@ -217,7 +274,7 @@ function handoffReadinessReport(body, items) {
       ? items.length > 0
       : sectionReady;
     if (found) present.push(section.label);
-    else if (bodyHasSection) weak.push(section.label);
+    else if (bodyHasSection) pushUnique(weak, section.label);
     else missing.push(section.label);
   }
   const warnings = [];
@@ -227,10 +284,18 @@ function handoffReadinessReport(body, items) {
   if (bodyHasRequestedAction && items.length === 0) {
     warnings.push('正文有「請對方做的事」,但正式交接需要用 --items 或 --items-file 明示申報,讓收件方總覽可直接看到待辦。');
   }
-  const hasLocalPath = /[A-Za-z]:\\|(^|\s)\/(?:Users|home|mnt|Volumes)\//.test(text);
-  const hasLocalPathBoundary = /本機路徑|只適用於本方|只適用於我方|對方不可直接使用|local path/i.test(text);
-  if (hasLocalPath && !hasLocalPathBoundary) {
+  const evidenceSection = sectionContent(text, handoffRequiredSections.find((section) => section.key === 'evidence'));
+  if (evidenceSection && hasSubstantiveContent(evidenceSection, false) && !hasShareableSourcePointer(evidenceSection)) {
+    pushUnique(weak, '可共享真源指標');
+  }
+  if (containsLocalOnlyPath(evidenceSection) && !hasShareableSourcePointer(stripWindowsLocalPaths(evidenceSection))) {
+    pushUnique(weak, '可共享真源指標');
+  }
+  if (containsLocalOnlyPath(text) && !hasLocalPathBoundary(text)) {
     warnings.push('正文似乎包含本機路徑,但沒有標明只適用於本方電腦。');
+  }
+  if (hasPotentialSecret(text)) {
+    warnings.push('正文似乎包含 API key、token 或憑證字串;不得寫入 APS 正式交接。');
   }
   return {
     ready: missing.length === 0 && weak.length === 0 && warnings.length === 0,
@@ -252,7 +317,7 @@ function formatHandoffReadiness(report) {
   if (report.missing.length > 0) lines.push(`- 缺少: ${report.missing.join(' / ')}`);
   if (report.weak && report.weak.length > 0) lines.push(`- 內容不足: ${report.weak.join(' / ')}`);
   for (const warning of report.warnings) lines.push(`- 注意: ${warning}`);
-  lines.push('建議:先補齊交接定義卡,再發正式 APS 交接包。');
+  lines.push('建議:先補齊交接確認卡,再發正式 APS 交接包。');
   return lines;
 }
 
@@ -372,6 +437,20 @@ function writeFileOrUpdate(filePath, content, dryRun) {
     fs.writeFileSync(filePath, content, 'utf8');
   }
   return { ok: true, skipped: false, path: filePath, message: dryRun ? `would write/update ${filePath}` : `wrote/updated ${filePath}` };
+}
+
+function writePeerCardPreservingConfirmed(filePath, nextCard, dryRun) {
+  if (fs.existsSync(filePath)) {
+    try {
+      const current = readJson(filePath);
+      if (current && current.status !== 'inactive' && current.peer_state === 'confirmed' && nextCard.peer_state !== 'confirmed') {
+        return { ok: false, skipped: true, preserved: true, path: filePath, message: `existing confirmed peer preserved (${filePath})` };
+      }
+    } catch (err) {
+      // Malformed peer cards are rewritten by the caller's requested state.
+    }
+  }
+  return writeFileOrUpdate(filePath, `${JSON.stringify(nextCard, null, 2)}\n`, dryRun);
 }
 
 function upsertManagedBlock(filePath, blockName, blockContent, insertBeforePattern, dryRun) {
@@ -849,6 +928,81 @@ function contextDir(hubRoot, projectSlug) {
   return path.join(projectDir(hubRoot, projectSlug), '_context');
 }
 
+function apsLiveBridgeTokenPath(hubRoot, projectSlug) {
+  return path.join(contextDir(hubRoot, projectSlug), 'live_bridge_token.json');
+}
+
+function apsLiveQueueDir(hubRoot, projectSlug) {
+  return path.join(contextDir(hubRoot, projectSlug), 'live_queue');
+}
+
+function safeQueueFileToken(value) {
+  return String(value || 'aps_live')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 50) || 'aps_live';
+}
+
+function readOrCreateApsLiveBridgeToken({ hubRoot, projectSlug, dryRun = false }) {
+  const tokenPath = apsLiveBridgeTokenPath(hubRoot, projectSlug);
+  if (fs.existsSync(tokenPath)) {
+    const tokenRecord = readJson(tokenPath);
+    if (tokenRecord && tokenRecord.token) return tokenRecord.token;
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  if (!dryRun) {
+    writeJson(tokenPath, {
+      project: projectSlug,
+      token,
+      created_at: isoNow(),
+      note: 'Local-only APS Live bridge token. Do not send to peers.',
+    });
+  }
+  return token;
+}
+
+function readApsLiveBridgeToken({ hubRoot, projectSlug }) {
+  const tokenPath = apsLiveBridgeTokenPath(hubRoot, projectSlug);
+  if (!fs.existsSync(tokenPath)) return null;
+  const tokenRecord = readJson(tokenPath);
+  return tokenRecord && tokenRecord.token ? tokenRecord.token : null;
+}
+
+function writeApsLiveQueueItem({ hubRoot, projectSlug, payload }) {
+  const queueDir = apsLiveQueueDir(hubRoot, projectSlug);
+  const queuedAt = isoNow();
+  const messageId = payload && (payload.message_id || payload.task_id || payload.created_at);
+  const fileName = `${packetTimestamp(new Date())}__${safeQueueFileToken(messageId || payload && payload.task_mode)}.json`;
+  const queuePath = path.join(queueDir, fileName);
+  const record = {
+    id: path.basename(queuePath, '.json'),
+    queued_at: queuedAt,
+    project: projectSlug,
+    source: 'aps-live',
+    payload,
+  };
+  writeJson(queuePath, record);
+  return { queuePath, record };
+}
+
+function readApsLiveQueueItems({ hubRoot, projectSlug, limit = 8 }) {
+  const queueDir = apsLiveQueueDir(hubRoot, projectSlug);
+  if (!fs.existsSync(queueDir)) return [];
+  return fs.readdirSync(queueDir)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => {
+      const filePath = path.join(queueDir, name);
+      try {
+        return { filePath, ...readJson(filePath) };
+      } catch (err) {
+        return { filePath, id: name, queued_at: '(無法讀取)', payload: { task_mode: '讀取失敗', error: err.message } };
+      }
+    })
+    .sort((a, b) => String(b.queued_at || '').localeCompare(String(a.queued_at || '')))
+    .slice(0, limit);
+}
+
 function contextLogPath(hubRoot, projectSlug, agentId) {
   return path.join(contextDir(hubRoot, projectSlug), `from_${agentId}`, 'context.log.md');
 }
@@ -880,8 +1034,8 @@ function appendLine(filePath, line) {
   fs.appendFileSync(filePath, `${line}\n`, 'utf8');
 }
 
-function peerCardJson({ projectSlug, agentId, displayName, status = 'active', peerState = 'provisional' }) {
-  return `${JSON.stringify({
+function peerCardRecord({ projectSlug, agentId, displayName, status = 'active', peerState = 'provisional' }) {
+  return {
     project: projectSlug,
     agent_id: agentId,
     display_name: displayName || agentId,
@@ -889,7 +1043,11 @@ function peerCardJson({ projectSlug, agentId, displayName, status = 'active', pe
     status,
     peer_state: peerState,
     updated_at: isoNow(),
-  }, null, 2)}\n`;
+  };
+}
+
+function peerCardJson({ projectSlug, agentId, displayName, status = 'active', peerState = 'provisional' }) {
+  return `${JSON.stringify(peerCardRecord({ projectSlug, agentId, displayName, status, peerState }), null, 2)}\n`;
 }
 
 function readPeerCards(hubRoot, projectSlug) {
@@ -1324,7 +1482,14 @@ function assessPendingActionability(item, { sharedGoal = null } = {}) {
   const body = String(item.body || '');
   const hasAction = (item.items && item.items.length > 0) || packetHasAnyHeading(body, [/(請對方做的事|請.*做|requested action|action requested)/i]);
   const hasGoal = packetHasAnyHeading(body, [/(共同目標|common goal|目標)/i]);
-  const hasEvidence = packetHasAnyHeading(body, [/(證據位置|證據|來源|reference|ssot|檔案|file)/i]) || /\bhttps?:\/\//i.test(body);
+  const hasEvidence = packetHasAnyHeading(body, [/(真源指標|可共享真源|證據位置|證據|來源|reference|ssot|檔案|file)/i]) || /\bhttps?:\/\//i.test(body);
+  const evidenceSection = firstLineAfterHeading(body, /(真源指標|可共享真源|證據位置|證據|來源|reference|ssot|檔案|file)/i) || '';
+  const hasShareableEvidence = hasEvidence && (
+    hasShareableSourcePointer(evidenceSection)
+    || /\bhttps?:\/\//i.test(body)
+    || hasShareableSourcePointer(body)
+  );
+  const hasReceiverStartCondition = packetHasAnyHeading(body, [/(接收方開工條件|開工條件|開始前條件|可開工條件|ready to start|start condition)/i]);
   const hasRisk = packetHasAnyHeading(body, [/(風險|未決|注意|risk|open question)/i]);
   const bodyContent = packetBodyWithoutActionHeadings(body);
   const actionText = [
@@ -1337,7 +1502,10 @@ function assessPendingActionability(item, { sharedGoal = null } = {}) {
   if (!hasAction) missing.push('未清楚列出要你做的事');
   if (!hasGoal) missing.push('未列明共同目標');
   if (looksLikeReviewMissingObject) missing.push('要求審閱或確認，但沒有提供要審閱的實際內容');
-  if (!hasEvidence) missing.push('未列明證據或來源位置');
+  if (!hasEvidence) missing.push('未列明真源指標或來源位置');
+  if (hasEvidence && !hasShareableEvidence) missing.push('真源指標不是對方可找回的共享來源');
+  if (containsLocalOnlyPath(evidenceSection) && !hasShareableEvidence) missing.push('只列出發送方本機路徑，收件方不能直接開工');
+  if (!hasReceiverStartCondition) missing.push('未列明接收方開工條件');
   if (missing.length > 0) {
     return {
       state: 'return',
@@ -1349,7 +1517,7 @@ function assessPendingActionability(item, { sharedGoal = null } = {}) {
   return {
     state: 'actionable',
     label: '可開工',
-    reason: hasRisk ? '交接有任務、共同目標、證據或來源，並列出風險。' : '交接有任務、共同目標、證據或來源；未見阻塞缺口。',
+    reason: hasRisk ? '交接有任務、共同目標、真源指標或來源，並列出風險。' : '交接有任務、共同目標、真源指標或來源；未見阻塞缺口。',
     next: '先讀完整交接內容，做本機對接檢查；通過後再處理或回覆。',
   };
 }
@@ -1409,7 +1577,7 @@ function renderHumanInboxItem(item, sourceId, index, total) {
     '',
     '✅ 我該不該做',
     '可以先讀,但不要因為看到這件交接就立即開工或標記已處理。',
-    '先確認內容齊全、證據位置能在本機對上、要求沒有和目前任務衝突。',
+    '先確認內容齊全、真源指標能在本機對上、要求沒有和目前任務衝突。',
     '',
     '⚠️ 需要留意',
     inboxAttentionText(item),
@@ -1619,6 +1787,16 @@ function htmlEscape(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function pngAssetDataUri(relativePath) {
+  const assetPath = path.join(__dirname, '..', relativePath);
+  try {
+    const data = fs.readFileSync(assetPath);
+    return `data:image/png;base64,${data.toString('base64')}`;
+  } catch (error) {
+    return '';
+  }
 }
 
 function normalizeSourceRefs(value) {
@@ -2166,6 +2344,7 @@ function sharedGoalStatus({ hubRoot, projectSlug, agentId, peers }) {
   const latest = baselines[0];
   const target = latest.summary.to || '';
   const confirmations = confirmedPeerIds.map((peerId) => {
+    if (peerId === latest.senderId) return { peerId, label: '發出者已確認', state: 'confirmed' };
     if (target !== peerId) return { peerId, label: '未見此 peer 對最新版確認', state: 'not_targeted' };
     return { peerId, ...ackStateForPacket({ hubRoot, projectSlug, agentId: peerId, packetId: latest.packetId, version: latest.version }) };
   });
@@ -2342,6 +2521,156 @@ function buildDashboardData({ hubRoot, projectSlug, agentId, config }) {
   return { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, identityIssues, suggestedReads, sharedGoal };
 }
 
+function buildCheckApsDemoDashboard(scenario = 'handoff-blocked') {
+  if (scenario === 'shared-goal') return buildSharedGoalDemoDashboard();
+  const sharedGoal = {
+    state: 'confirmed',
+    label: '最新版已確認',
+    summary: {
+      goal: '完成一個新手能跟隨的 APS 任務交接流程。',
+      roles: 'adam 負責產品判斷與發起交接；jay 負責接手指定任務並回報缺口。',
+      firstRound: 'adam 先整理要交接的任務；jay 先檢查資料是否足夠開工。',
+      acceptance: 'Jay 能清楚知道下一步，資料不足時會退回補資料，而不是硬做。',
+    },
+    confirmations: [
+      { peerId: 'jay', label: '已確認', state: 'confirmed' },
+    ],
+    latest: {
+      senderId: 'adam',
+      packetId: '20260614T120000Z__shared_goal_and_roles',
+      version: 1,
+      summary: { to: 'jay' },
+    },
+    clarifications: [],
+  };
+  return {
+    hubRoot: '(demo preview：不是真實共用 Drive 路徑)',
+    projectSlug: 'demo_project',
+    agentId: 'adam',
+    contextReport: {
+      entries: [],
+      issues: [],
+    },
+    incomingGroups: [
+      {
+        from: 'jay',
+        pending: [
+          {
+            from: 'jay',
+            packetId: '20260614T123000Z__homepage_copy_review',
+            version: 1,
+            scope: 'homepage_copy_review',
+            items: ['核對首頁新手流程文字是否可直接照做'],
+            body: 'Jay 發來首頁文案檢查，但沒有附上實際修改位置和驗收方式。',
+            actionability: {
+              state: 'return',
+              label: '需退回補資料',
+              reason: '交接內容缺少實際修改位置和驗收方式，直接開工容易改錯範圍。',
+              next: '先請 Jay 補回檔案位置、要檢查的段落和怎樣算通過。',
+            },
+          },
+        ],
+      },
+    ],
+    outgoingPackets: [
+      {
+        packetId: '20260614T121500Z__invite_jay_to_review',
+        version: 1,
+        toId: 'jay',
+        state: 'waiting',
+        label: '等待對方處理',
+        summary: { from: 'adam', to: 'jay' },
+      },
+    ],
+    peers: [
+      {
+        agent_id: 'adam',
+        display_name: 'Adam',
+        peer_state: 'confirmed',
+        status: 'active',
+        is_self: true,
+      },
+      {
+        agent_id: 'jay',
+        display_name: 'Jay',
+        peer_state: 'confirmed',
+        status: 'active',
+      },
+    ],
+    identityIssues: [],
+    suggestedReads: [],
+    sharedGoal,
+  };
+}
+
+function buildSharedGoalDemoDashboard() {
+  const sharedGoal = {
+    state: 'partial',
+    label: '等待協作者確認',
+    summary: {
+      goal: '完成一個新手能跟隨的 APS 任務交接流程。',
+      roles: 'adam 負責產品判斷與發起交接；jay 負責用新手角度確認可讀性與補充缺口；fanny 暫未加入第一輪確認。',
+      firstRound: 'adam 先提出共同目標與分工草稿；jay 先確認、補充或提出修正；確認後才開始第一個正式任務交接。',
+      acceptance: 'Jay 明確回覆同意、部分同意或有異議；Adam 批准後，正式版本才寫回 APS Drive 紀錄。',
+    },
+    confirmations: [
+      { peerId: 'jay', label: '等待確認', state: 'pending' },
+      { peerId: 'fanny', label: '未發給此 peer 確認', state: 'not_sent' },
+    ],
+    latest: {
+      senderId: 'adam',
+      packetId: '20260614T120000Z__shared_goal_and_roles',
+      version: 1,
+      summary: { to: 'jay' },
+    },
+    clarifications: [],
+  };
+  return {
+    hubRoot: '(demo preview：不是真實共用 Drive 路徑)',
+    projectSlug: 'demo_project',
+    agentId: 'adam',
+    contextReport: {
+      entries: [],
+      issues: [],
+    },
+    incomingGroups: [],
+    outgoingPackets: [
+      {
+        packetId: '20260614T120000Z__shared_goal_and_roles',
+        version: 1,
+        toId: 'jay',
+        state: 'waiting',
+        label: '等待 Jay 確認共同目標與分工',
+        summary: { from: 'adam', to: 'jay' },
+      },
+    ],
+    peers: [
+      {
+        agent_id: 'adam',
+        display_name: 'Adam',
+        peer_state: 'confirmed',
+        status: 'active',
+        is_self: true,
+      },
+      {
+        agent_id: 'jay',
+        display_name: 'Jay',
+        peer_state: 'confirmed',
+        status: 'active',
+      },
+      {
+        agent_id: 'fanny',
+        display_name: 'Fanny',
+        peer_state: 'confirmed',
+        status: 'active',
+      },
+    ],
+    identityIssues: [],
+    suggestedReads: [],
+    sharedGoal,
+  };
+}
+
 function hideLocalPaths(value) {
   return String(value || '').replace(/[A-Za-z]:[\\/][^\s<>"']+/g, '(本機路徑已隱藏)');
 }
@@ -2395,6 +2724,9 @@ function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agen
       next: confirmedPeers.length > 0
         ? '先建立共同目標與分工，然後用 shared_goal_and_roles 一對一發給 confirmed peer 確認；不要先發普通任務包。'
         : '先建立共同目標與分工。若要邀請協作者，先定清楚共同目標、角色、第一輪分工與驗收標準。',
+      defaultNext: confirmedPeers.length > 0
+        ? '先建立共同目標與分工，然後用 APS 一對一發給已加入的協作者確認；不要先發普通任務包。'
+        : '先建立共同目標與分工。若要邀請協作者，先定清楚共同目標、角色、第一輪分工與驗收標準。',
       source: 'shared_goal_and_roles',
     });
   } else if (sharedGoal && (sharedGoal.state === 'partial' || sharedGoal.state === 'incoming_pending')) {
@@ -2404,33 +2736,44 @@ function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agen
       next: sharedGoal.state === 'incoming_pending'
         ? '先讀 shared_goal_and_roles 正文，確認同意、部分同意或有異議，再寫具體 ack。'
         : '先完成受影響 peer 的一對一確認，再發第一輪正式任務包。',
+      defaultNext: sharedGoal.state === 'incoming_pending'
+        ? '先讀共同目標與分工正文，確認同意、部分同意或有異議，再記錄具體回覆。'
+        : '先完成受影響協作者的一對一確認，再發第一輪正式任務包。',
       source: sharedGoal.latest ? packetSourceRef(sharedGoal.latest.senderId, sharedGoal.latest.packetId, sharedGoal.latest.version) : 'shared_goal_and_roles',
     });
   }
   for (const item of pendingItems.slice(0, 5)) {
     const actionability = item.actionability || assessPendingActionability(item, { sharedGoal });
+    const topic = packetTopic(item.packetId);
     actions.push({
       lane: actionability.label,
-      item: `${item.from} → ${agentId}: ${packetTopic(item.packetId)} v${item.version}`,
+      item: `${item.from} → ${agentId}: ${topic} v${item.version}`,
+      defaultItem: `${item.from} 交來: ${humanizeTopicForUser(topic)}`,
       next: `${actionability.next} 可對 AI 說：「${actionabilityPromptFor(item, item.from)}」`,
+      defaultNext: actionability.next,
       source: packetSourceRef(item.from, item.packetId, item.version),
       state: actionability.state,
       reason: actionability.reason,
     });
   }
   for (const item of outgoingPackets.filter((packet) => packet.state === 'waiting').slice(0, 5)) {
+    const topic = packetTopic(item.packetId);
     actions.push({
       lane: '等對方',
-      item: `給 ${item.toId || '(未記錄)'}: ${packetTopic(item.packetId)} v${item.version}`,
+      item: `給 ${item.toId || '(未記錄)'}: ${topic} v${item.version}`,
+      defaultItem: `交給 ${item.toId || '對方'}: ${humanizeTopicForUser(topic)}`,
       next: '等待對方 check Drive、標記處理或另發回覆；不要把已寫入 Drive 當成對方已收到通知。',
       source: packetSourceRef(agentId, item.packetId, item.version),
     });
   }
   for (const item of outgoingPackets.filter((packet) => packet.state === 'declined').slice(0, 5)) {
+    const topic = packetTopic(item.packetId);
     actions.push({
       lane: '對方退回',
-      item: `給 ${item.toId || '(未記錄)'}: ${packetTopic(item.packetId)} v${item.version}`,
+      item: `給 ${item.toId || '(未記錄)'}: ${topic} v${item.version}`,
+      defaultItem: `${item.toId || '對方'} 退回: ${humanizeTopicForUser(topic)}`,
       next: `讀對方退回原因: ${item.declined.reason || '(未記錄)'}；然後用 revise 修訂、withdraw 撤回，或 close 收結。`,
+      defaultNext: `先讀對方退回原因: ${item.declined.reason || '(未記錄)'}；再判斷要修訂、撤回，還是收結這條交接。`,
       source: packetSourceRef(agentId, item.packetId, item.version),
     });
   }
@@ -2438,11 +2781,40 @@ function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agen
     actions.push({
       lane: '先核對風險',
       item: `${record.owner}: ${record.message}`,
+      defaultItem: `${record.owner}: ${defaultRiskMessage(record.message)}`,
       next: record.next,
+      defaultNext: defaultRiskNextText(record.next),
       source: record.source,
     });
   }
   return actions.slice(0, 12);
+}
+
+function defaultRiskMessage(message) {
+  return String(message || '')
+    .replace(/packet:[^\s]+/g, '某條交接來源')
+    .replace(/\s*->\s*\(本機路徑已隱藏\)/g, '')
+    .replace(/packet \/ outbox \/ ack/g, '交接紀錄');
+}
+
+function defaultRiskNextText(text) {
+  return String(text || '')
+    .replace(/packet \/ outbox \/ ack/g, '交接紀錄')
+    .replace(/packet:[^\s]+/g, '某條交接來源');
+}
+
+function humanizeTopicForUser(topic) {
+  if (!topic) return '(未記錄)';
+  if (topic === 'shared_goal_and_roles') return '共同目標與分工';
+  return topic.replace(/_/g, ' ');
+}
+
+function defaultActionItemText(item) {
+  return item.defaultItem || item.item;
+}
+
+function defaultActionNextText(item) {
+  return item.defaultNext || item.next;
 }
 
 function dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal }) {
@@ -2480,109 +2852,319 @@ function dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, shar
   return lines;
 }
 
-function renderProjectDashboardSummary(dashboard) {
+function checkApsPrimaryOutcome({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId }) {
+  const confirmedPeers = peers.filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive');
+  const pendingByState = pendingItems.reduce((map, item) => {
+    const state = item.actionability ? item.actionability.state : 'actionable';
+    map[state] = (map[state] || 0) + 1;
+    return map;
+  }, {});
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
+  const blockerCount = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message)).length;
+  if (sharedGoal && sharedGoal.state === 'missing') {
+    return {
+      decision: '未見共同目標與分工，暫時不應發普通任務交接。',
+      prompt: '請先幫我建立這個 APS 項目的共同目標與分工，先做到夠安全開始。',
+      next: confirmedPeers.length > 0
+        ? '先建立共同目標與分工，再發給已加入的協作者確認。'
+        : '先建立共同目標與分工；若要找人協作，之後再產生 APS 邀請。',
+    };
+  }
+  if (sharedGoal && sharedGoal.state === 'incoming_pending') {
+    return {
+      decision: '有共同目標與分工等你確認，未確認前不應直接處理普通任務。',
+      prompt: '請用 APS 讀取共同目標與分工，幫我判斷是同意、部分同意，還是要提出異議。',
+      next: '先確認共同目標與分工，再決定是否讀普通交接。',
+    };
+  }
+  if (sharedGoal && sharedGoal.state === 'partial') {
+    return {
+      decision: '共同目標與分工仍未完成逐人確認，第一輪正式任務要先等基準一致。',
+      prompt: '請用 APS 整理還有誰未確認共同目標與分工，並建議下一步。',
+      next: '先完成受影響協作者的一對一確認。',
+    };
+  }
+  if (declinedOutgoing.length > 0) {
+    return {
+      decision: `對方退回了 ${declinedOutgoing.length} 件你交出去的事，需要先處理退回原因。`,
+      prompt: '請用 APS 讀對方退回原因，幫我判斷要 revise、withdraw，還是 close。',
+      next: '先處理退回，再開新交接線。',
+    };
+  }
+  if (pendingByState.return > 0) {
+    return {
+      decision: `有 ${pendingByState.return} 件交接資料不足，不適合直接開工。`,
+      prompt: '請用 APS 讀取待處理交接，幫我整理缺甚麼，先產生補資料或退回建議。',
+      next: '先退回補資料或要求對方修訂，不要 consume 成 done。',
+    };
+  }
+  if (pendingByState.clarify_goal > 0) {
+    return {
+      decision: `有 ${pendingByState.clarify_goal} 件交接要先釐清共同目標與分工。`,
+      prompt: '請用 APS 比對這件交接和目前共同目標與分工，先整理共識確認問題。',
+      next: '先做共識確認，不要直接開工。',
+    };
+  }
+  if (pendingItems.length > 0) {
+    return {
+      decision: `有 ${pendingItems.length} 件交接等你處理，先做本機對接檢查再決定是否開工。`,
+      prompt: '請用 APS check Drive，逐件讀取待處理交接並做本機對接檢查。',
+      next: '先處理收件，不要只看數量摘要。',
+    };
+  }
+  if (blockerCount > 0) {
+    return {
+      decision: `目前沒有新交接要處理，但有 ${blockerCount} 項阻塞風險要先核對。`,
+      prompt: '請用 APS 根據風險清單逐項核對，先判斷是否需要補資料、修訂或等待同步。',
+      next: '先消除阻塞風險，再發新交接。',
+    };
+  }
+  if (waitingOutgoing.length > 0) {
+    return {
+      decision: `你有 ${waitingOutgoing.length} 件交接仍在等對方處理。`,
+      prompt: '請用 APS 查看我交出去的事，幫我判斷是否只需等待、要補發人類通知，還是要修訂。',
+      next: '不要把已寫入 Drive 當成對方已收到；必要時只補發人類通知。',
+    };
+  }
+  if (confirmedPeers.length === 0) {
+    return {
+      decision: '目前未見已完成加入的協作者，還不能做正式跨機任務交接。',
+      prompt: '請用 APS 先建立共同目標與分工；若我要邀請協作者，請幫我產生 APS 邀請。',
+      next: '先建立基準，再邀請協作者加入。',
+    };
+  }
+  return {
+    decision: '目前沒有明確卡點，可以按項目目標決定下一輪交接或檢查。',
+    prompt: '請用 APS 根據目前共同目標與分工，建議我下一輪應交接給誰和交接甚麼。',
+    next: '若要推進，先說明你想交給哪位協作者和本輪目標。',
+  };
+}
+
+function checkApsPacketStatusLines({ pendingItems, outgoingPackets, riskRecords }) {
+  const pendingByState = pendingItems.reduce((map, item) => {
+    const state = item.actionability ? item.actionability.state : 'actionable';
+    map[state] = (map[state] || 0) + 1;
+    return map;
+  }, {});
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
+  const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
+  const lines = [];
+  lines.push(`- 收件: ${pendingItems.length} 件待判斷。${pendingByState.return ? `${pendingByState.return} 件資料不足，要先退回補資料。` : pendingItems.length > 0 ? '先逐件做完整性與本機對接檢查。' : '目前沒有新交接要處理。'}`);
+  lines.push(`- 發件: ${outgoingPackets.length} 件由你發出。${waitingOutgoing.length > 0 ? `${waitingOutgoing.length} 件仍等對方處理。` : '沒有看到等待對方的發件。'}`);
+  if (declinedOutgoing.length > 0) {
+    lines.push(`- 是否如期: 否。對方退回 ${declinedOutgoing.length} 件你交出去的事，要先處理退回原因。`);
+  } else if (pendingByState.return > 0 || pendingByState.clarify_goal > 0 || blockers.length > 0) {
+    lines.push('- 是否如期: 否。先處理缺資料、共同目標或阻塞風險，不要直接開工。');
+  } else if (waitingOutgoing.length > 0) {
+    lines.push('- 是否如期: 部分等待中。已寫入 Drive 不等於對方已收到通知，可視情況補發人類通知。');
+  } else {
+    lines.push('- 是否如期: 暫時未見阻塞。下一步按共同目標與分工推進。');
+  }
+  return lines;
+}
+
+function checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords }) {
+  const pendingByState = pendingItems.reduce((map, item) => {
+    const state = item.actionability ? item.actionability.state : 'actionable';
+    map[state] = (map[state] || 0) + 1;
+    return map;
+  }, {});
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
+  const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
+  return pendingByState.return > 0
+    || pendingByState.clarify_goal > 0
+    || waitingOutgoing.length > 0
+    || declinedOutgoing.length > 0
+    || blockers.length > 0;
+}
+
+function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, hubRoot, projectSlug, agentId, livePath: generatedLivePath = null, liveGenerated = false, demoPreview = false }) {
+  const hasLiveCandidate = checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords });
+  if (!hasLiveCandidate) return [];
+  const livePath = path.join(contextDir(hubRoot, projectSlug), apsLiveFileNameForAgent(agentId));
+  const lines = [
+    '建議開 APS Live：當共同目標與分工、交接包、補資料、退回或確認需要對方回饋時使用。',
+  ];
+  if (demoPreview) {
+    lines.push('正式項目會由 Check APS 自動生成 APS Live 頁；demo preview 不會寫入 HTML。');
+  } else if (generatedLivePath) {
+    lines.push(`APS Live: ${generatedLivePath}`);
+    lines.push(liveGenerated
+      ? '頁面已由 Check APS 自動生成 / 更新；你只需打開頁面使用，不需要自行要求 AI 生成。'
+      : '本機已找到 APS Live 頁；你只需打開頁面使用，不需要自行要求 AI 生成。');
+  } else if (fs.existsSync(livePath)) {
+    lines.push(`APS Live: ${livePath}`);
+    lines.push('本機已找到 APS Live 頁；你只需打開頁面使用，不需要自行要求 AI 生成。');
+  } else {
+    lines.push('APS Live 頁會由 Check APS 在真項目自動生成；目前未能確認路徑，請先檢查本機 APS 設定。');
+  }
+  lines.push('邊界：Live 只做即時核對；正式確認仍要回到 terminal，經你批准後才寫回 APS Drive 紀錄。');
+  return lines;
+}
+
+function renderProjectDashboardSummary(dashboard, options = {}) {
   const { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, sharedGoal } = dashboard;
+  const full = Boolean(options.full);
+  const liveQueueItems = Array.isArray(options.liveQueueItems) ? options.liveQueueItems : [];
   const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
   const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues: dashboard.identityIssues, sharedGoal });
   const riskItems = riskRecords.map((record) => record.message);
   const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId, sharedGoal, peers });
   const statusLines = dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal });
+  const primaryOutcome = checkApsPrimaryOutcome({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId });
+  const packetStatusLines = checkApsPacketStatusLines({ pendingItems, outgoingPackets, riskRecords });
+  const liveRoutingLines = checkApsLiveRoutingLines({
+    pendingItems,
+    outgoingPackets,
+    riskRecords,
+    hubRoot,
+    projectSlug,
+    agentId,
+    livePath: options.livePath,
+    liveGenerated: Boolean(options.liveGenerated),
+    demoPreview: Boolean(options.demoPreview),
+  });
   const lines = [
     '🧭 APS 整體狀態',
     `📁 項目: ${projectSlug}`,
     `👤 本機代理: ${agentId}`,
     '',
-    '🔎 目前判斷',
-    ...statusLines.map((line) => `- ${line}`),
+    '🔎 結論',
+    `- ${primaryOutcome.decision}`,
     '',
-    `🎯 共同目標與分工: ${sharedGoalProgressText(sharedGoal)}`,
-    `🧩 開工判斷: ${sharedGoalCanStartText(sharedGoal)}`,
+    '📦 交接包狀態',
+    ...packetStatusLines,
     '',
-    '📊 數量摘要',
-    `📬 待你處理: ${pendingItems.length}`,
-    `📤 你交出去的事: ${outgoingPackets.length}`,
-    `⏳ 等待對方: ${waitingOutgoing.length}`,
-    `👥 協作對象: ${peers.length}`,
-    `⚠️ 風險與提醒: ${riskItems.length}`,
-    '',
-    '🚀 待我處理',
+    '📌 需要跟進的交接',
   ];
   if (actionItems.length === 0) {
-    if (peers.length === 0) {
-      lines.push('- 目前未有協作對象。先建立或更新共同目標與分工；要邀請新協作者時用 `npx aps peer invite`，讓對方自行選 APS 名稱。');
-    } else {
-      lines.push('- 目前沒有明確下一步。若要推進，先核對共同目標與分工，再按需發出一對一交接。');
-    }
+    lines.push(`- ${primaryOutcome.next}`);
   } else {
     for (const item of actionItems.slice(0, 8)) {
-      lines.push(`- [${actionLaneIcon(item)} ${item.lane}] ${item.item}`);
-      lines.push(`  建議: ${item.next}`);
+      lines.push(`- [${actionLaneIcon(item)} ${item.lane}] ${full ? item.item : defaultActionItemText(item)}`);
+      lines.push(`  狀態: ${full ? item.next : defaultActionNextText(item)}`);
       if (item.reason) lines.push(`  判斷: ${item.reason}`);
-      lines.push(`  來源: ${item.source}`);
+      if (full) lines.push(`  來源: ${item.source}`);
     }
   }
-  lines.push('');
-  lines.push('🎯 共同目標與分工');
-  lines.push(`- 確認進度: ${sharedGoalProgressText(sharedGoal)}`);
-  lines.push(`- 開工判斷: ${sharedGoalCanStartText(sharedGoal)}`);
-  if (sharedGoal.latest) {
-    lines.push(`- 最新版本: ${sharedGoal.latest.packetId} v${sharedGoal.latest.version}（${sharedGoal.latest.senderId} → ${sharedGoal.latest.summary.to || '(未記錄)'}）`);
-  }
-  lines.push(`- 共同目標: ${sharedGoal.summary.goal}`);
-  lines.push(`- 角色分工: ${sharedGoal.summary.roles}`);
-  lines.push(`- 第一輪分工: ${sharedGoal.summary.firstRound}`);
-  if (sharedGoal.confirmations.length === 0) {
-    lines.push('- peer 確認: 未有 confirmed peer 需要確認。');
-  } else {
-    lines.push(`- 逐人確認: ${sharedGoal.confirmations.map((item) => `${item.peerId}: ${item.label}，下一步 ${sharedGoalPeerNextStep(item)}`).join('；')}`);
-  }
-  lines.push('');
-  lines.push('📤 我交出去的事');
-  if (outgoingPackets.length === 0) {
-    lines.push('- 目前沒有由你發出的交接紀錄。');
-  } else {
-    for (const item of outgoingPackets.slice(0, 5)) {
-      lines.push(`- 給 ${item.toId || '(未記錄)'}: ${packetTopic(item.packetId)} v${item.version} — ${item.label}`);
+  if (riskItems.length > 0) {
+    lines.push('');
+    lines.push('⚠️ 需要注意');
+    for (const item of riskRecords.slice(0, 3)) {
+      lines.push(`- ${full ? item.message : defaultRiskMessage(item.message)}`);
+      lines.push(`  建議: ${full ? item.next : defaultRiskNextText(item.next)}`);
     }
   }
-  lines.push('');
-  lines.push('👥 協作對象');
-  if (peers.length === 0) {
-    lines.push('- 未見協作對象卡；舊二人設定仍可透過本機設定運作。');
-  } else {
-    for (const peer of peers.slice(0, 8)) {
-      const markers = [peer.is_self ? '本機' : null, peer.is_default_peer ? '預設對方' : null].filter(Boolean).join(', ');
-      const suffix = markers ? ` (${markers})` : '';
-      const stateLabel = peer.peer_state === 'confirmed' ? '已確認' : peer.peer_state || peer.status || 'unknown';
-      lines.push(`- ${peer.agent_id}${suffix}: ${stateLabel}`);
+  if (liveRoutingLines.length > 0) {
+    lines.push('');
+    lines.push('📡 APS Live 即時協作');
+    for (const line of liveRoutingLines) lines.push(`- ${line}`);
+  }
+  if (liveQueueItems.length > 0) {
+    const latestQueue = liveQueueItems[0];
+    const latestPayload = latestQueue.payload || {};
+    lines.push('');
+    lines.push('📥 APS Live 待本機 AI 整理');
+    lines.push(`- 有 ${liveQueueItems.length} 件 Live 討論已送入本機 AI 待處理佇列。`);
+    lines.push(`- 最新一件: ${latestPayload.task_mode || '請 AI 判斷下一步'}。來源: ${latestPayload.agent_id || latestPayload.snapshot && latestPayload.snapshot.agent_id || '(未記錄)'}`);
+    lines.push('- 這只是本機待辦材料；是否寫回共同目標、交接包、補資料或確認紀錄，仍要等你批准。');
+  }
+  if (full) {
+    lines.push('');
+    lines.push('📌 目前狀態');
+    lines.push(...statusLines.map((line) => `- ${line}`));
+    lines.push('');
+    lines.push(`🎯 共同目標與分工: ${sharedGoalProgressText(sharedGoal)}`);
+    lines.push(`🧩 開工判斷: ${sharedGoalCanStartText(sharedGoal)}`);
+    lines.push('');
+    lines.push('🎯 共同目標與分工詳情');
+    lines.push(`- 確認進度: ${sharedGoalProgressText(sharedGoal)}`);
+    lines.push(`- 開工判斷: ${sharedGoalCanStartText(sharedGoal)}`);
+    if (sharedGoal.latest) {
+      lines.push(`- 最新版本: ${sharedGoal.latest.packetId} v${sharedGoal.latest.version}（${sharedGoal.latest.senderId} → ${sharedGoal.latest.summary.to || '(未記錄)'}）`);
     }
+    lines.push(`- 共同目標: ${sharedGoal.summary.goal}`);
+    lines.push(`- 角色分工: ${sharedGoal.summary.roles}`);
+    lines.push(`- 第一輪分工: ${sharedGoal.summary.firstRound}`);
+    if (sharedGoal.confirmations.length === 0) {
+      lines.push('- peer 確認: 未有 confirmed peer 需要確認。');
+    } else {
+      lines.push(`- 逐人確認: ${sharedGoal.confirmations.map((item) => `${item.peerId}: ${item.label}，下一步 ${sharedGoalPeerNextStep(item)}`).join('；')}`);
+    }
+    lines.push('');
+    lines.push('📤 我交出去的事');
+    if (outgoingPackets.length === 0) {
+      lines.push('- 目前沒有由你發出的交接紀錄。');
+    } else {
+      for (const item of outgoingPackets.slice(0, 5)) {
+        lines.push(`- 給 ${item.toId || '(未記錄)'}: ${packetTopic(item.packetId)} v${item.version} — ${item.label}`);
+      }
+    }
+    lines.push('');
+    lines.push('👥 協作對象');
+    if (peers.length === 0) {
+      lines.push('- 未見協作對象卡；舊二人設定仍可透過本機設定運作。');
+    } else {
+      for (const peer of peers.slice(0, 8)) {
+        const markers = [peer.is_self ? '本機' : null, peer.is_default_peer ? '預設對方' : null].filter(Boolean).join(', ');
+        const suffix = markers ? ` (${markers})` : '';
+        const stateLabel = peer.peer_state === 'confirmed' ? '已確認' : peer.peer_state || peer.status || 'unknown';
+        lines.push(`- ${peer.agent_id}${suffix}: ${stateLabel}`);
+      }
+    }
+    lines.push('');
+    lines.push('⚠️ 風險與未決');
+    if (riskItems.length === 0) {
+      lines.push('- 未見阻塞風險。仍須以最新 packet / outbox / ack 作準。');
+    } else {
+      for (const item of riskRecords.slice(0, 8)) {
+        lines.push(`- ${item.owner}: ${item.message}`);
+        lines.push(`  建議: ${item.next}`);
+        lines.push(`  來源: ${item.source}`);
+      }
+    }
+    lines.push('');
+    lines.push('📊 數量摘要（排錯用）');
+    lines.push(`- 待你處理: ${pendingItems.length}`);
+    lines.push(`- 你交出去的事: ${outgoingPackets.length}`);
+    lines.push(`- 等待對方: ${waitingOutgoing.length}`);
+    lines.push(`- 協作對象: ${peers.length}`);
+    lines.push(`- 風險與提醒: ${riskItems.length}`);
+    lines.push('');
+    lines.push('🔁 同步與 APS Live（排錯用）');
+    lines.push(`- 共用 Drive 本機路徑: ${hubRoot}（只適用於這部電腦，不要發給對方）`);
+    lines.push(`- 收件通道: ${incomingGroups.length} 條 peer lane 已讀取；待你處理 ${pendingItems.length} 件。`);
+    lines.push(`- 發件紀錄: ${outgoingPackets.length} 件已發交接；等待對方 ${waitingOutgoing.length} 件。`);
+    lines.push(`- 背景索引: ${contextReport.entries.length} 條；提醒 ${contextReport.issues.length} 項。`);
+    lines.push('- HTML dashboard 已退役：`check-aps` 不再生成 `_context/dashboard.html` 或個人 dashboard。日常狀態以 terminal 摘要為準。');
+    lines.push(`- APS Live: 若有真實協調需要，\`check-aps\` 會按需生成 \`_context/${apsLiveFileNameForAgent(agentId)}\`，並仍須回到 terminal 才可寫正式 APS 狀態。`);
+    lines.push('');
+    lines.push('🔎 邊界:這是按需讀取本機已同步資料的狀態摘要，不代表對方已收到人手通知或已完成 Google Drive 同步。共用 Drive 路徑只供本機用戶打開本機資料夾，不應放入給對方的通知。');
+  } else {
+    lines.push('');
+    lines.push('🔎 深入排錯: 如 AI 需要路徑、同步、數量或完整追溯資料，可執行 `check-aps --full`；日常推進不用看。');
   }
   lines.push('');
-  lines.push('⚠️ 風險與未決');
-  if (riskItems.length === 0) {
-    lines.push('- 未見阻塞風險。仍須以最新 packet / outbox / ack 作準。');
+  lines.push('------------------------------');
+  lines.push('🚀 建議下一步（可直接複製給 AI）');
+  lines.push('下一句可對 AI 說:');
+  lines.push('```text');
+  if (liveQueueItems.length > 0) {
+    lines.push('請用 APS 讀取 APS Live 待處理佇列，先整理共識、分歧、待決定事項，判斷哪些需要寫回正式 APS 紀錄；如需要正式動作，先生成草稿和風險，等我確認。');
   } else {
-    for (const item of riskRecords.slice(0, 8)) {
-      lines.push(`- ${item.owner}: ${item.message}`);
-      lines.push(`  建議: ${item.next}`);
-      lines.push(`  來源: ${item.source}`);
-    }
+    lines.push(primaryOutcome.prompt);
   }
-  lines.push('');
-  lines.push('🔁 資料是否同步（排錯用）');
-  lines.push(`- 共用 Drive 本機路徑: ${hubRoot}（只適用於這部電腦，不要發給對方）`);
-  lines.push(`- 收件通道: ${incomingGroups.length} 條 peer lane 已讀取；待你處理 ${pendingItems.length} 件。`);
-  lines.push(`- 發件紀錄: ${outgoingPackets.length} 件已發交接；等待對方 ${waitingOutgoing.length} 件。`);
-  lines.push(`- 背景索引: ${contextReport.entries.length} 條；提醒 ${contextReport.issues.length} 項。`);
-  lines.push(`- HTML dashboard: \`check-aps\` 會按需更新個人頁 \`_context/${dashboardFileNameForAgent(agentId)}\`，並更新共用入口 \`_context/dashboard.html\`。`);
-  lines.push('');
-  lines.push('🔎 邊界:這是按需讀取本機已同步資料的狀態摘要，不代表對方已收到人手通知或已完成 Google Drive 同步。共用 Drive 路徑只供本機用戶打開本機資料夾，不應放入給對方的通知。');
+  lines.push('```');
+  lines.push(`跟進理由: ${liveQueueItems.length > 0 ? '已有 APS Live 討論待本機 AI 整理與判斷。' : primaryOutcome.next}`);
+  lines.push('------------------------------');
   return lines.join('\n');
 }
 
 function renderContextOverviewHtml({ report, projectSlug, dashboard = null }) {
-  if (dashboard) return renderProjectDashboardHtml(dashboard);
   const generatedAt = isoNow();
   const errors = report.issues.filter((issue) => issue.severity === 'error');
   const warnings = report.issues.filter((issue) => issue.severity !== 'error');
@@ -2671,347 +3253,1357 @@ function renderContextOverviewHtml({ report, projectSlug, dashboard = null }) {
 function writeContextOverviewHtml({ hubRoot, projectSlug, report }) {
   const outputPath = path.join(contextDir(hubRoot, projectSlug), 'overview.html');
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  const config = loadConfig();
-  const agentId = flagOrConfig('--agent-id', 'agentId', config);
-  const dashboard = agentId ? buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } }) : null;
-  fs.writeFileSync(outputPath, renderContextOverviewHtml({ report, projectSlug, dashboard }), 'utf8');
+  fs.writeFileSync(outputPath, renderContextOverviewHtml({ report, projectSlug }), 'utf8');
   return outputPath;
-}
-
-function renderProjectDashboardHtml(dashboard) {
-  const { hubRoot, projectSlug, agentId, contextReport, incomingGroups, outgoingPackets, peers, suggestedReads, sharedGoal } = dashboard;
-  const generatedAt = isoNow();
-  const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
-  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
-  const contextErrors = contextReport.issues.filter((issue) => issue.severity === 'error');
-  const contextWarnings = contextReport.issues.filter((issue) => issue.severity !== 'error');
-  const riskRecords = dashboardRiskRecords({ incomingGroups, contextReport, peers, identityIssues: dashboard.identityIssues, sharedGoal });
-  const actionItems = dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agentId, sharedGoal, peers });
-  const statusLines = dashboardStatusLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal });
-  const primaryDecision = statusLines[0] || '目前沒有明確下一步。';
-  const firstAction = actionItems[0] || null;
-  const firstActionPrompt = firstAction ? (firstAction.next.match(/「(.+)」/) || [null, firstAction.next])[1] : null;
-  const primaryDecisionIcon = dashboardDecisionIcon(primaryDecision);
-  const emptyActionText = peers.length === 0
-    ? '目前未有協作對象。先建立或更新共同目標與分工；要邀請新協作者時用 `npx aps peer invite`，讓對方自行選 APS 名稱。'
-    : '目前沒有明確下一步。若要推進，先核對共同目標與分工，再按需發出一對一交接。';
-  const actionRows = actionItems.map((item) => `<tr>
-      <td><span class="badge ${actionBadgeClass(item)}">${actionLaneIcon(item)} ${htmlEscape(item.lane)}</span></td>
-      <td>${htmlEscape(item.item)}</td>
-      <td>${htmlEscape(item.reason || '可按建議下一步處理。')}</td>
-      <td>${htmlEscape(item.next)}</td>
-      <td><code>${htmlEscape(item.source)}</code></td>
-    </tr>`).join('\n') || `<tr><td colspan="5" class="muted">${htmlEscape(emptyActionText)}</td></tr>`;
-  const statusRows = statusLines.map((line) => `<li>${htmlEscape(line)}</li>`).join('\n');
-  const outgoingRows = outgoingPackets.map((item) => `<tr>
-      <td>${htmlEscape(item.toId || '(未記錄)')}</td>
-      <td>${htmlEscape(packetTopic(item.packetId))}</td>
-      <td>v${htmlEscape(item.version)}</td>
-      <td><span class="badge ${item.state === 'waiting' ? 'warn' : item.state === 'withdrawn' || item.state === 'declined' ? 'bad' : 'ok'}">${htmlEscape(item.label)}</span></td>
-      <td>${htmlEscape(inboxWhatSummary(item.summary))}</td>
-      <td><code>${htmlEscape(packetSourceRef(agentId, item.packetId, item.version))}</code></td>
-    </tr>`).join('\n') || '<tr><td colspan="6" class="muted">目前沒有由你發出的交接紀錄。</td></tr>';
-  const readRows = suggestedReads.map((item) => `<tr>
-      <td>${htmlEscape(item.title)}</td>
-      <td>${htmlEscape(item.type)}</td>
-      <td>${htmlEscape(item.why)}</td>
-      <td>${sourceRefDisplay(item.ref)}</td>
-    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">目前沒有額外建議閱讀來源。</td></tr>';
-  const contextRows = contextReport.entries.map((entry) => {
-    const title = entry.workstream || entry.current_focus || entry.source_packet || `entry ${entry.blockIndex}`;
-    const refs = normalizeSourceRefs(entry.sourceRefs.length > 0 ? entry.sourceRefs : entry.source_refs);
-    return `<tr>
-      <td>${htmlEscape(entry.lane_agent)}</td>
-      <td>${htmlEscape(title)}</td>
-      <td><span class="badge ${contextFreshnessBadgeClass(entry.freshness)}">${htmlEscape(contextFreshnessLabel(entry.freshness))}</span></td>
-      <td>${htmlEscape(entry.current_focus || '(未記錄)')}</td>
-      <td>${refs.map(sourceRefDisplay).join('<br>') || '<span class="muted">未列明</span>'}</td>
-    </tr>`;
-  }).join('\n') || '<tr><td colspan="5" class="muted">目前沒有背景索引條目。</td></tr>';
-  const peerRows = peers.map((peer) => `<tr>
-      <td>${htmlEscape(peer.agent_id)}</td>
-      <td>${htmlEscape(peer.display_name || peer.agent_id)}</td>
-      <td><span class="badge ${peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn'}">${htmlEscape(peer.peer_state || peer.status || 'unknown')}</span></td>
-      <td>${peer.is_self ? '本機 agent' : peer.is_default_peer ? '預設 peer' : 'project peer'}</td>
-    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見 peer card；舊二人設定仍可透過本機設定運作。</td></tr>';
-  const identityCards = peers
-    .slice()
-    .sort((a, b) => (a.agent_id === agentId ? -1 : b.agent_id === agentId ? 1 : String(a.agent_id).localeCompare(String(b.agent_id))))
-    .map((peer, index) => {
-      const isSelf = peer.agent_id === agentId;
-      const role = isSelf ? '自己' : peers.filter((item) => item.agent_id !== agentId).length > 1 ? `對方 ${index}` : '對方';
-      const state = peer.peer_state || peer.status || 'unknown';
-      const stateLabel = peer.peer_state === 'confirmed' ? '已確認' : peer.status === 'inactive' ? '停用' : state;
-      const badgeClass = peer.peer_state === 'confirmed' ? 'ok' : peer.status === 'inactive' ? 'bad' : 'warn';
-      return `<div class="identitycard ${isSelf ? 'self' : 'peer'}">
-        <span class="role">${htmlEscape(role)}</span>
-        <strong>${htmlEscape(peer.agent_id)}</strong>
-        <span class="display">${htmlEscape(peer.display_name || peer.agent_id)}</span>
-        <span class="badge ${badgeClass}">${htmlEscape(stateLabel)}</span>
-      </div>`;
-    }).join('\n') || `<div class="identitycard self"><span class="role">自己</span><strong>${htmlEscape(agentId)}</strong><span class="display">本機代理</span><span class="badge warn">未見 peer card</span></div>`;
-  const riskRows = riskRecords.map((item) => `<tr>
-      <td>${htmlEscape(item.owner)}</td>
-      <td>${htmlEscape(item.message)}</td>
-      <td>${htmlEscape(item.next)}</td>
-      <td><code>${htmlEscape(item.source)}</code></td>
-    </tr>`).join('\n') || '<tr><td colspan="4" class="muted">未見阻塞風險。仍須以最新 packet / outbox / ack 作準。</td></tr>';
-  const confirmationRows = sharedGoal.confirmations.map((item) => `<tr>
-      <td>${htmlEscape(item.peerId)}</td>
-      <td>${sharedGoal.latest ? `v${htmlEscape(sharedGoal.latest.version)}` : '<span class="muted">未見基準</span>'}</td>
-      <td><span class="badge ${item.state === 'confirmed' ? 'ok' : item.state === 'declined' ? 'bad' : 'warn'}">${htmlEscape(item.label)}</span></td>
-      <td>${htmlEscape(item.entry && (item.entry.result || item.entry.reason) ? (item.entry.result || item.entry.reason) : '未記錄')}</td>
-      <td>${htmlEscape(sharedGoalPeerNextStep(item))}</td>
-    </tr>`).join('\n') || '<tr><td colspan="5" class="muted">目前未有 confirmed peer 需要確認。</td></tr>';
-  const syncRows = [
-    ['收件通道', `${incomingGroups.length} 條 peer lane 已讀取`, `待你處理 ${pendingItems.length} 件`],
-    ['發件紀錄', `${outgoingPackets.length} 件已發交接`, `尚未看到對方處理 ${waitingOutgoing.length} 件`],
-    ['共同目標與分工', sharedGoalProgressText(sharedGoal), sharedGoalCanStartText(sharedGoal)],
-    ['背景索引', `${contextReport.entries.length} 條`, `${contextReport.issues.length} 項提醒 / 錯誤`],
-  ].map((row) => `<tr><td>${htmlEscape(row[0])}</td><td>${htmlEscape(row[1])}</td><td>${htmlEscape(row[2])}</td></tr>`).join('\n');
-  return `<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${htmlEscape(projectSlug)} APS 營運總覽 - Agent Public Squares</title>
-<style>
-  :root { --ink:#1d2430; --soft:#566174; --bg:#f4f0e7; --paper:#fffdf8; --line:#d7cdbc; --accent:#285d74; --ok:#2e7d4f; --warn:#9a5a1b; --bad:#b64234; --mono:ui-monospace, "Cascadia Code", Consolas, monospace; --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; --serif:"Noto Serif TC","PMingLiU",Georgia,serif; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.68; padding:24px 16px 52px; }
-  main { max-width:1120px; margin:0 auto; }
-  nav, section, .callout, .metric, .decision, .ownerbar, .identitycard { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
-  nav { display:flex; flex-wrap:wrap; gap:8px 18px; padding:10px 14px; margin-bottom:20px; font-size:14px; }
-  .brand { font-family:var(--serif); font-weight:700; }
-  header { padding:22px 0; border-bottom:1px solid var(--line); margin-bottom:18px; }
-  h1 { font-family:var(--serif); font-size:42px; line-height:1.12; margin:0 0 8px; }
-  h2 { font-family:var(--serif); font-size:24px; margin:0 0 6px; }
-  p { margin:0 0 12px; color:var(--soft); }
-  section { padding:20px 22px; margin-bottom:18px; overflow:auto; }
-  .callout { border-left:4px solid var(--bad); padding:13px 15px; margin-bottom:18px; color:var(--soft); }
-  .decision { border-left:5px solid var(--accent); padding:18px 20px; margin-bottom:18px; }
-  .decision strong { display:block; font-size:22px; color:var(--ink); margin-bottom:6px; }
-  .ownerbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:11px 14px; margin-bottom:14px; border-left:5px solid var(--accent); }
-  .ownerbar .label { color:var(--soft); font-size:13px; }
-  .ownerbar .name { font-family:var(--serif); font-size:28px; font-weight:700; line-height:1; color:var(--ink); }
-  .ownerbar .hint { color:var(--soft); font-size:13px; }
-  .identitygrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin:0 0 16px; }
-  .identitycard { padding:13px 14px; border-left:6px solid var(--line); }
-  .identitycard.self { border-left-color:var(--accent); background:#eef5f7; }
-  .identitycard.peer { border-left-color:#9a5a1b; }
-  .identitycard .role { display:block; color:var(--soft); font-size:13px; font-weight:700; }
-  .identitycard strong { display:block; font-family:var(--serif); font-size:30px; line-height:1.1; margin:2px 0; color:var(--ink); }
-  .identitycard .display { display:block; color:var(--soft); margin-bottom:8px; }
-  .copyline { font-family:var(--mono); font-size:13px; background:#ece5d4; border-radius:4px; padding:8px 10px; color:var(--ink); word-break:break-word; }
-  .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0 20px; }
-  .metric { padding:14px 15px; }
-  .metric strong { display:block; font-size:28px; line-height:1.1; }
-  .metric span { color:var(--soft); font-size:13px; }
-  .badge { display:inline-flex; border:1px solid currentColor; border-radius:999px; padding:2px 9px; font-size:12px; font-weight:700; white-space:nowrap; }
-  .ok { color:var(--ok); }
-  .warn { color:var(--warn); }
-  .bad { color:var(--bad); }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 10px; }
-  th { background:#e4edf0; color:var(--accent); white-space:nowrap; }
-  code { font-family:var(--mono); font-size:12px; background:#ece5d4; border-radius:3px; padding:1px 5px; word-break:break-word; }
-  a { color:var(--accent); font-weight:700; }
-  .muted { color:#7a8493; }
-  ul { margin:8px 0 0; padding-left:20px; }
-  footer { text-align:center; color:#7a8493; font-size:12px; margin-top:26px; }
-  @media (max-width: 760px) { h1 { font-size:32px; } .metrics { grid-template-columns:1fr 1fr; } }
-</style>
-</head>
-<body>
-<main>
-<nav><span class="brand">Agent Public Squares</span><span>🧭 APS 營運總覽</span><span class="muted">新手決策視角</span></nav>
-<header>
-  <div class="ownerbar" aria-label="頁面擁有人">
-    <span class="label">👤 個人頁</span>
-    <span class="name">${htmlEscape(agentId)}</span>
-    <span class="hint">只看這個 APS 名稱的待辦</span>
-    <a href="dashboard.html">不是你？返回共用入口</a>
-  </div>
-  <div class="identitygrid" aria-label="自己與對方">
-    ${identityCards}
-  </div>
-  <h1>${htmlEscape(projectSlug)}</h1>
-  <p>這頁先回答現在能否推進、下一步做甚麼、哪一件事需要先退回或等待。</p>
-  <div class="metrics">
-    <div class="metric"><strong>${pendingItems.length}</strong><span>📬 待你處理</span></div>
-    <div class="metric"><strong>${outgoingPackets.length}</strong><span>📤 你交出去的事</span></div>
-    <div class="metric"><strong>${waitingOutgoing.length}</strong><span>⏳ 等待對方</span></div>
-    <div class="metric"><strong>${sharedGoal.state === 'confirmed' ? '可' : '停'}</strong><span>${sharedGoal.state === 'confirmed' ? '✅' : '⚠️'} 普通交接開工</span></div>
-  </div>
-  <p class="muted">生成時間：${htmlEscape(generatedAt)}</p>
-</header>
-<div class="decision">
-  <strong>${primaryDecisionIcon} ${htmlEscape(primaryDecision)}</strong>
-  <p>🎯 項目基準：${htmlEscape(sharedGoalCanStartText(sharedGoal))}</p>
-  <p>🚀 下一步</p>
-  <p>${firstAction ? htmlEscape(firstActionPrompt) : htmlEscape(emptyActionText)}</p>
-  ${firstAction ? `<p class="copyline">${htmlEscape(firstActionPrompt)}</p>` : ''}
-</div>
-<section>
-  <h2>🔎 現在怎樣做</h2>
-  <p>這裡只放會改變下一步的判斷；不是資料同步清單。</p>
-  <ul>${statusRows}</ul>
-</section>
-<section>
-  <h2>🚀 待我處理</h2>
-  <p>每件交接先判斷能否開工；看到 pending 不等於可以直接做。</p>
-  <table><thead><tr><th>開工判斷</th><th>事項</th><th>原因</th><th>建議下一步</th><th>來源</th></tr></thead><tbody>${actionRows}</tbody></table>
-</section>
-<section>
-  <h2>🎯 共同目標與分工</h2>
-  <p>這是普通交接能否開工的項目基準。三位或以上協作者時，要看每位受影響 peer 是否已確認同一個最新版本。</p>
-  <table><tbody>
-    <tr><th>確認進度</th><td>${htmlEscape(sharedGoalProgressText(sharedGoal))}</td></tr>
-    <tr><th>開工判斷</th><td>${htmlEscape(sharedGoalCanStartText(sharedGoal))}</td></tr>
-    <tr><th>最新版本</th><td>${sharedGoal.latest ? `${htmlEscape(sharedGoal.latest.packetId)} v${htmlEscape(sharedGoal.latest.version)}（${htmlEscape(sharedGoal.latest.senderId)} → ${htmlEscape(sharedGoal.latest.summary.to || '(未記錄)')}）` : '<span class="muted">未見 shared_goal_and_roles</span>'}</td></tr>
-    <tr><th>共同目標</th><td>${htmlEscape(sharedGoal.summary.goal)}</td></tr>
-    <tr><th>角色分工</th><td>${htmlEscape(sharedGoal.summary.roles)}</td></tr>
-    <tr><th>第一輪分工</th><td>${htmlEscape(sharedGoal.summary.firstRound)}</td></tr>
-    <tr><th>驗收標準</th><td>${htmlEscape(sharedGoal.summary.acceptance)}</td></tr>
-  </tbody></table>
-  <h3>👥 逐人確認狀態</h3>
-  <table><thead><tr><th>peer</th><th>版本</th><th>狀態</th><th>說明</th><th>下一步</th></tr></thead><tbody>${confirmationRows}</tbody></table>
-</section>
-<section>
-  <h2>📤 我交出去的事</h2>
-  <p>這裡不推斷對方是否已看到通知；只顯示共用 Drive 資料夾內可讀到的明確狀態，例如 ack 已記錄、已收結或已撤回。</p>
-  <table><thead><tr><th>收件人</th><th>主題</th><th>版本</th><th>狀態</th><th>摘要</th><th>來源</th></tr></thead><tbody>${outgoingRows}</tbody></table>
-</section>
-<section>
-  <h2>📎 證據來源</h2>
-  <p>需要核對時才讀這些來源；不要讓來源清單蓋過下一步。</p>
-  <table><thead><tr><th>標題</th><th>類型</th><th>為甚麼要讀</th><th>連結 / 來源</th></tr></thead><tbody>${readRows}</tbody></table>
-</section>
-<section>
-  <h2>🗂️ 背景資料</h2>
-  <p>Project Context Index 只作背景，不可覆蓋最新交接要求。</p>
-  <table><thead><tr><th>Agent</th><th>工作流</th><th>新鮮度</th><th>目前焦點</th><th>來源</th></tr></thead><tbody>${contextRows}</tbody></table>
-</section>
-<section>
-  <h2>👥 誰在這個項目</h2>
-  <table><thead><tr><th>Agent</th><th>顯示名稱</th><th>狀態</th><th>備註</th></tr></thead><tbody>${peerRows}</tbody></table>
-</section>
-<section>
-  <h2>⚠️ 風險與未決</h2>
-  <p>每項風險都要能轉成下一步；內部來源只放在證據欄。</p>
-  <table><thead><tr><th>相關對象</th><th>風險</th><th>建議下一步</th><th>來源</th></tr></thead><tbody>${riskRows}</tbody></table>
-</section>
-<section>
-  <h2>🔧 資料是否同步</h2>
-  <p>排錯時才看這裡。此頁只讀，不會通知對方、不會標記完成、不會收結交接。</p>
-  <table><thead><tr><th>項目</th><th>狀態</th><th>補充</th></tr></thead><tbody>${syncRows}</tbody></table>
-  <p class="muted">共用 Drive 本機路徑：<a href="${htmlEscape(localFileHref(hubRoot))}">打開資料夾</a> <code>${htmlEscape(hubRoot)}</code>。這只適用於這部電腦，不要放入給對方的通知。</p>
-  <p class="muted">技術來源：已同步的 packet / outbox / ack / context。若畫面與實際聊天不一致，先請 AI 讀最新交接包核對。</p>
-</section>
-<footer>Generated by <code>npx aps dashboard</code>. Read-only APS operations snapshot.</footer>
-</main>
-</body>
-</html>
-`;
 }
 
 function dashboardFileNameForAgent(agentId) {
   return `dashboard_${agentId}.html`;
 }
 
-function renderDashboardIndexHtml({ hubRoot, projectSlug, agentId, peers, currentDashboardFile }) {
-  const generatedAt = isoNow();
+function writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config, fileName = dashboardFileNameForAgent(agentId) }) {
   const contextPath = contextDir(hubRoot, projectSlug);
-  const peerIds = Array.from(new Set([
+  const outputPath = path.join(contextPath, fileName);
+  const indexPath = path.join(contextPath, 'dashboard.html');
+  void config;
+  return { dashboardPath: outputPath, indexPath, retired: true };
+}
+
+function apsLiveFileNameForAgent(agentId) {
+  return `aps-live_${agentId || 'agent'}.html`;
+}
+
+function safeLiveDiagnosticText(value, fallback = 'unknown') {
+  const text = String(value || '').trim();
+  if (!text) return fallback;
+  return hideLocalPaths(text)
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, 240);
+}
+
+function liveTrackingState({ isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker }) {
+  if (isSharedGoalFlow) {
+    return {
+      station: '共同目標確認',
+      canStart: '不可先開普通任務',
+      waitingFor: targetPeer,
+      nextAction: '請對方確認、補充或反對共同目標與分工',
+      blocker: blocker || '共同目標與分工仍未完全確認',
+      chatMode: '需要協調',
+      impact: '阻塞第一輪交接',
+      dependency: '等共同目標確認',
+    };
+  }
+  if (firstPending) {
+    const actionability = firstPending.actionability || {};
+    if (actionability.state === 'return') {
+      return {
+        station: '需補資料',
+        canStart: '不可開工',
+        waitingFor: firstPending.from || targetPeer,
+        nextAction: '請對方補真源、範圍或驗收標準',
+        blocker: actionability.reason || blocker || '交接資料不足',
+        chatMode: '需要協調',
+        impact: '阻塞這條交接鏈',
+        dependency: '等對方補資料',
+      };
+    }
+    if (actionability.state === 'clarify_goal') {
+      return {
+        station: '需先釐清共同目標',
+        canStart: '不可開工',
+        waitingFor: targetPeer,
+        nextAction: '先完成共同目標與分工確認',
+        blocker: actionability.reason || blocker || '共同目標未確認',
+        chatMode: '需要協調',
+        impact: '阻塞普通交接',
+        dependency: '等共同目標確認',
+      };
+    }
+    return {
+      station: '可開工判斷',
+      canStart: '可按交接內容開工',
+      waitingFor: agentId,
+      nextAction: '回正式交接內容檢查後開始處理',
+      blocker: '未見阻塞缺口',
+      chatMode: '暫不需要',
+      impact: '普通交接',
+      dependency: '無',
+    };
+  }
+  if (firstWaiting) {
+    return {
+      station: '已發出，等對方查看',
+      canStart: '等待對方',
+      waitingFor: targetPeer,
+      nextAction: '請對方確認是否看到同一件交接包',
+      blocker: blocker || '仍在等待對方處理或回覆',
+      chatMode: '視情況協調',
+      impact: '可能阻塞下一步',
+      dependency: '等對方 check Drive',
+    };
+  }
+  return {
+    station: '未指定交接鏈',
+    canStart: '未適用',
+    waitingFor: agentId,
+    nextAction: '回本機 AI 決定下一個正式 APS 動作',
+    blocker: blocker || '目前沒有明確交接卡點',
+    chatMode: '暫不需要',
+    impact: '未見阻塞',
+    dependency: '無',
+  };
+}
+
+function liveTrackingSteps(tracking) {
+  const station = String(tracking && tracking.station || '');
+  const blocked = /需補資料|不可|釐清|共同目標/.test(`${station} ${tracking && tracking.canStart || ''}`);
+  const activeIndex = station.includes('共同目標') ? 0
+    : station.includes('已發出') ? 1
+      : station.includes('可開工') || station.includes('需補') || station.includes('釐清') ? 3
+        : 1;
+  const steps = ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'];
+  return steps.map((label, index) => {
+    const state = index < activeIndex ? 'done' : index === activeIndex ? (blocked ? 'blocked' : 'active') : 'todo';
+    const meta = liveStepStatusMeta(state);
+    return {
+      label,
+      state,
+      icon: meta.icon,
+      status_label: meta.label,
+    };
+  });
+}
+
+function liveStepStatusMeta(state) {
+  switch (state) {
+    case 'done':
+      return { icon: '✓', label: '已完成' };
+    case 'active':
+      return { icon: '→', label: '進行中' };
+    case 'blocked':
+      return { icon: '!', label: '未通過 / 需處理' };
+    default:
+      return { icon: '○', label: '未開始' };
+  }
+}
+
+function liveEventTimeLabel(value, fallback = '尚未記錄') {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().replace('T', ' ').slice(0, 16);
+}
+
+function outboxEventTime(event) {
+  if (!event) return null;
+  return event.at || (event.kv && (event.kv.at || event.kv.created_at || event.kv.updated_at)) || null;
+}
+
+function packetCreatedTime(item) {
+  if (!item) return null;
+  return item.created_at
+    || item.createdAt
+    || (item.header && (item.header.created_at || item.header.createdAt))
+    || (item.summary && (item.summary.created_at || item.summary.createdAt))
+    || outboxEventTime(item.event)
+    || null;
+}
+
+function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
+  const { projectSlug, agentId, incomingGroups, outgoingPackets, sharedGoal } = dashboard;
+  const liveParticipants = Array.from(new Set([
     agentId,
-    ...peers.map((peer) => peer.agent_id).filter(Boolean),
-  ])).sort();
-  const rows = peerIds.map((peerId) => {
-    const fileName = dashboardFileNameForAgent(peerId);
-    const filePath = path.join(contextPath, fileName);
-    const exists = fs.existsSync(filePath);
-    const stat = exists ? fs.statSync(filePath) : null;
-    const label = `${exists ? '✅' : '⚠️'} ${peerId}${peerId === agentId ? '（剛更新）' : ''}`;
-    const page = exists
-      ? `<a href="${htmlEscape(fileName)}">${htmlEscape(fileName)}</a>`
-      : `<span class="muted">${htmlEscape(fileName)} 尚未生成</span>`;
-    const updated = stat ? stat.mtime.toISOString() : '未生成';
-    const state = exists
-      ? `✅ 已生成：${peerId} 的個人頁${peerId === agentId ? '（本次更新）' : '（上次生成）'}`
-      : `🚀 尚未生成：${peerId} 需要在自己的本機項目資料夾執行 Check APS`;
-    return `<tr><td>${htmlEscape(label)}</td><td>${page}</td><td>${htmlEscape(updated)}</td><td>${htmlEscape(state)}</td></tr>`;
-  }).join('\n') || '<tr><td colspan="4" class="muted">目前未見任何 APS 用戶。</td></tr>';
-  return `<!DOCTYPE html>
+    ...(dashboard.peers || [])
+      .filter((peer) => peer.agent_id && peer.status !== 'inactive' && peer.peer_state === 'confirmed')
+      .map((peer) => peer.agent_id),
+  ].filter(Boolean))).sort();
+  const pendingItems = incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const firstPending = pendingItems[0] || null;
+  const firstWaiting = waitingOutgoing[0] || null;
+  const snapshotGeneratedAt = isoNow();
+  const ticketStartedAt = packetCreatedTime(firstPending) || packetCreatedTime(firstWaiting) || snapshotGeneratedAt;
+  const ticketSentAt = packetCreatedTime(firstWaiting) || packetCreatedTime(firstPending) || '';
+  const ticketClosedAt = firstWaiting && firstWaiting.closed ? outboxEventTime(firstWaiting.closed) : '';
+  const ticketReturnedAt = firstWaiting && (firstWaiting.declined || firstWaiting.withdrawn)
+    ? outboxEventTime(firstWaiting.declined || firstWaiting.withdrawn)
+    : '';
+  const firstWaitingTopic = firstWaiting ? packetTopic(firstWaiting.packetId) : null;
+  const firstWaitingPeer = firstWaiting && (firstWaiting.toId || (firstWaiting.summary && firstWaiting.summary.to));
+  const firstPeer = (dashboard.peers || []).find((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed');
+  const targetPeer = firstPending
+    ? firstPending.from
+    : firstWaitingPeer || (firstPeer && firstPeer.agent_id) || '協作者';
+  const isSharedGoalFlow = sharedGoal && (
+    sharedGoal.state === 'partial'
+    || sharedGoal.state === 'incoming_pending'
+    || firstWaitingTopic === 'shared_goal_and_roles'
+  );
+  const seenPacket = firstPending
+    ? `${firstPending.from}:${firstPending.packetId}:v${firstPending.version}`
+    : firstWaiting
+      ? `${agentId}:${firstWaiting.packetId}:v${firstWaiting.version}`
+      : 'none';
+  const blocker = firstPending && firstPending.actionability
+    ? firstPending.actionability.reason || firstPending.actionability.next
+    : isSharedGoalFlow
+      ? '共同目標與分工仍在確認中；需要對方回饋同意、補充、修正或提出異議，才適合寫成正式基準。'
+      : waitingOutgoing.length > 0
+      ? '有交接等待對方處理；Live 用來即時核對雙方看到的狀態、回饋和分歧，不代表對方已正式確認。'
+      : '目前沒有明確交接卡點；可先回到本機 AI 推進正式 APS 動作，需要核對狀態時才開 APS Live。';
+  const sharedGoalSummary = sharedGoal && sharedGoal.summary ? sharedGoal.summary : {};
+  const firstTopic = firstPending
+    ? packetTopic(firstPending.packetId)
+    : firstWaiting
+      ? packetTopic(firstWaiting.packetId)
+      : 'project_consensus';
+  const caseTitle = isSharedGoalFlow
+    ? `等待 ${targetPeer} 確認共同目標與分工`
+    : firstPending
+      ? `${targetPeer} 交來 ${humanizeTopicForUser(firstTopic)}，需要先判斷能否開工`
+      : firstWaiting
+        ? `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} 正在等待回覆`
+        : '交接狀態核對';
+  const caseSummary = isSharedGoalFlow
+    ? `本機 AI 看到共同目標與分工仍未完全確認：${sharedGoalProgressText(sharedGoal)}。這頁要讓協作者確認、補充或提出異議。`
+    : firstPending
+      ? `本機 AI 看到 ${targetPeer} 有一件待處理交接：${humanizeTopicForUser(firstTopic)} v${firstPending.version}。目前判斷是：${safeLiveDiagnosticText(blocker)}`
+      : firstWaiting
+        ? `本機 AI 看到你已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給 ${targetPeer}，但仍在等待對方處理或回覆。`
+        : '目前沒有明確阻塞交接；這頁可用來把會影響 APS 交接的共識、分歧和待決定事項留下來。';
+  const currentQuestion = isSharedGoalFlow
+    ? `${targetPeer} 是否同意目前共同目標、角色、第一輪分工和驗收標準？如不同意，需要改哪裏？`
+    : firstPending
+      ? `這件交接是否資料足夠？若不足，${targetPeer} 要補充哪些檔案位置、範圍或驗收標準？`
+      : firstWaiting
+        ? `${targetPeer} 那邊是否已同步到同一件交接包？目前是未讀、處理中、需要補資料，還是已完成？`
+        : '這段討論是否會影響共同目標、分工、交接範圍、驗收標準或下一個正式 APS 動作？';
+  const suggestedMessage = isSharedGoalFlow
+    ? `${targetPeer}，本機 AI 帶我來 APS Live，是想確認共同目標與分工是否一致。我看到：${sharedGoalProgressText(sharedGoal)}。請你確認三件事：一、共同目標是否正確；二、你的角色與第一輪分工是否正確；三、驗收標準有沒有需要補充或反對的地方。`
+    : firstPending
+      ? `${targetPeer}，我這邊收到你交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。本機 AI 判斷目前可能未足夠直接開工，原因是：${safeLiveDiagnosticText(blocker)}。請你補充要處理的具體位置、依據檔案或版本，以及怎樣才算完成。`
+      : firstWaiting
+        ? `${targetPeer}，我已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給你，但仍在等回覆。請你確認是否看到同一件交接包，以及現在是未讀、處理中、需要補資料，還是已完成。`
+        : `${targetPeer}，我想把這段項目討論留在 APS Live，避免之後交接時目標或分工漂移。請你補充目前已同意甚麼、仍有甚麼分歧、下一步誰要做甚麼，以及哪些內容不應寫入正式 APS 紀錄。`;
+  const trackingState = liveTrackingState({ isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker });
+  const trackingSteps = liveTrackingSteps(trackingState);
+  const chainTitle = isSharedGoalFlow
+    ? '共同目標與分工確認'
+    : humanizeTopicForUser(firstTopic);
+  const activeChain = {
+    title: safeLiveDiagnosticText(chainTitle),
+    status: safeLiveDiagnosticText(trackingState.station),
+    waiting_for: safeLiveDiagnosticText(trackingState.waitingFor || targetPeer),
+    can_start: safeLiveDiagnosticText(trackingState.canStart),
+    dependency: safeLiveDiagnosticText(trackingState.dependency),
+    impact: safeLiveDiagnosticText(trackingState.impact),
+  };
+  const handoffChains = [
+    activeChain,
+    ...waitingOutgoing
+      .filter((item) => !firstWaiting || item.packetId !== firstWaiting.packetId)
+      .slice(0, 3)
+      .map((item) => ({
+        title: safeLiveDiagnosticText(humanizeTopicForUser(packetTopic(item.packetId))),
+        status: '已發出，等對方處理',
+        waiting_for: safeLiveDiagnosticText(item.toId || (item.summary && item.summary.to) || '協作者'),
+        can_start: '等待對方',
+        dependency: '等對方 check Drive',
+        impact: '普通交接',
+      })),
+  ];
+  const contextCards = [
+    ['今次要核對', caseTitle],
+    ['目前站點', trackingState.station],
+    ['等誰行動', trackingState.waitingFor],
+    ['能否開工', trackingState.canStart],
+  ];
+  const evidenceRefs = Array.from(new Set([
+    sharedGoal && sharedGoal.latest ? packetSourceRef(sharedGoal.latest.senderId, sharedGoal.latest.packetId, sharedGoal.latest.version) : null,
+    firstPending ? packetSourceRef(firstPending.from, firstPending.packetId, firstPending.version) : null,
+    firstWaiting ? packetSourceRef(agentId, firstWaiting.packetId, firstWaiting.version) : null,
+  ].filter(Boolean)));
+  const evidenceLabels = Array.from(new Set([
+    sharedGoal && sharedGoal.latest ? `共同目標與分工草稿 v${sharedGoal.latest.version}` : null,
+    firstPending ? `${targetPeer} 交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}` : null,
+    firstWaiting ? `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version}` : null,
+  ].filter(Boolean)));
+  return {
+    project: safeLiveDiagnosticText(options.project || projectSlug),
+    agent_id: safeLiveDiagnosticText(options.agentId || agentId),
+    live_participants: liveParticipants.map((value) => safeLiveDiagnosticText(value)),
+    live_focus: isSharedGoalFlow ? '共同目標與分工確認' : '任務交接狀態核對',
+    target_peer: safeLiveDiagnosticText(targetPeer, '協作者'),
+    current_case_title: safeLiveDiagnosticText(caseTitle),
+    current_case_summary: safeLiveDiagnosticText(caseSummary, caseTitle),
+    current_question: safeLiveDiagnosticText(currentQuestion),
+    suggested_message: safeLiveDiagnosticText(suggestedMessage, ''),
+    current_station: safeLiveDiagnosticText(trackingState.station),
+    can_start_label: safeLiveDiagnosticText(trackingState.canStart),
+    waiting_for: safeLiveDiagnosticText(trackingState.waitingFor),
+    next_formal_action: safeLiveDiagnosticText(trackingState.nextAction),
+    generated_at: safeLiveDiagnosticText(snapshotGeneratedAt),
+    ticket_started_at: safeLiveDiagnosticText(ticketStartedAt),
+    ticket_sent_at: safeLiveDiagnosticText(ticketSentAt, ''),
+    ticket_comment_at: '',
+    ticket_closed_at: safeLiveDiagnosticText(ticketClosedAt, ''),
+    ticket_returned_at: safeLiveDiagnosticText(ticketReturnedAt, ''),
+    chat_mode_label: safeLiveDiagnosticText(trackingState.chatMode),
+    chain_dependency: safeLiveDiagnosticText(trackingState.dependency),
+    chain_impact: safeLiveDiagnosticText(trackingState.impact),
+    tracking_steps: trackingSteps,
+    handoff_chains: handoffChains,
+    context_cards: contextCards.map(([label, value]) => ({ label, value: safeLiveDiagnosticText(value) })),
+    evidence_refs: evidenceRefs,
+    evidence_labels: evidenceLabels,
+    seen_shared_goal: sharedGoalProgressText(sharedGoal),
+    shared_goal_goal: safeLiveDiagnosticText(sharedGoalSummary.goal || '未見共同目標摘要'),
+    shared_goal_roles: safeLiveDiagnosticText(sharedGoalSummary.roles || '未見角色分工摘要'),
+    shared_goal_first_round: safeLiveDiagnosticText(sharedGoalSummary.firstRound || '未見第一輪分工摘要'),
+    shared_goal_acceptance: safeLiveDiagnosticText(sharedGoalSummary.acceptance || '未見驗收標準摘要'),
+    seen_packet: safeLiveDiagnosticText(seenPacket, 'none'),
+    seen_ack: firstWaiting && firstWaiting.state ? safeLiveDiagnosticText(firstWaiting.state) : 'none',
+    feedback_status: isSharedGoalFlow
+      ? safeLiveDiagnosticText((sharedGoal.confirmations || []).map((item) => `${item.peerId}: ${item.label}`).join('；') || sharedGoalProgressText(sharedGoal))
+      : firstPending
+        ? '等待本機判斷是否可處理、需補資料或退回。'
+        : waitingOutgoing.length > 0
+          ? '等待對方 check Drive、標記處理或另發回覆。'
+          : '目前沒有明確待回饋事項。',
+    pending_decision: isSharedGoalFlow
+      ? '整理對方回饋後，決定同意原草稿、修訂共同目標與分工、補發給其他協作者，或暫停第一輪任務交接。'
+      : firstPending
+        ? '判斷要等待同步、要求補資料、退回不能處理，還是繼續交接。'
+        : '判斷是否需要等待、修訂、補發人類通知，或回到正常交接流程。',
+    local_drive_state: options.demo
+      ? 'demo preview：本機假資料，不代表 Google Drive 同步。'
+      : '本頁按開啟時本機已同步資料生成；不是背景監察，也不代表對方已同步。',
+    blocker: safeLiveDiagnosticText(blocker, 'unknown'),
+    proposed_terminal_action: isSharedGoalFlow
+      ? '請回到本機 AI：請用 APS 根據對方對共同目標與分工的回饋，整理共識、分歧與下一步。'
+      : firstPending
+        ? '請回到本機 AI：請用 APS 根據雙方核對結果，判斷要等待同步、請對方補資料、退回不能處理，還是繼續交接。'
+        : '請回到本機 AI：請用 APS 根據雙方核對結果，判斷應等待同步、要求補資料、修訂，還是繼續交接。',
+  };
+}
+
+function apsLiveRoomId(snapshot) {
+  const project = safeQueueFileToken(snapshot.project || 'project');
+  const participantSource = Array.isArray(snapshot.live_participants) && snapshot.live_participants.length > 0
+    ? [...snapshot.live_participants, snapshot.agent_id, snapshot.target_peer]
+    : [snapshot.agent_id, snapshot.target_peer];
+  const participants = Array.from(new Set(participantSource))
+    .filter((value) => value && value !== 'none')
+    .map((value) => safeQueueFileToken(String(value)))
+    .sort()
+    .join('_') || safeQueueFileToken(snapshot.agent_id || 'agent');
+  const basis = [
+    snapshot.project || 'project',
+    participants,
+    snapshot.live_focus || 'aps-live',
+  ].join('|');
+  const digest = crypto.createHash('sha256').update(basis).digest('hex').slice(0, 16);
+  return `aps:${project}:${participants}:${digest}`.replace(/[^a-zA-Z0-9:_-]+/g, '_').slice(0, 120);
+}
+
+function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = isoNow(), bridge = null }) {
+  const peers = dashboard.peers || [];
+  const roomId = apsLiveRoomId(snapshot);
+  const safeSnapshotJson = JSON.stringify(snapshot, null, 2).replace(/</g, '\\u003c');
+  const safeBridgeJson = JSON.stringify(bridge, null, 2).replace(/</g, '\\u003c');
+  const trackingStepsHtml = (snapshot.tracking_steps || []).map((step) => {
+    const meta = liveStepStatusMeta(step.state || 'todo');
+    const icon = step.icon || meta.icon;
+    const statusLabel = step.status_label || meta.label;
+    return `
+          <div class="tracking-step ${htmlEscape(step.state || 'todo')}" aria-label="${htmlEscape(`${step.label}：${statusLabel}`)}">
+            <span class="tracking-step-icon" aria-hidden="true">${htmlEscape(icon)}</span>
+            <span class="tracking-step-title">${htmlEscape(step.label)}</span>
+            <span class="tracking-step-status">${htmlEscape(statusLabel)}</span>
+          </div>`;
+  }).join('');
+  const trackingLegendHtml = ['done', 'active', 'blocked', 'todo'].map((state) => {
+    const meta = liveStepStatusMeta(state);
+    return `<span class="tracking-legend-item ${htmlEscape(state)}"><span aria-hidden="true">${htmlEscape(meta.icon)}</span>${htmlEscape(meta.label)}</span>`;
+  }).join('');
+  const targetPeerText = snapshot.target_peer && snapshot.target_peer !== 'none'
+    ? snapshot.target_peer
+    : '協作者';
+  const liveParticipants = Array.isArray(snapshot.live_participants) ? snapshot.live_participants : [];
+  const coordinatingParticipants = liveParticipants
+    .filter((value) => value && value !== snapshot.agent_id && value !== targetPeerText);
+  const participantBoundaryText = coordinatingParticipants.length > 0
+    ? `旁聽 / 協調：${coordinatingParticipants.join('、')}。正式交接仍是 ${snapshot.agent_id} → ${targetPeerText}。`
+    : `正式交接仍是 ${snapshot.agent_id} → ${targetPeerText}；其他人即使在線，也只算協調，不改變接收者。`;
+  const ticketOrdinalText = '交接單 1/1';
+  const evidenceText = (snapshot.evidence_labels || []).slice(0, 3).join('、') || '目前未指定正式交接；只作交接狀態核對。';
+  const taskText = snapshot.current_question || snapshot.current_case_summary || snapshot.current_case_title;
+  const startConditionText = `${snapshot.can_start_label || '未確認'}；${snapshot.next_formal_action || snapshot.proposed_terminal_action || '等待本機 AI 判斷下一步'}`;
+  const stageActionMap = new Map([
+    ['共同基準', ['本機 AI / Terminal', '請用 APS 確認共同目標、角色、第一輪分工與驗收標準；可回覆同意、部分同意、有異議或稍後。']],
+    ['已發出', ['本機 AI / Terminal', '請用 APS 檢查這張交接單是否已正式發出；如內容錯誤，先草擬修訂或撤回。']],
+    ['對方查看', ['對方本機 AI / Terminal', '請對方執行 Check APS 或 check Drive；若看不到同一張單，在 Live 留言說明版本或同步差異。']],
+    ['可開工判斷', ['APS Live + 本機 AI', '若同意就回「已收到」；若資料不足就回「需補資料」；若不同意就回「不同意」。']],
+    ['處理 / 補資料', ['APS Live + 本機 AI', '把缺口、補充位置或反對理由講清楚，再交給本機 AI 草擬正式補資料、退回或修訂。']],
+    ['正式更新', ['本機 AI / Terminal', '回到本機 AI，要求它根據 Live 討論草擬正式下一步；使用者確認後才寫入 APS。']],
+  ]);
+  const stageGuideRowsHtml = (snapshot.tracking_steps || []).map((step) => {
+    const meta = liveStepStatusMeta(step.state || 'todo');
+    const [where, nextLine] = stageActionMap.get(step.label) || ['本機 AI / Terminal', '請回到本機 AI 檢查正式 APS 下一步。'];
+    return `
+          <div class="stage-guide-row">
+            <strong>${htmlEscape(step.label)}</strong>
+            <span class="stage-status ${htmlEscape(step.state || 'todo')}">${htmlEscape(step.icon || meta.icon)} ${htmlEscape(step.status_label || meta.label)}</span>
+            <span>${htmlEscape(where)}</span>
+            <span>${htmlEscape(nextLine)}</span>
+          </div>`;
+  }).join('');
+  const isBlockedStatus = /等待|未|需|不可|異議|退回/.test(`${snapshot.current_station} ${snapshot.can_start_label} ${snapshot.blocker}`);
+  const eventRows = [
+    { key: 'start', icon: '✓', title: '開始', time: liveEventTimeLabel(snapshot.ticket_started_at || snapshot.generated_at || generatedAt, '本頁生成時'), detail: `${snapshot.agent_id} 建立交接追蹤；已帶入任務、依據與開工條件。`, state: 'done' },
+    { key: 'sent', icon: '✓', title: '正式包 / 查看', time: liveEventTimeLabel(snapshot.ticket_sent_at, '等待正式包或對方查看紀錄'), detail: snapshot.current_case_title, state: snapshot.ticket_sent_at ? 'done' : 'active' },
+    { key: 'comment', icon: isBlockedStatus ? '!' : '…', title: isBlockedStatus ? '留言 / Comment：未通過' : '留言 / Comment', time: liveEventTimeLabel(snapshot.ticket_comment_at, '等待 Live 留言'), detail: `${snapshot.current_station} / ${snapshot.waiting_for}`, state: isBlockedStatus ? 'blocked' : 'active' },
+    { key: 'close', icon: snapshot.ticket_closed_at ? '✓' : '○', title: '收結 / Close', time: liveEventTimeLabel(snapshot.ticket_closed_at || snapshot.ticket_returned_at, snapshot.ticket_returned_at ? '已退回，等待正式處理' : '尚未正式 close'), detail: snapshot.next_formal_action || '由本機 AI 整理正式下一步。', state: snapshot.ticket_closed_at ? 'done' : (snapshot.ticket_returned_at ? 'blocked' : 'todo') },
+  ];
+  const renderEventRow = (item, suffix = '') => `
+          <div class="event-row ${htmlEscape(item.state)}">
+            <span class="event-icon" id="${htmlEscape(`live${item.key}Icon${suffix}`)}">${htmlEscape(item.icon)}</span>
+            <strong>${htmlEscape(item.title)}</strong>
+            <span class="event-time" id="${htmlEscape(`live${item.key}Time${suffix}`)}">${htmlEscape(item.time)}</span>
+            <span>${htmlEscape(item.detail)}</span>
+          </div>`;
+  const eventPreviewHtml = eventRows.slice(0, 3).map((item) => renderEventRow(item, 'Preview')).join('');
+  const eventRowsHtml = eventRows.map((item) => renderEventRow(item, 'Full')).join('');
+  const terminalActions = [
+    ['確認 / 同意', '請用 APS 根據這次 Live 討論，草擬確認這份共同目標與分工或交接單的正式記錄，等我確認。'],
+    ['提出異議', '請用 APS 根據這次 Live 討論，整理分歧、風險與需要修訂的位置，先給我草稿。'],
+    ['退回 / 補資料', '請用 APS 根據這次 Live 討論，草擬補資料請求或 APS decline 退回理由；正式送出前先問我。'],
+    ['收結 / close', '請用 APS 檢查是否已有足夠證據 close 這條交接；只草擬，不要直接寫入。'],
+  ];
+  const terminalActionsHtml = terminalActions.map(([label, line]) => `
+          <div class="terminal-action">
+            <strong>${htmlEscape(label)}</strong>
+            <span>${htmlEscape(line)}</span>
+          </div>`).join('');
+  return `<!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${htmlEscape(projectSlug)} APS dashboard 入口 - Agent Public Squares</title>
-<style>
-  :root { --ink:#1d2430; --soft:#566174; --bg:#f4f0e7; --paper:#fffdf8; --line:#d7cdbc; --accent:#285d74; --mono:ui-monospace, "Cascadia Code", Consolas, monospace; --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; --serif:"Noto Serif TC","PMingLiU",Georgia,serif; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.68; padding:24px 16px 52px; }
-  main { max-width:920px; margin:0 auto; }
-  nav, section { background:var(--paper); border:1px solid var(--line); border-radius:6px; }
-  nav { display:flex; flex-wrap:wrap; gap:8px 18px; padding:10px 14px; margin-bottom:20px; font-size:14px; }
-  .brand { font-family:var(--serif); font-weight:700; }
-  header { padding:22px 0; border-bottom:1px solid var(--line); margin-bottom:18px; }
-  h1 { font-family:var(--serif); font-size:40px; line-height:1.12; margin:0 0 8px; }
-  h2 { font-family:var(--serif); font-size:24px; margin:0 0 6px; }
-  p { margin:0 0 12px; color:var(--soft); }
-  section { padding:20px 22px; margin-bottom:18px; overflow:auto; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 10px; }
-  th { background:#e4edf0; color:var(--accent); white-space:nowrap; }
-  code { font-family:var(--mono); font-size:12px; background:#ece5d4; border-radius:3px; padding:1px 5px; word-break:break-word; }
-  a { color:var(--accent); font-weight:700; }
-  .muted { color:#7a8493; }
-  footer { text-align:center; color:#7a8493; font-size:12px; margin-top:26px; }
-  @media (max-width: 760px) { h1 { font-size:32px; } }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>APS Live 交接追蹤頁</title>
+  <style>
+    :root { color-scheme: light; --ink: #1e1b16; --muted: #665f55; --line: #221f1a; --paper: #fff3d7; --paper-soft: #fff9e9; --blue: #2368b3; --blue-soft: #e7f1ff; --orange: #ef8d2c; --green: #4f9b60; --purple: #7357a6; --red: #d75b43; --ok: #1f7a4d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); font-family: "Segoe UI", "Noto Sans TC", Arial, sans-serif; background:
+      radial-gradient(circle at 18px 18px, rgba(35,31,26,.05) 1px, transparent 1.5px) 0 0 / 34px 34px,
+      linear-gradient(180deg, #fff6df 0%, #f8edcf 100%); line-height: 1.55; }
+    main { width: min(1160px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 44px; }
+    header { text-align: center; padding: 8px 0 18px; margin-bottom: 12px; }
+    h1 { margin: 0 0 4px; font-size: clamp(30px, 4.6vw, 50px); line-height: 1.06; letter-spacing: 0; font-weight: 900; }
+    h2 { font-size: 19px; margin: 0 0 10px; }
+    p { margin: 0 0 10px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    section { border: 3px solid var(--line); border-radius: 14px; padding: 16px; background: rgba(255,249,233,.92); box-shadow: 0 5px 0 rgba(30,27,22,.13); }
+    .hero { border-color: #163f73; background: #f6fbff; position: relative; overflow: hidden; }
+    .hero h2 { font-size: 24px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+    .identity-pair { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .agent-pill { display: inline-flex; align-items: center; gap: 8px; border: 3px solid var(--line); border-radius: 16px; background: #fffefa; padding: 8px 14px; font-weight: 900; box-shadow: 0 3px 0 rgba(30,27,22,.13); }
+    .agent-dot { width: 11px; height: 11px; border: 2px solid var(--line); border-radius: 50%; background: var(--green); }
+    .agent-dot.blue { background: var(--blue); }
+    .boundary-line { width: 100%; flex-basis: 100%; color: var(--muted); font-size: 13px; text-align: right; }
+    .ticket-card { border: 3px solid var(--line); border-radius: 18px; background: rgba(255,253,244,.95); padding: 18px; box-shadow: 0 8px 0 rgba(30,27,22,.10); }
+    .ticket-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 12px; }
+    .ticket-title { margin: 0; font-size: clamp(26px, 3.8vw, 38px); line-height: 1.08; font-weight: 900; }
+    .ticket-title mark { background: linear-gradient(transparent 62%, rgba(239,141,44,.42) 0); padding: 0 5px; }
+    .stamp { border: 3px solid #91aeca; border-radius: 50%; width: 78px; height: 78px; display: grid; place-items: center; color: #47759a; font-weight: 900; transform: rotate(-8deg); flex: 0 0 auto; background: rgba(231,241,255,.5); }
+    .ticket-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 22px; }
+    .ticket-details { border: 2px solid rgba(34,31,26,.20); border-radius: 16px; overflow: hidden; background: rgba(255,255,255,.55); }
+    .detail-row { display: grid; grid-template-columns: 128px 1fr; gap: 14px; padding: 12px 14px; border-bottom: 1px solid rgba(34,31,26,.14); }
+    .detail-row:last-child { border-bottom: 0; }
+    .detail-row strong { color: #164e63; font-size: 18px; }
+    .detail-row span { color: var(--ink); }
+    .action-panel { border-left: 3px dashed rgba(34,31,26,.26); padding-left: 20px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+    .action-panel .hint { color: var(--muted); font-size: 14px; }
+    .mode-picker { display: grid; gap: 5px; font-size: 13px; font-weight: 800; color: var(--muted); }
+    .mode-picker select { width: 100%; border: 2px solid rgba(34,31,26,.26); border-radius: 10px; padding: 7px 10px; background: #fffefa; color: var(--ink); font: inherit; font-weight: 750; }
+    .event-log { margin-top: 14px; }
+    .event-preview { border: 2px solid rgba(34,31,26,.16); border-radius: 12px; padding: 2px 10px; background: rgba(255,255,255,.46); }
+    .event-history { border-top: 1px solid rgba(34,31,26,.13); padding-top: 10px; }
+    .event-row { display: grid; grid-template-columns: 38px minmax(120px, .45fr) minmax(132px, .5fr) 1fr; gap: 12px; align-items: center; padding: 12px 6px; border-bottom: 1px solid rgba(34,31,26,.13); }
+    .event-row:last-child { border-bottom: 0; }
+    .event-icon { width: 30px; height: 30px; border: 2px solid var(--line); border-radius: 50%; display: grid; place-items: center; font-weight: 900; background: #e8e0d0; }
+    .event-row.done .event-icon { background: #d7ecd8; color: #1f6b3e; }
+    .event-row.active .event-icon { background: #fff0c9; color: #8a5a00; }
+    .event-row.blocked .event-icon { background: #fff4f2; color: #9f2f1d; }
+    .event-time { font-size: 13px; font-weight: 850; color: #164e63; }
+    .event-row span:not(.event-icon) { color: var(--muted); }
+    .stage-guide { margin-top: 14px; }
+    .stage-guide-row { display: grid; grid-template-columns: minmax(110px, .7fr) minmax(118px, .7fr) minmax(160px, .9fr) minmax(280px, 1.7fr); gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(34,31,26,.13); align-items: start; }
+    .stage-guide-row:last-child { border-bottom: 0; }
+    .stage-guide-row strong { color: #164e63; }
+    .stage-guide-row span { color: var(--muted); }
+    .stage-status { display: inline-flex; align-items: center; gap: 5px; width: max-content; max-width: 100%; border: 2px solid rgba(34,31,26,.24); border-radius: 999px; padding: 3px 8px; font-weight: 900; background: #fffdf4; }
+    .stage-status.done { color: #155e3b; background: #eaf8ee; }
+    .stage-status.active { color: #164e63; background: #e5f2ff; }
+    .stage-status.blocked { color: #8a2f1e; background: #fff4f2; }
+    .status-badge { display: inline-flex; align-items: center; gap: 8px; width: max-content; max-width: 100%; border: 3px solid var(--line); border-radius: 999px; background: #ffe5ae; color: #5b3500; padding: 8px 12px; font-weight: 900; box-shadow: 0 3px 0 rgba(30,27,22,.14); }
+    .status-badge::before { content: ""; width: 11px; height: 11px; border: 2px solid var(--line); border-radius: 50%; background: #c9851f; }
+    .quick-facts { display: grid; gap: 8px; margin-top: 4px; }
+    .quick-fact { border: 2px solid rgba(34,31,26,.36); border-radius: 10px; padding: 9px 10px; background: #fff9e9; }
+    .quick-fact strong { display: block; color: #164e63; margin-bottom: 2px; }
+    .quick-fact span { display: block; color: var(--muted); }
+    .sketch-mark { display: inline-block; border-bottom: 8px solid rgba(239,141,44,.55); line-height: .9; padding: 0 6px 4px; }
+    .scene { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(320px, 2.4fr) minmax(130px, 1fr); gap: 14px; align-items: center; margin-top: 12px; }
+    .actor { min-height: 220px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; }
+    .face { width: 78px; height: 78px; border: 3px solid var(--line); border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 38px; box-shadow: 0 4px 0 rgba(30,27,22,.14); }
+    .actor-label { border: 3px solid currentColor; border-radius: 12px; background: #fffdf4; padding: 8px 12px; font-weight: 900; text-align: center; }
+    .actor.left .actor-label { color: var(--blue); }
+    .actor.right .actor-label { color: var(--green); }
+    .speech { border: 3px solid var(--line); border-radius: 22px; background: #fffefa; padding: 10px 12px; font-weight: 800; text-align: center; max-width: 210px; }
+    .shared-board { border: 5px solid #1d4d86; border-radius: 18px; background: #dff1ff; padding: 14px; box-shadow: inset 0 0 0 4px rgba(255,255,255,.7), 0 7px 0 rgba(30,27,22,.16); }
+    .board-title { background: var(--blue); color: #fff; border: 3px solid var(--line); border-radius: 10px; padding: 8px 14px; width: max-content; max-width: 100%; margin: -34px auto 14px; font-size: 26px; font-weight: 900; box-shadow: 0 4px 0 rgba(30,27,22,.18); }
+    .board-lane { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .board-card { border: 3px solid var(--line); border-radius: 10px; background: #fffaf0; min-height: 126px; padding: 10px 6px; display: grid; place-items: center; text-align: center; font-weight: 900; }
+    .board-card .icon { font-size: 34px; line-height: 1; }
+    .board-card small { display: block; min-width: 52px; height: 7px; border-radius: 999px; background: var(--orange); margin-top: 6px; }
+    .board-card:nth-child(2) small { background: var(--blue); }
+    .board-card:nth-child(3) small { background: var(--green); }
+    .board-card:nth-child(4) small { background: var(--purple); }
+    .board-card:nth-child(5) small { background: var(--red); }
+    .journey { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .journey-step { border: 1px solid #dce7df; border-radius: 8px; padding: 12px; background: #fff; min-height: 156px; display: flex; flex-direction: column; gap: 8px; }
+    .journey-step small { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; background: #edf7f1; color: #155e3b; font-weight: 700; }
+    .journey-step strong { display: block; margin-bottom: 6px; }
+    .journey-step.done { border-color: #8bc8a9; background: #f2fbf6; }
+    .tracking-map { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+    .tracking-step { position: relative; border: 3px solid var(--line); border-radius: 10px; padding: 9px 8px; min-height: 92px; background: #fffdf4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-align: center; font-weight: 850; box-shadow: 0 3px 0 rgba(30,27,22,.12); }
+    .tracking-step-icon { width: 28px; height: 28px; border: 2px solid currentColor; border-radius: 50%; display: grid; place-items: center; font-weight: 950; background: rgba(255,255,255,.72); line-height: 1; }
+    .tracking-step-title { display: block; }
+    .tracking-step-status { display: block; color: var(--muted); font-size: 13px; line-height: 1.25; font-weight: 850; }
+    .tracking-step.done { background: #eaf8ee; color: #155e3b; }
+    .tracking-step.active { background: #e5f2ff; color: #164e63; }
+    .tracking-step.blocked { background: #fff4f2; color: #8a2f1e; }
+    .tracking-step.blocked .tracking-step-status { color: #8a2f1e; }
+    .tracking-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 14px; }
+    .tracking-legend-item { display: inline-flex; align-items: center; gap: 5px; border: 2px solid rgba(34,31,26,.22); border-radius: 999px; background: #fffdf4; padding: 4px 9px; font-size: 13px; font-weight: 900; color: var(--muted); }
+    .tracking-legend-item span { width: 18px; height: 18px; display: grid; place-items: center; border: 2px solid currentColor; border-radius: 50%; line-height: 1; }
+    .tracking-legend-item.done { color: #155e3b; }
+    .tracking-legend-item.active { color: #164e63; }
+    .tracking-legend-item.blocked { color: #8a2f1e; }
+    .chain-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .chain-card { border: 3px solid var(--line); border-radius: 10px; padding: 12px; background: #fffefa; min-height: 120px; display: flex; flex-direction: column; gap: 6px; }
+    .chain-card.active { background: #e5f2ff; }
+    .chain-card strong, .chain-card span, .chain-card small { display: block; }
+    .chain-card small { color: var(--muted); }
+    .tracking-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .status-chip { border: 3px solid var(--line); border-radius: 10px; padding: 10px; background: #fffdf4; }
+    .status-chip strong { display: block; color: #164e63; margin-bottom: 4px; }
+    .scenario-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .scenario { border: 1px solid #dce7df; background: #fff; color: var(--ink); text-align: left; border-radius: 8px; padding: 12px; min-height: 116px; }
+    .scenario strong { display: block; margin-bottom: 6px; }
+    .scenario span { display: block; color: var(--muted); font-size: 14px; }
+    .context-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .context-card { border: 1px solid #cfe1ec; border-radius: 8px; padding: 12px; background: #fff; }
+    .context-card strong { display: block; margin-bottom: 5px; color: #164e63; }
+    .context-card span { display: block; color: var(--ink); }
+    code { background: #eef4f8; border: 1px solid #d7e2ea; border-radius: 4px; padding: 1px 4px; }
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-12 { grid-column: span 12; }
+    .note { background: var(--soft); border-color: #cdd6e2; }
+    .warn { border-color: #d9a441; background: #fff8e8; color: #5f3a00; }
+    .danger { border-color: #d98a82; background: #fff4f2; color: var(--danger); }
+    .muted { color: var(--muted); }
+    .pill { display: inline-flex; align-items: center; padding: 4px 9px; border: 2px solid var(--line); border-radius: 999px; font-size: 13px; color: var(--muted); background: #fffefa; }
+    ul { padding-left: 20px; margin: 8px 0 0; }
+    li { margin: 6px 0; }
+    .peers li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #eef1f5; padding-bottom: 6px; }
+    textarea, pre { width: 100%; min-height: 180px; resize: vertical; border: 3px solid var(--line); border-radius: 10px; padding: 12px; background: #fffefa; color: var(--ink); font: 15px/1.5 "Segoe UI", "Noto Sans TC", Arial, sans-serif; overflow: auto; }
+    select { border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; background: #fff; color: var(--ink); max-width: 100%; }
+    button { border: 3px solid var(--line); background: var(--blue); color: #fff; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 rgba(30,27,22,.16); }
+    button:disabled { border-color: #c7d2df; background: #e2e8f0; color: #64748b; cursor: not-allowed; }
+    button.secondary { background: #fffefa; color: var(--blue); }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .handoff-ai-panel { margin-top: 14px; border: 2px solid rgba(35,104,179,.28); border-radius: 12px; padding: 12px; background: #f4fbff; }
+    .handoff-ai-panel h3 { margin-top: 0; }
+    .handoff-ai-panel button { margin-top: 8px; width: 100%; }
+    .reply-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .reply-button { min-height: 86px; text-align: left; background: #fffefa; color: var(--ink); }
+    .reply-button strong { display: block; font-size: 17px; margin-bottom: 3px; }
+    .reply-button span { display: block; color: var(--muted); font-size: 13px; font-weight: 650; }
+    .reply-button.ok { background: #eaf8ee; }
+    .reply-button.warn { background: #fff0c9; }
+    .reply-button.danger { background: #fff4f2; }
+    .core-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .step { border: 1px solid #dce7df; border-radius: 8px; padding: 12px; background: #fff; }
+    .step strong { display: block; margin-bottom: 4px; }
+    .compact-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; }
+    .advanced-panel { margin-top: 14px; border-top: 1px solid #dce7df; padding-top: 10px; }
+    .messages { display: grid; gap: 8px; margin-top: 10px; }
+    .message { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fbfcfe; }
+    .message strong { display: block; margin-bottom: 4px; }
+    .terminal { border: 3px solid var(--line); background: #fffefa; padding: 12px; border-radius: 10px; font-weight: 850; }
+    .terminal-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .terminal-action { border: 2px solid rgba(34,31,26,.22); border-radius: 10px; background: #fffdf4; padding: 10px; }
+    .terminal-action strong { display: block; color: #164e63; margin-bottom: 5px; }
+    .terminal-action span { display: block; color: var(--muted); font-size: 14px; }
+    .decision { border-color: #b7d7ea; background: #f4fbff; }
+    .live { border-color: #a7d7bd; background: #f2fbf6; }
+    .live-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #9aa6b2; }
+    .status-dot.online { background: var(--ok); }
+    .status-dot.warn { background: #d9a441; }
+    .status-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+    .section-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+    .event-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .event-box { border: 1px solid #dce7df; border-radius: 8px; padding: 10px; background: #fff; min-height: 130px; }
+    .event-box h3 { margin: 0 0 8px; font-size: 15px; }
+    .event-box pre { min-height: 88px; margin: 0; }
+    .status-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .status-table th, .status-table td { border-bottom: 1px solid #e7edf4; padding: 9px 6px; text-align: left; vertical-align: top; }
+    .status-table th { width: 160px; color: var(--muted); font-weight: 650; }
+    details { margin-top: 12px; }
+    summary { cursor: pointer; color: var(--accent); font-weight: 650; }
+    @media (max-width: 920px) { .scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 1040px) { .topbar, .ticket-head { flex-direction: column; } .identity-pair { justify-content: flex-start; } .boundary-line { text-align: left; } .ticket-layout { grid-template-columns: 1fr; } .action-panel { border-left: 0; border-top: 3px dashed rgba(34,31,26,.26); padding-left: 0; padding-top: 16px; } .scene { grid-template-columns: 1fr; } .actor { min-height: auto; flex-direction: row; justify-content: flex-start; } .board-title { margin-top: 0; } }
+    @media (max-width: 920px) { .tracking-map, .data-board .tracking-map { grid-template-columns: repeat(3, minmax(0, 1fr)); } .chain-list, .tracking-summary, .data-row, .data-lists, .reply-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .board-lane { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 920px) { .terminal-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1080px); padding-top: 18px; } .span-7, .span-5 { grid-column: span 12; } .peers li { display: block; } .event-row, .detail-row, .event-grid, .core-steps, .journey, .scenario-grid, .context-grid, .tracking-map, .stage-guide-row, .chain-list, .tracking-summary, .board-lane, .terminal-actions { grid-template-columns: 1fr; } .actor { align-items: flex-start; } }
+  </style>
 </head>
 <body>
-<main>
-<nav><span class="brand">Agent Public Squares</span><span>🧭 APS dashboard 入口</span><span class="muted">共用索引，不是個人待辦頁</span></nav>
-<header>
-  <p class="muted">項目共用入口</p>
-  <h1>${htmlEscape(projectSlug)}</h1>
-  <p><strong>🧭 共用入口，不是個人待辦。</strong>每位用戶的個人待辦、已發事項和下一步都不同，請打開自己的 APS 名稱頁。</p>
-  <p class="muted">🧑 剛更新的是 ${htmlEscape(agentId)} 的個人頁：<a href="${htmlEscape(currentDashboardFile)}">${htmlEscape(currentDashboardFile)}</a>。如果你不是 ${htmlEscape(agentId)}，不要照這頁處理待辦。</p>
-  <p class="muted">生成時間：${htmlEscape(generatedAt)}</p>
-</header>
-<section>
-  <h2>🧭 選擇自己的 APS 視角</h2>
-  <p>👥 多人項目會有多個個人頁；每次執行 <code>Check APS</code> 或 <code>dashboard</code> 時，APS 會根據 peer 清單與已生成檔案重新計算此表。</p>
-  <table><thead><tr><th>APS 名稱</th><th>個人 dashboard</th><th>最後生成</th><th>生成狀態</th></tr></thead><tbody>${rows}</tbody></table>
-</section>
-<section>
-  <h2>⚠️ 不要照別人的頁開工</h2>
-  <p>如果你不是該 APS 名稱本人，不要根據該頁面的個人待辦採取行動。請在你自己的本機項目資料夾執行 <code>Check APS</code>，讓 APS 生成你的個人視角頁。</p>
-  <p class="muted">📁 本機 Drive 路徑（排錯用）：<a href="${htmlEscape(localFileHref(hubRoot))}">打開資料夾</a> <code>${htmlEscape(hubRoot)}</code>。這只適用於這部電腦，不要放入給對方的通知。</p>
-</section>
-<footer>📄 由 APS 生成。這是共用入口頁，不是任何人的個人待辦頁。</footer>
-</main>
+  <main>
+    <div class="topbar">
+      <div>
+        <span class="pill">${demo ? '本機示範' : '本機 APS Live 頁'}</span>
+        <h1>APS Live 交接追蹤</h1>
+        <p class="muted">📁 專案：<strong>${htmlEscape(snapshot.project)}</strong></p>
+      </div>
+      <div class="identity-pair" aria-label="參與者">
+        <span class="agent-pill"><span class="agent-dot"></span>${htmlEscape(snapshot.agent_id)}</span>
+        <span class="muted">×</span>
+        <span class="agent-pill"><span class="agent-dot blue"></span>${htmlEscape(targetPeerText)}</span>
+        <span class="boundary-line">${htmlEscape(participantBoundaryText)}</span>
+      </div>
+    </div>
+
+    <section class="ticket-card" aria-label="交接單">
+      <div class="ticket-head">
+        <div>
+          <p class="muted">${htmlEscape(ticketOrdinalText)} · 目前只顯示主要交接單</p>
+          <h2 class="ticket-title"><mark>${htmlEscape(snapshot.current_case_title)}</mark></h2>
+        </div>
+        <div class="stamp">${htmlEscape(snapshot.current_station)}</div>
+      </div>
+      <div class="tracking-map" aria-label="交接進度">
+${trackingStepsHtml}
+      </div>
+      <div class="tracking-legend" aria-label="交接進度狀態說明">
+${trackingLegendHtml}
+      </div>
+      <div class="ticket-layout">
+        <div class="ticket-details">
+          <div class="detail-row"><strong>任務</strong><span>${htmlEscape(taskText)}</span></div>
+          <div class="detail-row"><strong>真源</strong><span>${htmlEscape(evidenceText)}</span></div>
+          <div class="detail-row"><strong>開工條件</strong><span>${htmlEscape(startConditionText)}</span></div>
+        </div>
+        <div class="action-panel">
+          <button id="connectLive" class="secondary" type="button">連接 APS Live</button>
+          <div class="compact-status">
+            <span><span id="liveDot" class="status-dot"></span> <strong id="liveState">⏳ 未連接</strong></span>
+          </div>
+          <div id="onlinePeers" class="status-row">目前在線：等待對方進入</div>
+          <p class="hint">先連接、核對、等對方回應；完成協商後再把內容交給本機 AI 草擬正式下一步。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="event-log" aria-label="交接事件紀錄">
+      <h2>交接事件紀錄</h2>
+      <div class="event-preview" aria-label="最近交接事件">
+${eventPreviewHtml}
+      </div>
+      <details class="event-history">
+        <summary>展開完整交接事件紀錄（${eventRows.length} 條）</summary>
+${eventRowsHtml}
+      </details>
+      <details class="stage-guide">
+        <summary>目前階段與正式操作</summary>
+        <div class="stage-guide-row">
+          <strong>階段</strong>
+          <span>目前狀態</span>
+          <span>正式操作位置</span>
+          <span>下一句可對 AI 說</span>
+        </div>
+${stageGuideRowsHtml}
+      </details>
+    </section>
+
+    <div class="grid">
+      <section class="span-12">
+        <div class="section-head">
+          <h2>協調與回應</h2>
+          <span class="muted">本次 Live session</span>
+        </div>
+        <h3>接收方快速回應</h3>
+        <p class="muted">${htmlEscape(targetPeerText)} 可先用一個狀態回覆，讓雙方 AI 立即知道交接單是否可以繼續推進；其他在線成員只作協調。</p>
+        <div class="reply-grid" aria-label="接收方快速回應">
+          <button class="reply-button ok" data-live-reply="received" type="button" disabled><strong>✅ 已收到</strong><span>我看到同一張交接單，可以進入開工判斷。</span></button>
+          <button class="reply-button warn" data-live-reply="need-info" type="button" disabled><strong>⚠️ 需補資料</strong><span>來源、版本、範圍或驗收標準不足。</span></button>
+          <button class="reply-button danger" data-live-reply="disagree" type="button" disabled><strong>❌ 不同意</strong><span>共同目標、角色或分工需要先修正。</span></button>
+        </div>
+        <p class="muted">這是給對方看的訊息草稿，可以直接發，也可以先修改。</p>
+        <textarea id="projectMessage" placeholder="例：Jay，共同目標 v1 仍未確認；你是否看到同一版？如果你同意，請補一句驗收標準。">${htmlEscape(snapshot.suggested_message || '')}</textarea>
+        <div class="toolbar">
+          <button id="sendProjectMessageInline" type="button" disabled>等待對方進入後才能發送核對訊息</button>
+          <button id="clearMessages" class="secondary" type="button">清空紀錄</button>
+        </div>
+        <div id="discussionStatus" class="status-row">⏳ 本次 session 尚未發送核對訊息。發出或收到回覆後，訊息會顯示在下面。</div>
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <div class="handoff-ai-panel">
+          <h3>完成協商後交給本機 AI</h3>
+          <p class="muted">有對方回覆、補資料、不同意或同步狀態後，才使用這一步；它只草擬下一步，不會直接寫入 APS 正式紀錄。</p>
+          <label class="mode-picker">
+            <span>AI 整理方式</span>
+            <select id="agentTaskMode" aria-label="本機 AI 跟進方式">
+              <option value="整理共識 / 分歧 / 待決定事項">整理共識 / 分歧 / 待決定事項</option>
+              <option value="產生補資料請求">產生補資料請求</option>
+              <option value="草擬退回理由">草擬退回理由</option>
+              <option value="判斷可否開工">判斷可否開工</option>
+            </select>
+          </label>
+          <button id="forwardToAgentAfterDiscussion" type="button">交給本機 AI 草擬下一步</button>
+        </div>
+      </section>
+      <section class="span-12">
+        <h2>回到本機 AI 對話繼續 APS 流程</h2>
+        <p class="terminal" id="terminalLine">${htmlEscape(snapshot.proposed_terminal_action)}</p>
+        <h3>Terminal 可做的正式選項</h3>
+        <p class="muted">以下句子只用來請本機 AI 草擬正式動作；正式寫入、退回、修訂或 close 前仍要使用者確認。</p>
+        <div class="terminal-actions" aria-label="Terminal 可做的正式選項">
+${terminalActionsHtml}
+        </div>
+      </section>
+    </div>
+  </main>
+  <script type="module">
+    const snapshot = ${safeSnapshotJson};
+    const bridge = ${safeBridgeJson};
+    const roomId = ${JSON.stringify(roomId)};
+    const liveAppId = 'agent-public-squares-live';
+    let room = null;
+    let sendStatus = null;
+    let sendProjectMessageAction = null;
+    let sendFeedback = null;
+    let sendConsensus = null;
+    let receiveStatus = null;
+    let receiveProjectMessage = null;
+    let receiveFeedback = null;
+    let receiveConsensus = null;
+    const connectedPeers = new Set();
+    const peerAgents = new Map();
+    const receivedLiveMessageIds = new Set();
+    const messageHistory = [];
+    let lastPeerJoinAt = 0;
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel('aps-live-local-preview:' + roomId) : null;
+    const messages = document.getElementById('messages');
+    const liveDot = document.getElementById('liveDot');
+    const liveState = document.getElementById('liveState');
+    const discussionStatus = document.getElementById('discussionStatus');
+    const sendProjectMessageButton = document.getElementById('sendProjectMessageInline');
+    const quickReplyButtons = Array.from(document.querySelectorAll('[data-live-reply]'));
+    const onlinePeers = document.getElementById('onlinePeers');
+    const latestProjectMessage = document.getElementById('latestProjectMessage');
+    const latestFeedback = document.getElementById('latestFeedback');
+    const latestConsensus = document.getElementById('latestConsensus');
+    function markJourney(id) {
+      const node = document.getElementById(id);
+      if (node) node.classList.add('done');
+    }
+    function setLiveState(label, mode = '') {
+      liveState.textContent = label;
+      liveDot.className = 'status-dot ' + mode;
+    }
+    function setDiscussionStatus(label) {
+      if (discussionStatus) discussionStatus.textContent = label;
+    }
+    const storageKey = 'aps-live-session-v1:' + roomId + ':' + snapshot.agent_id;
+    function remotePeerCount() {
+      return Array.from(peerAgents.values()).filter(peer => peer && peer.agent_id && peer.agent_id !== snapshot.agent_id).length;
+    }
+    function canSendProjectMessage() {
+      return Boolean(sendProjectMessageAction && remotePeerCount() > 0);
+    }
+    function updateSendButtonState() {
+      if (!sendProjectMessageButton) return;
+      const canSend = canSendProjectMessage();
+      sendProjectMessageButton.disabled = !canSend;
+      sendProjectMessageButton.textContent = canSend ? '發送核對訊息' : (sendProjectMessageAction ? '等待對方進入後才能發送核對訊息' : '未連接，請先用上方按鈕連接');
+      for (const button of quickReplyButtons) {
+        button.disabled = !canSend;
+      }
+    }
+    function persistMessages() {
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(messageHistory.slice(-100)));
+      } catch (error) { /* current browser session history is best-effort */ }
+    }
+    function renderMessage(source, data) {
+      const node = document.createElement('div');
+      node.className = 'message';
+      const title = document.createElement('strong');
+      title.textContent = source;
+      const body = document.createElement('p');
+      body.textContent = readableMessage(source, data);
+      node.append(title, body);
+      messages.prepend(node);
+    }
+    function restoreMessages() {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+        if (!Array.isArray(saved) || saved.length === 0) return;
+        for (const item of saved) {
+          if (!item || !item.source) continue;
+          messageHistory.push({ source: item.source, data: item.data, recorded_at: item.recorded_at });
+          renderMessage(item.source, item.data);
+        }
+        setDiscussionStatus('💬 已載入本次頁面 session 記錄。可繼續討論，或交給本機 AI 整理。');
+      } catch (error) { /* invalid session cache should not block the page */ }
+    }
+    function updateOnlinePeers() {
+      if (!onlinePeers) return;
+      const rows = ['我: ' + snapshot.agent_id];
+      for (const [peerId, peer] of peerAgents.entries()) {
+        if (!peer || !peer.agent_id) {
+          rows.push('未識別身份的視窗 (' + peerId + ')');
+        } else if (peer.agent_id === snapshot.agent_id) {
+          rows.push('同一身份另一視窗: ' + peer.agent_id);
+        } else {
+          rows.push('協作者: ' + peer.agent_id);
+        }
+      }
+      onlinePeers.textContent = rows.length > 1 ? '目前在線：' + rows.join('；') : '目前在線：等待對方進入';
+    }
+    function readableMessage(source, data) {
+      if (!data) return source;
+      if (data.text) return data.text;
+      if (data.next_step) return data.next_step;
+      if (data.reply_label) return data.reply_label + '：' + (data.reply_detail || data.next_action || '');
+      if (data.fallback) return data.fallback;
+      if (data.blocker) return data.blocker;
+      if (data.error) return data.error;
+      if (data.peerId) return data.peerId;
+      if (data.task_mode) return data.task_mode;
+      return source;
+    }
+    function addMessage(source, data) {
+      messageHistory.push({ source, data, recorded_at: new Date().toISOString() });
+      persistMessages();
+      renderMessage(source, data);
+      updateLiveCommentEvent(source, data);
+    }
+    function updateLiveCommentEvent(source, data) {
+      const recordedAt = data && data.sent_at ? data.sent_at : new Date().toISOString();
+      const label = new Date(recordedAt).toISOString().replace('T', ' ').slice(0, 16);
+      for (const suffix of ['Preview', 'Full']) {
+        const time = document.getElementById('livecommentTime' + suffix);
+        const icon = document.getElementById('livecommentIcon' + suffix);
+        if (time) time.textContent = label;
+        if (icon) icon.textContent = data && (data.reply === 'disagree' || data.reply_label === '不同意') ? '!' : '✓';
+      }
+    }
+    function projectMessagePayload() {
+      const text = document.getElementById('projectMessage').value.trim();
+      return {
+        kind: 'project-message',
+        message_id: 'aps-live-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        project: snapshot.project,
+        agent_id: snapshot.agent_id,
+        text,
+        current_case_title: snapshot.current_case_title,
+        current_question: snapshot.current_question,
+        related_shared_goal: snapshot.seen_shared_goal,
+        related_packet: snapshot.seen_packet,
+        proposed_terminal_action: snapshot.proposed_terminal_action,
+        sent_at: new Date().toISOString(),
+      };
+    }
+    function liveReplyPayload(reply) {
+      const replyMap = {
+        received: {
+          reply_label: '已收到',
+          reply_detail: '我看到同一張交接單，可以進入開工判斷。',
+          next_action: '請本機 AI 判斷是否可開工，並在需要時整理正式 ack 或補資料要求。',
+          task_mode: '判斷可否開工',
+        },
+        'need-info': {
+          reply_label: '需補資料',
+          reply_detail: '來源、版本、範圍或驗收標準不足，暫時不適合開工。',
+          next_action: '請本機 AI 整理缺口，生成補資料追問或退回理由草稿。',
+          task_mode: '產生補資料請求',
+        },
+        disagree: {
+          reply_label: '不同意',
+          reply_detail: '共同目標、角色或分工需要先修正，暫時不應推進普通交接。',
+          next_action: '請本機 AI 整理分歧，生成共同目標與分工修訂草稿。',
+          task_mode: '整理共識 / 分歧 / 待決定事項',
+        },
+      };
+      const selected = replyMap[reply] || replyMap['need-info'];
+      return {
+        kind: 'handoff-reply',
+        message_id: 'aps-live-reply-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        project: snapshot.project,
+        agent_id: snapshot.agent_id,
+        reply,
+        ...selected,
+        current_case_title: snapshot.current_case_title,
+        current_question: snapshot.current_question,
+        related_shared_goal: snapshot.seen_shared_goal,
+        related_packet: snapshot.seen_packet,
+        sent_at: new Date().toISOString(),
+      };
+    }
+    function selectedAgentTaskMode() {
+      const node = document.getElementById('agentTaskMode');
+      return node ? node.value : '整理共識 / 分歧 / 待決定事項';
+    }
+    function buildAgentForwardPrompt(taskMode = selectedAgentTaskMode()) {
+      const recentMessages = messageHistory.slice(-12);
+      const contextText = (snapshot.context_cards || [])
+        .map(card => '- ' + card.label + ': ' + card.value)
+        .join('\\n') || '- 未見已帶入資料';
+      const evidenceText = (snapshot.evidence_labels || []).length
+        ? (snapshot.evidence_labels || []).map(item => '- ' + item).join('\\n')
+        : '- 目前未指定正式交接，只作交接狀態核對';
+      const messageText = recentMessages.length
+        ? recentMessages.map((item, index) => {
+          const text = readableMessage(item.source, item.data);
+          return (index + 1) + '. ' + item.source + ': ' + text;
+        }).join('\\n')
+        : '- 尚未有 Live 訊息；請按目前事件和問題先整理下一步。';
+      return [
+        '請用 APS 跟進以下 APS Live 交接追蹤協調內容。',
+        '',
+        '今次我想本機 AI 做的事：',
+        taskMode,
+        '',
+        '今次 APS Live 已帶入的交接貨單：',
+        snapshot.current_case_title || snapshot.live_focus,
+        '',
+        '目前要問清楚的問題：',
+        snapshot.current_question || snapshot.pending_decision,
+        '',
+        '目前追蹤狀態：',
+        '- 目前站點: ' + (snapshot.current_station || '未確認'),
+        '- 能否開工: ' + (snapshot.can_start_label || '未確認'),
+        '- 等誰行動: ' + (snapshot.waiting_for || '未確認'),
+        '- 下一個正式動作: ' + (snapshot.next_formal_action || snapshot.proposed_terminal_action || '未確認'),
+        '',
+        '本機 AI 已知的項目背景：',
+        contextText,
+        '',
+        '依據摘要：',
+        evidenceText,
+        '',
+        '請先整理，不要直接套用：',
+        '1. 先整理共識、分歧、待決定事項和風險。',
+        '2. 判斷哪些內容只是 Live 討論，不應直接當成正式 APS 紀錄。',
+        '3. 若需要正式 APS 動作，先生成草稿、影響和風險，等我確認後才寫入 Drive。',
+        '',
+        '最近 APS Live 核對訊息：',
+        messageText,
+      ].join('\\n');
+    }
+    function livePayload(kind) {
+      return {
+        kind,
+        project: snapshot.project,
+        agent_id: snapshot.agent_id,
+        live_focus: snapshot.live_focus,
+        current_station: snapshot.current_station,
+        can_start_label: snapshot.can_start_label,
+        waiting_for: snapshot.waiting_for,
+        next_formal_action: snapshot.next_formal_action,
+        seen_shared_goal: snapshot.seen_shared_goal,
+        seen_packet: snapshot.seen_packet,
+        seen_ack: snapshot.seen_ack,
+        feedback_status: snapshot.feedback_status,
+        pending_decision: snapshot.pending_decision,
+        current_case_title: snapshot.current_case_title,
+        current_question: snapshot.current_question,
+        proposed_terminal_action: snapshot.proposed_terminal_action,
+        sent_at: new Date().toISOString(),
+      };
+    }
+    function actionSender(action) {
+      if (Array.isArray(action)) return action[0];
+      return action && action.send;
+    }
+    function bindActionMessage(action, handler) {
+      if (Array.isArray(action)) {
+        action[1]((data, peerId, details) => {
+          if (data && data.message_id) {
+            if (receivedLiveMessageIds.has(data.message_id)) return;
+            receivedLiveMessageIds.add(data.message_id);
+          }
+          handler(data, peerId, details);
+        });
+        return;
+      }
+      action.onMessage = (data, details = {}) => {
+        if (data && data.message_id) {
+          if (receivedLiveMessageIds.has(data.message_id)) return;
+          receivedLiveMessageIds.add(data.message_id);
+        }
+        handler(data, details.peerId || 'unknown', details);
+      };
+    }
+    function bindPeerEvent(roomHandle, eventName, handler) {
+      if (!roomHandle) return;
+      if (typeof roomHandle[eventName] === 'function') {
+        roomHandle[eventName](handler);
+        return;
+      }
+      roomHandle[eventName] = handler;
+    }
+    async function sendProjectMessageWithWarmupRetry(payload) {
+      if (!sendProjectMessageAction) return;
+      await sendProjectMessageAction(payload);
+      for (const delayMs of [3000, 7000, 12000]) {
+        window.setTimeout(() => {
+          sendProjectMessageAction({ ...payload, retry_after_warmup: true }).catch(error => {
+            addMessage('訊息補送未完成', { fallback: '對方可能未即時收到。請稍後再按一次發送，或回到本機 AI 對話整理下一步。' });
+          });
+        }, delayMs);
+      }
+    }
+    function targetPeer(peerId) {
+      return peerId ? { target: peerId } : undefined;
+    }
+    function recordPeerStatus(peerId, data) {
+      const remoteAgentId = data && data.agent_id ? String(data.agent_id) : '';
+      if (!peerId || !remoteAgentId) return;
+      peerAgents.set(peerId, { agent_id: remoteAgentId, updated_at: new Date().toISOString() });
+      updateOnlinePeers();
+      if (remoteAgentId === snapshot.agent_id) {
+        setDiscussionStatus('⚠️ 偵測到同一 APS 身份的另一個視窗。這不是協作者，不能當成 ' + (snapshot.target_peer || '對方') + '。');
+        addMessage('⚠️ 同一身份另一視窗', { text: remoteAgentId + ' 的另一個視窗已連上；這不代表協作者已進入。' });
+      } else {
+        setDiscussionStatus('✅ ' + remoteAgentId + ' 已連接。可以發送核對訊息。');
+        addMessage('✅ 協作者已確認身份', { text: remoteAgentId + ' 已連接 APS Live，可以開始核對交接狀態。' });
+      }
+      updateSendButtonState();
+    }
+    async function connectLive() {
+      if (room) return;
+      setLiveState('⏳ 正在連接 APS Live', 'warn');
+      try {
+        const { joinRoom, selfId } = await import('https://esm.run/trystero');
+        room = joinRoom({ appId: liveAppId }, roomId);
+        const statusAction = room.makeAction('aps-status');
+        const projectMessageAction = room.makeAction('aps-message');
+        const feedbackAction = room.makeAction('aps-feedback');
+        const consensusAction = room.makeAction('aps-consensus');
+        sendStatus = actionSender(statusAction);
+        sendProjectMessageAction = actionSender(projectMessageAction);
+        sendFeedback = actionSender(feedbackAction);
+        sendConsensus = actionSender(consensusAction);
+        connectedPeers.add('我: ' + snapshot.agent_id + ' (' + selfId + ')');
+        updateOnlinePeers();
+        markJourney('journeyConnect');
+        bindPeerEvent(room, 'onPeerJoin', async peerId => {
+          connectedPeers.add(peerId);
+          peerAgents.set(peerId, { agent_id: null, updated_at: new Date().toISOString() });
+          lastPeerJoinAt = Date.now();
+          updateOnlinePeers();
+          addMessage('⏳ 偵測到新連線', { text: '已見到另一個視窗進入，正在確認對方 APS 身份。' });
+          setDiscussionStatus('⏳ 已見到另一個視窗，正在確認是否真的是協作者。');
+          updateSendButtonState();
+          if (sendStatus) {
+            await sendStatus(livePayload('status'), peerId);
+            await sendStatus(livePayload('status'));
+          }
+        });
+        bindPeerEvent(room, 'onPeerLeave', peerId => {
+          connectedPeers.delete(peerId);
+          peerAgents.delete(peerId);
+          updateOnlinePeers();
+          addMessage('⚠️ 協作者離開', { text: '對方暫時離開 APS Live；你仍可先整理訊息。' });
+          setDiscussionStatus('⚠️ 對方暫時離開。可先整理訊息，稍後再確認。');
+          updateSendButtonState();
+        });
+        bindActionMessage(statusAction, (data, peerId) => {
+          recordPeerStatus(peerId, data);
+          addMessage('✅ 收到 APS 狀態 ' + peerId, data);
+        });
+        bindActionMessage(projectMessageAction, (data, peerId) => {
+          if (latestProjectMessage) latestProjectMessage.textContent = data && data.text ? data.text : '收到核對訊息';
+          addMessage('💬 收到核對訊息 ' + peerId, data);
+          updateSendButtonState();
+          setDiscussionStatus('💬 已收到對方訊息。可以回覆，或交給本機 AI 整理。');
+        });
+        bindActionMessage(feedbackAction, (data, peerId) => {
+          if (latestFeedback) latestFeedback.textContent = data && data.pending_decision ? data.pending_decision : '收到回覆';
+          addMessage('💬 收到回覆 ' + peerId, data);
+        });
+        bindActionMessage(consensusAction, (data, peerId) => {
+          if (latestConsensus) latestConsensus.textContent = data && data.proposed_terminal_action ? data.proposed_terminal_action : '收到整理內容';
+          addMessage('🤖 收到整理內容 ' + peerId, data);
+        });
+        setLiveState('✅ 已連接 APS Live', 'online');
+        setDiscussionStatus('✅ 已連接 APS Live，正在等待對方進入。');
+        updateSendButtonState();
+        markJourney('journeyConnect');
+        await sendStatus(livePayload('status'));
+      } catch (error) {
+        setLiveState('⚠️ 暫時未連上對方', 'warn');
+        setDiscussionStatus('⚠️ 暫時未連上對方。可先保留草稿，連接後再發送。');
+        updateSendButtonState();
+        addMessage('⚠️ Live 連接未完成', { fallback: '暫時未連上對方。你仍可先寫好訊息，或回到本機 AI 對話請它整理下一步。' });
+      }
+    }
+    async function sendProjectMessage() {
+      const payload = projectMessagePayload();
+      if (!payload.text) {
+        setDiscussionStatus('⚠️ 請先輸入要發送的核對訊息。');
+        addMessage('⚠️ 本機提示', { blocker: '請先輸入要發送的核對訊息。' });
+        return;
+      }
+      if (!canSendProjectMessage()) {
+        setDiscussionStatus(sendProjectMessageAction
+          ? '⚠️ 對方尚未進入 APS Live。請等對方進入後再發送。'
+          : '⚠️ 請先連接 APS Live，並等待對方進入後再發送。');
+        return;
+      }
+      if (sendProjectMessageAction) await sendProjectMessageWithWarmupRetry(payload);
+      if (latestProjectMessage) latestProjectMessage.textContent = payload.text;
+      markJourney('journeyDiscuss');
+      setDiscussionStatus('✅ 已發送。等待對方回覆；回覆會顯示在下面。');
+      addMessage('✅ 已發送核對訊息', payload);
+    }
+    async function sendLiveReply(reply) {
+      const payload = liveReplyPayload(reply);
+      if (!canSendProjectMessage()) {
+        setDiscussionStatus(sendFeedback
+          ? '⚠️ 對方尚未進入 APS Live。請等對方進入後再回應。'
+          : '⚠️ 請先連接 APS Live，並等待對方進入後再回應。');
+        return;
+      }
+      if (sendFeedback) await sendFeedback(payload);
+      const agentMode = document.getElementById('agentTaskMode');
+      if (agentMode && payload.task_mode) agentMode.value = payload.task_mode;
+      markJourney('journeyDiscuss');
+      setDiscussionStatus('✅ 已送出「' + payload.reply_label + '」。可交給本機 AI 整理正式下一步。');
+      addMessage('✅ 已送出快速回應', payload);
+    }
+    function buildAgentQueuePayload() {
+      const taskMode = selectedAgentTaskMode();
+      return {
+        kind: 'aps-live-agent-queue',
+        task_mode: taskMode,
+        message_id: 'aps-live-agent-queue-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        project: snapshot.project,
+        agent_id: snapshot.agent_id,
+        prompt: buildAgentForwardPrompt(taskMode),
+        snapshot,
+        recent_messages: messageHistory.slice(-24),
+        created_at: new Date().toISOString(),
+      };
+    }
+    async function forwardToAgent() {
+      const payload = buildAgentQueuePayload();
+      if (!bridge || !bridge.enabled || !bridge.url || !bridge.token) {
+        await navigator.clipboard.writeText(payload.prompt);
+        addMessage('⚠️ 本機 AI 佇列未連接', {
+          fallback: '未能直接交給本機 AI；我已把整理內容複製到剪貼簿。請回到你的 AI 工具貼上，讓它整理下一步。',
+          task_mode: payload.task_mode,
+        });
+        markJourney('journeyReturn');
+        return;
+      }
+      try {
+        const response = await fetch(bridge.url + '/queue', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token: bridge.token, payload }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) throw new Error(data.error || 'queue request failed');
+        addMessage('✅ 已交給本機 AI 整理下一步', {
+          queued: true,
+          task_mode: payload.task_mode,
+          next_step: '回到你的 AI 工具說「Check APS」，AI 會看到 APS Live 待處理內容。',
+        });
+        setDiscussionStatus('🤖 已交給本機 AI。回到 AI 工具說「Check APS」。');
+        markJourney('journeyReturn');
+      } catch (error) {
+        await navigator.clipboard.writeText(payload.prompt);
+        addMessage('⚠️ 本機 AI 佇列未連接', {
+          fallback: '未能直接交給本機 AI；我已把整理內容複製到剪貼簿。請回到你的 AI 工具貼上，讓它整理下一步。',
+          task_mode: payload.task_mode,
+        });
+        setDiscussionStatus('⚠️ 未能直接交給本機 AI；已複製整理內容，可貼回 AI 工具。');
+        markJourney('journeyReturn');
+      }
+    }
+    function sendSnapshot() {
+      const data = { ...snapshot, sent_at: new Date().toISOString(), transport: 'local-browser-preview' };
+      addMessage('本頁送出', data);
+      if (channel) channel.postMessage(data);
+    }
+    if (channel) {
+      channel.onmessage = (event) => addMessage('收到同機頁面訊息', event.data);
+    } else {
+      addMessage('⚠️ 本機提示', { blocker: '這個瀏覽器不支援本機頁面互傳；仍可複製狀態摘要回本機 AI 使用。' });
+    }
+    function bindClick(id, handler) {
+      const node = document.getElementById(id);
+      if (node) node.addEventListener('click', handler);
+    }
+    bindClick('connectLive', connectLive);
+    bindClick('sendProjectMessage', sendProjectMessage);
+    bindClick('sendProjectMessageInline', sendProjectMessage);
+    for (const button of quickReplyButtons) {
+      button.addEventListener('click', () => sendLiveReply(button.getAttribute('data-live-reply')));
+    }
+    bindClick('forwardToAgent', forwardToAgent);
+    bindClick('forwardToAgentAfterDiscussion', forwardToAgent);
+    document.getElementById('clearMessages').addEventListener('click', () => {
+      messages.textContent = '';
+      messageHistory.length = 0;
+      try { sessionStorage.removeItem(storageKey); } catch (error) { /* session cache clear is best-effort */ }
+      setDiscussionStatus('⏳ 本次 session 記錄已清空。可繼續發送新的核對訊息。');
+    });
+    restoreMessages();
+    updateSendButtonState();
+  </script>
 </body>
 </html>
 `;
 }
 
-function writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config, fileName = dashboardFileNameForAgent(agentId) }) {
-  const contextPath = contextDir(hubRoot, projectSlug);
-  const outputPath = path.join(contextPath, fileName);
-  const indexPath = path.join(contextPath, 'dashboard.html');
-  fs.mkdirSync(contextPath, { recursive: true });
-  const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } });
-  fs.writeFileSync(outputPath, renderProjectDashboardHtml(dashboard), 'utf8');
-  fs.writeFileSync(indexPath, renderDashboardIndexHtml({
-    hubRoot,
-    projectSlug,
-    agentId,
-    peers: dashboard.peers,
-    currentDashboardFile: fileName,
-  }), 'utf8');
-  return { dashboardPath: outputPath, indexPath };
+function apsLiveHasClearBlocker(snapshot) {
+  return snapshot
+    && snapshot.seen_packet !== 'none'
+    && !String(snapshot.blocker || '').startsWith('目前沒有明確交接卡點');
+}
+
+function writeApsLiveHtml({ hubRoot, projectSlug, agentId, config, demo = false, outputPath = null, dryRun = false, dashboard: providedDashboard = null, bridgePort = 47879 }) {
+  const dashboard = providedDashboard || (demo
+    ? buildCheckApsDemoDashboard()
+    : buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } }));
+  const snapshot = buildApsLiveDiagnosticSnapshot(dashboard, { demo, project: projectSlug, agentId });
+  const livePath = outputPath || path.join(contextDir(hubRoot, projectSlug), apsLiveFileNameForAgent(agentId));
+  if (dryRun) {
+    return { livePath, snapshot, dryRun: true };
+  }
+  const bridge = demo
+    ? { enabled: false, url: null, token: null }
+    : {
+      enabled: true,
+      url: `http://127.0.0.1:${bridgePort}`,
+      token: readOrCreateApsLiveBridgeToken({ hubRoot, projectSlug }),
+    };
+  const html = renderApsLiveHtml({ dashboard, snapshot, demo, bridge });
+  fs.mkdirSync(path.dirname(livePath), { recursive: true });
+  fs.writeFileSync(livePath, html, 'utf8');
+  return { livePath, snapshot };
+}
+
+function renderApsLiveQueueReport(items) {
+  const lines = [
+    '📥 APS Live 待本機 AI 整理',
+  ];
+  if (items.length === 0) {
+    lines.push('- 目前沒有 APS Live 送入本機 AI 待處理佇列的內容。');
+    return lines.join('\n');
+  }
+  lines.push(`- 共有 ${items.length} 件待整理內容。`);
+  for (const item of items) {
+    const payload = item.payload || {};
+    const recentMessages = Array.isArray(payload.recent_messages) ? payload.recent_messages : [];
+    lines.push('');
+    lines.push(`## ${payload.task_mode || '請 AI 判斷下一步'}`);
+    lines.push(`- 佇列時間: ${item.queued_at || '(未記錄)'}`);
+    lines.push(`- 來源代理: ${payload.agent_id || payload.snapshot && payload.snapshot.agent_id || '(未記錄)'}`);
+    lines.push(`- 訊息數量: ${recentMessages.length}`);
+    lines.push('- AI 處理提示:');
+    lines.push('```text');
+    lines.push(payload.prompt || '(沒有 prompt)');
+    lines.push('```');
+  }
+  return lines.join('\n');
+}
+
+function startApsLiveBridge({ hubRoot, projectSlug, port }) {
+  const token = readApsLiveBridgeToken({ hubRoot, projectSlug });
+  if (!token) {
+    throw new Error('未見 APS Live bridge token。請先執行 `aps live` 生成 APS Live 頁。');
+  }
+  const server = http.createServer((req, res) => {
+    res.setHeader('access-control-allow-origin', '*');
+    res.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
+    res.setHeader('access-control-allow-headers', 'content-type');
+    res.setHeader('content-type', 'application/json; charset=utf-8');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200);
+      res.end(JSON.stringify({ ok: true, project: projectSlug }));
+      return;
+    }
+    if (req.method !== 'POST' || req.url !== '/queue') {
+      res.writeHead(404);
+      res.end(JSON.stringify({ ok: false, error: 'not found' }));
+      return;
+    }
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString('utf8');
+      if (body.length > 250000) {
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        const request = JSON.parse(body || '{}');
+        if (request.token !== token) {
+          res.writeHead(403);
+          res.end(JSON.stringify({ ok: false, error: 'invalid token' }));
+          return;
+        }
+        if (!request.payload || typeof request.payload !== 'object') {
+          res.writeHead(400);
+          res.end(JSON.stringify({ ok: false, error: 'missing payload' }));
+          return;
+        }
+        const { queuePath } = writeApsLiveQueueItem({ hubRoot, projectSlug, payload: request.payload });
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          ok: true,
+          queued_path: queuePath,
+          next_terminal_line: '請用 APS 讀取 APS Live 待處理佇列，先整理交接追蹤狀態、卡點、共識、分歧與待決定事項，判斷哪些需要寫回正式 APS 紀錄；如需要正式動作，先生成草稿和風險，等我確認。',
+        }));
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+    });
+  });
+  server.listen(port, '127.0.0.1', () => {
+    console.log('📡 APS Live 本機 AI 接收器');
+    console.log(`✅ 已啟動: http://127.0.0.1:${port}`);
+    console.log('🔎 Live 交接追蹤頁可一鍵交給本機 AI 整理下一步；此接收器只寫入本機待處理佇列，不寫 packet / outbox / ack。');
+    console.log('🚀 用法: 保持此 terminal 開啟，再到 APS Live 交接追蹤頁按「交給本機 AI 整理下一步」。');
+  });
+  return server;
 }
 
 function packetStatus({ hubRoot, projectSlug, agentId, packetId }) {
@@ -3425,9 +5017,9 @@ function ensurePeerArtifacts({ hubRoot, projectSlug, agentId, displayName, peerS
   steps.push(writeFileIfMissing(path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'outbox.log.md'), outboxTemplate, dryRun));
   steps.push(writeFileIfMissing(path.join(projectDir(hubRoot, projectSlug), `from_${agentId}`, 'packets', 'README.md'), packetsReadme(agentId), dryRun));
   steps.push(writeFileIfMissing(path.join(projectDir(hubRoot, projectSlug), '_ack', `${agentId}.ack.json`), ackJson(agentId, projectSlug), dryRun));
-  steps.push(writeFileOrUpdate(
+  steps.push(writePeerCardPreservingConfirmed(
     peerCardPath(hubRoot, projectSlug, agentId),
-    peerCardJson({ projectSlug, agentId, displayName, peerState }),
+    peerCardRecord({ projectSlug, agentId, displayName, peerState }),
     dryRun
   ));
   return steps;
@@ -3655,7 +5247,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps publish --to <id> --topic <snake> --body <text>
   npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff]
                                   發佈 v1 交接包並追加 outbox;--items 由發送方申報「請對方做的事」,CLI 逐字記錄(分號分隔;項目本身含分號時改用 --items-file)
-                                  --strict-handoff 會阻止缺少或內容不足的共同目標、雙方任務、交叉點、--items、證據或風險
+                                  --strict-handoff 會阻止缺少或內容不足的共同目標、雙方任務、交叉點、--items、真源指標或風險
   npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items]
                                   為自己發出的交接包建立下一個不可變版本;未指定 items 時沿用上一版
   npx aps inbox
@@ -3665,9 +5257,29 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps check-drive
                                   同 inbox;給「check Drive」日常收件流程使用
   npx aps check-aps
-                                  查看 APS 整體狀態:收件、發件、協作對象、下一步、風險;並按需更新 dashboard
+                                  查看 APS 整體狀態:交接包狀態、是否如期、下一步;不生成 dashboard HTML
+  npx aps check-aps --full
+                                  顯示完整排錯資料:數量、同步、路徑、peer、風險與追溯資料
+  npx aps check-aps --demo-preview
+                                  顯示 Check APS 終端畫面示範;只用假資料,不讀設定,不寫共用 Drive
+  npx aps check-aps --demo-preview --scenario shared-goal
+                                  顯示共同目標與分工確認主流程示範
+  npx aps live
+                                  生成 APS Live 交接追蹤頁;用 Trystero 做即時核對,但不寫 packet / outbox / ack
+  npx aps live --dry-run
+                                  只檢查並列出會生成的 APS Live 交接追蹤頁;不寫 HTML 或正式 APS 狀態
+  npx aps live --output <path>
+                                  生成到指定 HTML 路徑;只改輸出檔位置
+  npx aps live-bridge
+                                  啟動 APS Live 本機 AI 接收器;Live 交接追蹤頁可一鍵送入本機待處理佇列
+  npx aps live-queue
+                                  讀取 APS Live 已送入本機 AI 待處理佇列的內容
+  npx aps live --demo-preview
+                                  生成 APS Live 交接追蹤頁示範;只用假資料,不讀設定,不寫共用 Drive,不代表跨機已驗收
+  npx aps live --demo-preview --scenario shared-goal
+                                  生成共同目標與分工確認主流程示範頁
   npx aps dashboard
-                                  生成唯讀 APS 營運總覽 HTML
+                                  已退役;不再生成 dashboard HTML,請用 check-aps 或 APS Live
   npx aps status --packet-id <id>
                                   查看自己發出的交接包目前狀態
   npx aps context
@@ -3700,7 +5312,7 @@ init 保存 .aps/config.json 後,日常命令可省略 --hub-root、--project、
 --agent-id 與 --other-agent-id。需要臨時覆蓋設定時,仍可傳入這些參數。
 
 狀態:已可使用 bridge-pack、skill 安裝、初始共用 Drive 資料夾設置、既有項目升級、
-本機設定保存、peers / peer invite / peer starter、publish / revise / inbox / check-drive / check-aps / dashboard / status / context / consume / decline / withdraw / close,
+本機設定保存、peers / peer invite / peer starter、publish / revise / inbox / check-drive / check-aps / status / context / consume / decline / withdraw / close,
 以及只讀 doctor。
 這個預發布版本已有一次維護者真實 Google Drive 往返驗證;每個真實項目
 仍需要各自做項目級同步驗證。
@@ -4147,7 +5759,12 @@ if (subcommand === 'peer') {
     console.log('');
     console.log(`📄 starter pack: ${starterTarget}`);
     if (action === 'add') {
-      console.log('⚠️ 狀態: provisional。對方仍須在自己的電腦完成 `npx aps init` 或 `npx aps upgrade`,才可視為 confirmed peer。');
+      const preservedConfirmed = steps.some((result) => result && result.preserved);
+      if (preservedConfirmed) {
+        console.log('✅ 狀態: confirmed 已保留。對方已在自己的電腦完成加入,可先用 `npx aps peers` 核對,再發 `shared_goal_and_roles` 確認共同基準。');
+      } else {
+        console.log('⚠️ 狀態: provisional。對方仍須在自己的電腦完成 `npx aps init` 或 `npx aps upgrade`,才可視為 confirmed peer。');
+      }
     } else {
       console.log('ℹ️ 只重新生成 starter pack,未建立或改動 peer。若仲未邀請過呢位對象,請先用 `npx aps peer add --agent-id ' + peerId + '`。');
     }
@@ -4212,7 +5829,7 @@ if (subcommand === 'publish') {
   if (strictHandoff && !handoffReport.ready) {
     console.error('❌ 發佈失敗:交接資料未齊。');
     printHandoffReadiness(handoffReport, console.error);
-    console.error('請先補齊共同目標、雙方任務邊界、--items 待辦、證據位置與風險,再重試。');
+    console.error('請先補齊共同目標、雙方任務邊界、--items 待辦、可共享真源指標、接收方開工條件與風險,再重試。');
     process.exit(1);
   }
   enforceLocalAgentIdentityOrExit({
@@ -4465,37 +6082,26 @@ if (subcommand === 'status') {
 }
 
 if (subcommand === 'dashboard') {
-  const config = loadConfigOrExit();
-  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
-  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
-  const agentId = flagOrConfig('--agent-id', 'agentId', config);
-  const otherAgentId = flagOrConfig('--other-agent-id', 'otherAgentId', config);
-  requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--agent-id': agentId });
-  const dashboardConfig = { ...config, hubRoot, projectSlug, agentId, otherAgentId };
-  const errors = [
-    validateSnakeCase('--project', projectSlug),
-    validateSnakeCase('--agent-id', agentId),
-    otherAgentId ? validateSnakeCase('--other-agent-id', otherAgentId) : null,
-  ].filter(Boolean);
-  if (errors.length > 0) {
-    for (const error of errors) console.error(error);
-    process.exit(1);
-  }
-  try {
-    const { dashboardPath, indexPath } = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
-    console.log('🧭 APS 營運總覽');
-    console.log('✅ 已生成唯讀 APS 營運總覽。');
-    console.log(`📄 個人 dashboard: ${dashboardPath}`);
-    console.log(`📄 共用入口: ${indexPath}`);
-    console.log('🔎 這是本機唯讀頁；先看能否推進、卡在哪、下一步叫 AI 做甚麼。');
-  } catch (err) {
-    console.error(`❌ dashboard 生成失敗:${err.message}`);
-    process.exit(1);
-  }
+  console.log('🧭 APS dashboard 已退役');
+  console.log('✅ 未寫入任何 dashboard HTML。');
+  console.log('🔎 日常狀態請用 `npx aps check-aps`，它會直接在 terminal 顯示可行動摘要。');
+  console.log('📡 需要即時協調時，`check-aps` 會按需生成 APS Live 交接追蹤頁。');
+  console.log('⚠️ 邊界: `_context/dashboard.html` 與 `_context/dashboard_<agent>.html` 不再屬於現行 APS 產品路徑。');
   process.exit(0);
 }
 
 if (subcommand === 'check-aps') {
+  const full = args.includes('--full');
+  if (args.includes('--demo-preview')) {
+    const scenario = getFlagValue('--scenario', 'handoff-blocked');
+    console.log('🧪 Demo preview: 以下是假資料示範，只用來檢查 Check APS 第一屏是否易懂；不讀 .aps/config.json，不寫共用 Drive，不更新 HTML。');
+    console.log(`🔎 示範場景: ${scenario === 'shared-goal' ? '共同目標與分工確認' : '交接資料不足'}`);
+    console.log('');
+    console.log('📄 HTML dashboard 已退役；demo preview 不會生成 dashboard HTML。');
+    console.log('');
+    console.log(renderProjectDashboardSummary(buildCheckApsDemoDashboard(scenario), { full, demoPreview: true }));
+    process.exit(0);
+  }
   const config = loadConfigOrExit();
   const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
   const projectSlug = flagOrConfig('--project', 'projectSlug', config);
@@ -4514,14 +6120,147 @@ if (subcommand === 'check-aps') {
   }
   try {
     const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: dashboardConfig });
-    console.log(renderProjectDashboardSummary(dashboard));
-    const { dashboardPath, indexPath } = writeProjectDashboardHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig });
-    console.log('');
-    console.log(`📄 個人 dashboard 已按需更新: ${dashboardPath}`);
-    console.log(`📄 共用 dashboard 入口已按需更新: ${indexPath}`);
+    const pendingItems = dashboard.incomingGroups.flatMap((group) => group.pending.map((item) => ({ ...item, from: group.from })));
+    const riskRecords = dashboardRiskRecords({
+      incomingGroups: dashboard.incomingGroups,
+      contextReport: dashboard.contextReport,
+      peers: dashboard.peers,
+      identityIssues: dashboard.identityIssues,
+      sharedGoal: dashboard.sharedGoal,
+    });
+    const shouldGenerateLive = checkApsHasLiveCandidate({ pendingItems, outgoingPackets: dashboard.outgoingPackets, riskRecords });
+    const liveResult = shouldGenerateLive
+      ? writeApsLiveHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig, dashboard })
+      : null;
+    console.log('🧭 APS 狀態已在 terminal 顯示');
+    console.log('- HTML dashboard 已退役；不再生成舊 dashboard 頁。');
+    if (liveResult) console.log(`- APS Live: ${liveResult.livePath}`);
+    console.log('🔎 不用打開 HTML 也可以繼續；真正操作仍在這個 AI terminal。');
     console.log('⚠️ 注意:這不是背景自動監察;只有你要求 Check APS 時才重新讀取和生成。');
+    console.log('');
+    const liveQueueItems = readApsLiveQueueItems({ hubRoot, projectSlug });
+    console.log(renderProjectDashboardSummary(dashboard, {
+      full,
+      liveQueueItems,
+      livePath: liveResult ? liveResult.livePath : null,
+      liveGenerated: Boolean(liveResult),
+    }));
   } catch (err) {
     console.error(`❌ Check APS 失敗:${err.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (subcommand === 'live') {
+  const liveOutputFlag = getRequiredFlagValue('--output');
+  const liveOutputPath = liveOutputFlag ? path.resolve(process.cwd(), liveOutputFlag) : null;
+  const dryRun = args.includes('--dry-run');
+  const bridgePort = Number(getFlagValue('--bridge-port', getFlagValue('--port', '47879')));
+  if (args.includes('--demo-preview')) {
+    const scenario = getFlagValue('--scenario', 'shared-goal');
+    const outputPath = liveOutputPath || path.resolve(process.cwd(), 'aps-live-demo.html');
+    let livePath = null;
+    let snapshot = null;
+    try {
+      const demoDashboard = buildCheckApsDemoDashboard(scenario);
+      const result = writeApsLiveHtml({
+        hubRoot: '(demo preview)',
+        projectSlug: 'demo_project',
+        agentId: 'adam',
+        config: {},
+        demo: true,
+        outputPath,
+        dryRun,
+        dashboard: demoDashboard,
+      });
+      livePath = result.livePath;
+      snapshot = result.snapshot;
+    } catch (err) {
+      console.error(`❌ APS Live demo 生成失敗:${err.message}`);
+      process.exit(1);
+    }
+    console.log('🧪 APS Live 交接追蹤頁示範');
+    console.log(`🔎 示範場景: ${scenario === 'shared-goal' ? '共同目標與分工確認' : '交接資料不足'}`);
+    console.log(dryRun ? '✅ dry-run 通過：已檢查 APS Live 交接追蹤頁示範方案。' : '✅ 已生成 APS Live 交接追蹤頁示範。');
+    console.log(dryRun ? `📄 將生成 HTML: ${livePath}` : `📄 HTML: ${livePath}`);
+    console.log('🔎 這是假資料示範；不讀 .aps/config.json，不寫共用 Drive，不更新 packet / outbox / ack。');
+    console.log('📡 Trystero 是 APS Live 主流程；連不上就不能當成對方已看到或已確認，只能保留可複製資料。');
+    console.log('🔎 注意:連接 Trystero room 後可做即時核對；正式紀錄仍要回到本機 AI / Drive 流程更新。');
+    if (dryRun) {
+      console.log('🧪 dry-run: 未寫入 HTML，未建立資料夾，未改正式 APS 狀態。');
+      console.log(`🔎 狀態欄位: ${Object.keys(snapshot).join(', ')}`);
+      console.log(`🚀 dry-run 下一句: ${snapshot.proposed_terminal_action}`);
+    } else {
+      console.log('🚀 下一步: 打開此 HTML，先看交接進度和目前站點，再按「連接 APS Live」測試即時核對；未連接時可用本機預覽。');
+    }
+    process.exit(0);
+  }
+  const config = loadConfigOrExit();
+  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
+  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
+  const agentId = flagOrConfig('--agent-id', 'agentId', config);
+  const otherAgentId = flagOrConfig('--other-agent-id', 'otherAgentId', config);
+  requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--agent-id': agentId });
+  const liveConfig = { ...config, hubRoot, projectSlug, agentId, otherAgentId };
+  const errors = [
+    validateSnakeCase('--project', projectSlug),
+    validateSnakeCase('--agent-id', agentId),
+    otherAgentId ? validateSnakeCase('--other-agent-id', otherAgentId) : null,
+  ].filter(Boolean);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(error);
+    process.exit(1);
+  }
+  try {
+    const { livePath, snapshot } = writeApsLiveHtml({ hubRoot, projectSlug, agentId, config: liveConfig, outputPath: liveOutputPath, dryRun, bridgePort });
+    console.log('📡 APS Live 交接追蹤頁');
+    console.log(dryRun ? '✅ dry-run 通過：已檢查 APS Live 交接追蹤頁生成方案。' : '✅ 已生成 APS Live 交接追蹤頁。');
+    console.log(dryRun ? `📄 將生成 HTML: ${livePath}` : `📄 HTML: ${livePath}`);
+    console.log('🔎 這頁先顯示交接單、目前站點、等誰行動和事件紀錄；需要即時同步、回饋或建立共識時使用。不寫 packet / outbox / ack，也不代表 Drive 已同步。');
+    console.log('📡 Trystero 是 APS Live 主流程；連不上就不能當成對方已看到或已確認，只能保留可複製資料。');
+    if (apsLiveHasClearBlocker(snapshot)) {
+      console.log(`🔎 建議使用原因: ${snapshot.blocker}`);
+    } else {
+      console.log('🔎 目前未見必須由 Live 解決的交接卡點；可先回到本機 AI / terminal 推進正式 APS 動作。');
+    }
+    console.log('🔎 注意:連接 Trystero room 後可做即時核對；正式紀錄仍要回到本機 AI / Drive 流程更新。');
+    if (!dryRun) {
+      console.log(`📥 本機 AI 接收器: 另開 terminal 執行 \`npx aps live-bridge --port ${bridgePort}\`，Live 頁即可一鍵送入本機待處理佇列。`);
+    }
+    if (dryRun) {
+      console.log('🧪 dry-run: 未寫入 HTML，未建立資料夾，未改正式 APS 狀態。');
+      console.log(`🔎 狀態欄位: ${Object.keys(snapshot).join(', ')}`);
+    }
+    console.log('');
+    console.log('🚀 回到本機 AI 可直接說:');
+    console.log('```');
+    console.log(snapshot.proposed_terminal_action);
+    console.log('```');
+  } catch (err) {
+    console.error(`❌ APS Live 生成失敗:${err.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (subcommand === 'live-queue') {
+  const config = loadConfigOrExit();
+  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
+  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
+  requireValues({ '--hub-root': hubRoot, '--project': projectSlug });
+  const errors = [
+    validateSnakeCase('--project', projectSlug),
+  ].filter(Boolean);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(error);
+    process.exit(1);
+  }
+  try {
+    const items = readApsLiveQueueItems({ hubRoot, projectSlug, limit: Number(getFlagValue('--limit', '8')) || 8 });
+    console.log(renderApsLiveQueueReport(items));
+  } catch (err) {
+    console.error(`❌ APS Live 佇列讀取失敗:${err.message}`);
     process.exit(1);
   }
   process.exit(0);
@@ -4852,6 +6591,28 @@ if (subcommand === 'doctor') {
   }
 }
 
-console.error(`❌ 不認識的子命令: ${subcommand}`);
-console.error('💡 請先執行: npx aps --help');
-process.exit(1);
+if (subcommand === 'live-bridge') {
+  const config = loadConfigOrExit();
+  const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
+  const projectSlug = flagOrConfig('--project', 'projectSlug', config);
+  const port = Number(getFlagValue('--port', getFlagValue('--bridge-port', '47879')));
+  requireValues({ '--hub-root': hubRoot, '--project': projectSlug });
+  const errors = [
+    validateSnakeCase('--project', projectSlug),
+    Number.isInteger(port) && port > 0 && port < 65536 ? null : '--port must be a number from 1 to 65535.',
+  ].filter(Boolean);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(error);
+    process.exit(1);
+  }
+  try {
+    startApsLiveBridge({ hubRoot, projectSlug, port });
+  } catch (err) {
+    console.error(`❌ APS Live 本機 AI 接收器啟動失敗:${err.message}`);
+    process.exit(1);
+  }
+} else {
+  console.error(`❌ 不認識的子命令: ${subcommand}`);
+  console.error('💡 請先執行: npx aps --help');
+  process.exit(1);
+}

@@ -95,8 +95,24 @@ function runDashboard(args) {
   return runAps('dashboard', args);
 }
 
+function runLive(args) {
+  return runAps('live', args);
+}
+
+function runLiveQueue(args) {
+  return runAps('live-queue', args);
+}
+
 function runPublish(args) {
   return runAps('publish', args);
+}
+
+function runConsume(args) {
+  return runAps('consume', args);
+}
+
+function runDecline(args) {
+  return runAps('decline', args);
 }
 
 function assert(condition, message, details = '') {
@@ -152,8 +168,25 @@ function expectCheckDriveCase(name, args, expectedStatus, requiredText) {
   console.log(`PASS ${name}`);
 }
 
-function expectCheckApsCase(name, args, expectedStatus, requiredText) {
+function expectCheckApsCase(name, args, expectedStatus, requiredText, forbiddenText = []) {
   const result = runCheckAps(args);
+  const output = outputOf(result);
+  assert(
+    result.status === expectedStatus,
+    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
+    output,
+  );
+  for (const text of requiredText) {
+    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
+  }
+  for (const text of forbiddenText) {
+    assert(!output.includes(text), `${name}: should not include "${text}"`, output);
+  }
+  console.log(`PASS ${name}`);
+}
+
+function expectDashboardCase(name, args, expectedStatus, requiredText) {
+  const result = runDashboard(args);
   const output = outputOf(result);
   assert(
     result.status === expectedStatus,
@@ -166,8 +199,8 @@ function expectCheckApsCase(name, args, expectedStatus, requiredText) {
   console.log(`PASS ${name}`);
 }
 
-function expectDashboardCase(name, args, expectedStatus, requiredText) {
-  const result = runDashboard(args);
+function expectLiveCase(name, args, expectedStatus, requiredText) {
+  const result = runLive(args);
   const output = outputOf(result);
   assert(
     result.status === expectedStatus,
@@ -194,6 +227,21 @@ function expectPublishCase(name, args, expectedStatus, requiredText) {
   console.log(`PASS ${name}`);
 }
 
+function readRepoFile(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+function expectRepoFileContains(name, relativePath, requiredText, forbiddenText = []) {
+  const content = readRepoFile(relativePath);
+  for (const text of requiredText) {
+    assert(content.includes(text), `${name}: ${relativePath} missing "${text}"`);
+  }
+  for (const text of forbiddenText) {
+    assert(!content.includes(text), `${name}: ${relativePath} should not include "${text}"`);
+  }
+  console.log(`PASS ${name}`);
+}
+
 function inboxPacket(project, fromAgent, toAgent, packetId, topic, version = 1) {
   writeFile(
     path.join(hubRoot, project, `from_${fromAgent}`, 'outbox.log.md'),
@@ -210,6 +258,27 @@ function writeAck(project, agent, consumed) {
     path.join(hubRoot, project, '_ack', `${agent}.ack.json`),
     `${JSON.stringify({ agent, project, consumed }, null, 2)}\n`,
   );
+}
+
+function writePeerCard(project, peerId, displayName = peerId) {
+  writeFile(
+    path.join(hubRoot, project, '_peers', 'agents', `${peerId}.json`),
+    `${JSON.stringify({
+      project,
+      agent_id: peerId,
+      display_name: displayName,
+      lane: `from_${peerId}`,
+      status: 'active',
+      peer_state: 'confirmed',
+      updated_at: '2026-06-14T00:00:00.000Z',
+    }, null, 2)}\n`,
+  );
+}
+
+function extractPublishedPacketId(output, label) {
+  const match = output.match(/已發佈\s+([0-9]{8}T[0-9]{6}Z__[a-z0-9_]+)\s+v1/);
+  assert(match && match[1], `${label}: missing published packet id`, output);
+  return match[1];
 }
 
 function publishReadyProject(project) {
@@ -267,6 +336,393 @@ function makeHandoffProject(name) {
 try {
   fs.mkdirSync(evidenceRoot, { recursive: true });
 
+  expectRepoFileContains(
+    'protocol defines stateless receiver handoff boundary',
+    'resources/protocol/PROTOCOL.md',
+    [
+      'Stateless receiver',
+      'Formal truth boundary',
+      '真源指標',
+      '接收方開工條件',
+      'Check APS',
+      'check Drive',
+    ],
+    [
+      'APS Hub has new traffic',
+      'Read <hub_root>/<project_slug>',
+      'process unconsumed items in from_<sender>',
+    ],
+  );
+
+  expectRepoFileContains(
+    'packet template includes formal handoff minimum body',
+    'resources/protocol/templates/packet.md.template',
+    [
+      '## 共同目標',
+      '## 本方任務',
+      '## 對方任務',
+      '## 交叉點',
+      '## 請對方做的事',
+      '## 不應誤解的事',
+      '## 真源指標',
+      '## 接收方開工條件',
+      '## 風險 / 未決事項',
+    ],
+    ['Attachments go under ./attachments/'],
+  );
+
+  expectRepoFileContains(
+    'bundled aps skill uses confirmation card and true source wording',
+    'skills/aps/SKILL.md',
+    [
+      '交接確認卡',
+      '真源指標',
+      '接收方開工條件',
+    ],
+    ['交接定義卡', '證據位置'],
+  );
+
+  expectRepoFileContains(
+    'bundled setup dialogue uses confirmation card and true source wording',
+    'skills/aps/references/setup-dialogue.md',
+    [
+      '交接確認卡',
+      '真源指標',
+      '接收方開工條件',
+      'Jay 交回甚麼才算完成',
+    ],
+    ['交接定義卡', '證據位置'],
+  );
+
+  expectRepoFileContains(
+    'AI dialogue draft quality sample keeps one-sentence handoff as confirmed draft intake',
+    'skills/aps/SKILL.md',
+    [
+      '請用 APS 把這段工作交接給 <協作者>,先整理草稿,等我確認後才寫入共用 Drive。',
+      'AI 不可只寫任務要求就 publish;必須先整理「交接確認卡」',
+      '缺資料時每次最多問三題',
+      '真源指標清單',
+      '接收方開工條件',
+    ],
+    ['未經確認就 publish'],
+  );
+
+  expectRepoFileContains(
+    'public first-user docs keep draft confirmation and no-auto-notification boundary',
+    'docs/guides/index.html',
+    [
+      'AI 會整理草稿、等你確認、再寫入共用 Google Drive',
+      '先整理草稿，等我確認後才寫入共用 Drive',
+      '不會自動通知對方，也不會自動打開對方的 AI',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public AI install guide keeps safe write gates and post-install baseline journey',
+    'docs/guides/aps-ai-agent-install.html',
+    [
+      'AI 先做只讀檢查，再列出寫入計劃，等用戶確認後才執行',
+      '任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼',
+      '安裝後先建立「夠安全開始」的共同目標與分工',
+      '先整理夠安全開始的草稿，缺資料才問最多三個關鍵問題',
+    ],
+  );
+
+  expectRepoFileContains(
+    'APS Live product-standard wording keeps local-support boundary and true-two-machine blocker',
+    'docs/plans/aps-live-capability-spec.md',
+    [
+      'Status: product standard / local-supported APS Live capability in unreleased source',
+      'APS Live is part of the APS product standard as a bounded handoff-tracking and exception-coordination layer',
+      'This status does not certify reliable cross-machine APS Live',
+      'Cross-machine end-to-end behaviour and true two-peer Trystero message exchange still need two-machine verification before public docs may present it as reliable cross-machine support',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public HTML pages expose current APS user route without stale dashboard path',
+    'README.md',
+    [
+      'APS Live 交接追蹤頁',
+      '正式狀態仍要回到 terminal',
+      'HTML dashboard 已退役',
+    ],
+    ['_context/dashboard.html` 或個人 dashboard 作為日常狀態'],
+  );
+
+  expectRepoFileContains(
+    'APS Live Trystero QC requires end-to-end and 3+ one-to-one-boundary gates',
+    'dev/qc/aps-live-trystero-qc.md',
+    [
+      'Six-stage Product Flow Gate',
+      '共同基準',
+      '已發出',
+      '對方查看',
+      '可開工判斷',
+      '處理 / 補資料',
+      '正式更新',
+      'The run must prove stage transition, not just stage visibility.',
+      'Trystero evidence is message-channel evidence',
+      'Six-stage product flow',
+      'No Trystero peer event, queue item, screenshot, or unchanged hash may be counted as a substitute for a missing stage transition.',
+      'APS Live end-to-end operation flow',
+      '`Check APS`, `check Drive`, or handoff preflight identifies a live coordination need',
+      'terminal AI reads the queue',
+      '3+ participant presence / coordination with one-to-one formal handoff',
+      'At least three distinct APS identities join the same project / Live context',
+      'Formal APS handoff remains one sender to one receiver per packet',
+      'Six-stage product-flow ledger',
+      'QC scope-gap ledger',
+      'End-to-end flow ledger',
+      'missing the six-stage product-flow gate, APS Live end-to-end operation flow, and 3+ participant one-to-one-boundary gate',
+    ],
+  );
+
+  expectRepoFileContains(
+    'APS Live capability spec requires full operation loop and 3+ group boundary',
+    'docs/plans/aps-live-capability-spec.md',
+    [
+      'six-stage product-flow verification',
+      'Six-stage Product Flow Definition',
+      'APS Live is not considered product-flow complete until this exact six-stage path is proven with two APS identities',
+      'Each stage must have evidence of transition, not only a visible label on the page.',
+      '`共同基準`',
+      '`已發出`',
+      '`對方查看`',
+      '`可開工判斷`',
+      '`處理 / 補資料`',
+      '`正式更新`',
+      'This six-stage path is the product-flow gate.',
+      'None of those can replace a missing six-stage transition.',
+      'APS Live end-to-end operation flow verification',
+      '3+ participant one-to-one-boundary verification',
+      'The APS Live end-to-end operation flow gate must prove the whole path',
+      'The six-stage product-flow gate must pass before the Trystero evidence can be treated as product readiness.',
+      'The 3+ participant gate must prove small-group presence without changing the APS formal model',
+      'A third participant may clarify, supply missing information, or comment on status',
+      'active formal handoff ticket remains one sender to one receiver',
+      '`Check APS`, `check Drive`, or handoff preflight can lead into APS Live',
+      'Three or more APS identities can be present and coordinate in the same Live context',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public governance map keeps APS Live product-flow gate separate from Trystero transport',
+    'docs/qc/governance-map.html',
+    [
+      'APS Live 產品標準驗收',
+      '共同基準',
+      '已發出',
+      '對方查看',
+      '可開工判斷',
+      '處理 / 補資料',
+      '正式更新',
+      '再驗 Trystero 通訊',
+      '頁面只顯示階段名稱、同機截圖、local queue 或 console clean 都不可代替流程走通',
+      '正式狀態仍須回到 terminal',
+    ],
+  );
+
+  const journeyProject = 'journey_handoff_flow';
+  writeFile(path.join(hubRoot, journeyProject, 'from_adam', 'outbox.log.md'), '');
+  writeFile(path.join(hubRoot, journeyProject, 'from_jay', 'outbox.log.md'), '');
+  writeFile(
+    path.join(hubRoot, journeyProject, '_ack', 'adam.ack.json'),
+    `${JSON.stringify({ agent: 'adam', project: journeyProject, consumed: [], declined: [], open_questions: [] }, null, 2)}\n`,
+  );
+  writeFile(
+    path.join(hubRoot, journeyProject, '_ack', 'jay.ack.json'),
+    `${JSON.stringify({ agent: 'jay', project: journeyProject, consumed: [], declined: [], open_questions: [] }, null, 2)}\n`,
+  );
+  writePeerCard(journeyProject, 'adam', 'Adam');
+  writePeerCard(journeyProject, 'jay', 'Jay');
+
+  writeTempApsConfig(journeyProject, 'adam');
+  const sharedGoalPublish = runPublish([
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'adam',
+    '--to', 'jay',
+    '--topic', 'shared_goal_and_roles',
+    '--body',
+    [
+      '## 共同目標',
+      'Adam 和 Jay 用 APS 完成一次可追蹤的任務交接。',
+      '## 本方任務',
+      'Adam 建立共同目標與分工，並準備第一個交接。',
+      '## 對方任務',
+      'Jay 先確認共同目標與分工，再按狀態接收具體交接。',
+      '## 交叉點',
+      '普通交接必須建立在 Jay 已確認共同基準之後。',
+      '## 請對方做的事',
+      '確認這份共同目標與分工是否可以作為目前有效基準。',
+      '## 不應誤解的事',
+      '這不是要求 Jay 立即處理普通任務。',
+      '## 真源指標',
+      'APS packet: shared_goal_and_roles v1。',
+      '## 接收方開工條件',
+      'Jay 在自己電腦上看到同一份 shared_goal_and_roles，並寫入確認 ack。',
+      '## 風險 / 未決事項',
+      '若 Jay 不同意，應退回或要求修訂，不應處理普通交接。',
+    ].join('\n'),
+    '--items', '確認共同目標與分工',
+    '--strict-handoff',
+  ]);
+  const sharedGoalPublishOutput = outputOf(sharedGoalPublish);
+  assert(sharedGoalPublish.status === 0, `journey shared goal publish: expected exit 0, got ${sharedGoalPublish.status}`, sharedGoalPublishOutput);
+  const sharedGoalPacketId = extractPublishedPacketId(sharedGoalPublishOutput, 'journey shared goal publish');
+
+  writeTempApsConfig(journeyProject, 'jay');
+  const jayBeforeConfirm = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayBeforeConfirmOutput = outputOf(jayBeforeConfirm);
+  assert(jayBeforeConfirm.status === 0, `journey jay check-aps before shared goal confirm: expected exit 0, got ${jayBeforeConfirm.status}`, jayBeforeConfirmOutput);
+  for (const text of ['你收到共同目標與分工，尚未確認', '未確認前不應直接處理普通任務', '先讀共同目標與分工正文']) {
+    assert(jayBeforeConfirmOutput.includes(text), `journey jay check-aps before confirm: missing ${text}`, jayBeforeConfirmOutput);
+  }
+
+  const jayConfirmSharedGoal = runApsProcess(['consume',
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'jay',
+    '--packet-id', sharedGoalPacketId,
+    '--version', '1',
+    '--result', 'Confirmed shared goal and roles v1 for journey handoff flow',
+  ]);
+  const jayConfirmSharedGoalOutput = outputOf(jayConfirmSharedGoal);
+  assert(jayConfirmSharedGoal.status === 0, `journey jay consume shared goal: expected exit 0, got ${jayConfirmSharedGoal.status}`, jayConfirmSharedGoalOutput);
+
+  const jayAfterConfirm = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayAfterConfirmOutput = outputOf(jayAfterConfirm);
+  assert(jayAfterConfirm.status === 0, `journey jay check-aps after shared goal confirm: expected exit 0, got ${jayAfterConfirm.status}`, jayAfterConfirmOutput);
+  for (const text of ['目前沒有明確卡點', '按共同目標與分工推進', '根據目前共同目標與分工']) {
+    assert(jayAfterConfirmOutput.includes(text), `journey jay check-aps after confirm: missing ${text}`, jayAfterConfirmOutput);
+  }
+  const jayAfterConfirmFull = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--full']);
+  const jayAfterConfirmFullOutput = outputOf(jayAfterConfirmFull);
+  assert(jayAfterConfirmFull.status === 0, `journey jay full check-aps after shared goal confirm: expected exit 0, got ${jayAfterConfirmFull.status}`, jayAfterConfirmFullOutput);
+  for (const text of ['2/2 已確認', '可按已確認分工處理普通交接']) {
+    assert(jayAfterConfirmFullOutput.includes(text), `journey jay full check-aps after confirm: missing ${text}`, jayAfterConfirmFullOutput);
+  }
+
+  writeTempApsConfig(journeyProject, 'adam');
+  const validHandoffPublish = runPublish([
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'adam',
+    '--to', 'jay',
+    '--topic', 'homepage_copy_review',
+    '--body',
+    [
+      '## 共同目標',
+      'Adam 和 Jay 用 APS 完成一次可追蹤的任務交接。',
+      '## 本方任務',
+      'Adam 已整理首頁文案草稿，等待 Jay 審閱。',
+      '## 對方任務',
+      'Jay 審閱首頁文案是否清楚，並指出必須修改的句子。',
+      '## 交叉點',
+      'Jay 的回覆會決定 Adam 是否修訂首頁文案。',
+      '## 請對方做的事',
+      '請 Jay 檢查首頁標題、副標與第一段是否適合新手理解。',
+      '## 不應誤解的事',
+      '不要改整個網站架構，不要直接發佈。',
+      '## 真源指標',
+      'Google Docs: https://docs.google.com/document/d/demo-homepage-copy-v1；段落: 首屏標題、副標、第一段。',
+      '## 接收方開工條件',
+      'Jay 在自己電腦能打開上述 Google Docs，確認版本是 demo-homepage-copy-v1，並知道只需回覆修改建議。',
+      '## 風險 / 未決事項',
+      '若 Jay 無法打開文件，應退回要求 Adam 補共享來源。',
+    ].join('\n'),
+    '--items', '審閱首頁標題;審閱首頁副標;指出第一段必改句子',
+    '--strict-handoff',
+  ]);
+  const validHandoffOutput = outputOf(validHandoffPublish);
+  assert(validHandoffPublish.status === 0, `journey valid handoff publish: expected exit 0, got ${validHandoffPublish.status}`, validHandoffOutput);
+  const validHandoffPacketId = extractPublishedPacketId(validHandoffOutput, 'journey valid handoff publish');
+
+  writeTempApsConfig(journeyProject, 'jay');
+  const jayCheckValidHandoff = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayCheckValidHandoffOutput = outputOf(jayCheckValidHandoff);
+  assert(jayCheckValidHandoff.status === 0, `journey jay check-aps valid handoff: expected exit 0, got ${jayCheckValidHandoff.status}`, jayCheckValidHandoffOutput);
+  for (const text of ['[✅ 可開工]', 'homepage copy review', '有 1 件交接等你處理']) {
+    assert(jayCheckValidHandoffOutput.includes(text), `journey jay check valid handoff: missing ${text}`, jayCheckValidHandoffOutput);
+  }
+
+  const jayCheckDriveValid = runCheckDrive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--from', 'adam']);
+  const jayCheckDriveValidOutput = outputOf(jayCheckDriveValid);
+  assert(jayCheckDriveValid.status === 0, `journey jay check-drive valid handoff: expected exit 0, got ${jayCheckDriveValid.status}`, jayCheckDriveValidOutput);
+  for (const text of ['今日收件報告', 'homepage_copy_review', '對方交了甚麼', '建議下一步']) {
+    assert(jayCheckDriveValidOutput.includes(text), `journey jay check-drive valid handoff: missing ${text}`, jayCheckDriveValidOutput);
+  }
+
+  const jayConsumeValid = runApsProcess(['consume',
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'jay',
+    '--packet-id', validHandoffPacketId,
+    '--version', '1',
+    '--result', 'Reviewed homepage_copy_review and preparing concrete feedback',
+  ]);
+  const jayConsumeValidOutput = outputOf(jayConsumeValid);
+  assert(jayConsumeValid.status === 0, `journey jay consume valid handoff: expected exit 0, got ${jayConsumeValid.status}`, jayConsumeValidOutput);
+
+  writeTempApsConfig(journeyProject, 'adam');
+  const badHandoffPublish = runPublish([
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'adam',
+    '--to', 'jay',
+    '--topic', 'homepage_asset_check',
+    '--body',
+    [
+      '## 共同目標',
+      'Adam 和 Jay 用 APS 完成一次可追蹤的任務交接。',
+      '## 本方任務',
+      'Adam 想請 Jay 檢查首頁素材。',
+      '## 對方任務',
+      'Jay 檢查素材是否可用。',
+      '## 交叉點',
+      'Jay 的判斷會影響 Adam 是否替換素材。',
+      '## 請對方做的事',
+      '請 Jay 確認素材是否可用。',
+      '## 不應誤解的事',
+      '不要直接替換正式素材。',
+      '## 風險 / 未決事項',
+      'Adam 尚未提供 Jay 可讀的素材來源。',
+    ].join('\n'),
+    '--items', '確認素材是否可用',
+  ]);
+  const badHandoffOutput = outputOf(badHandoffPublish);
+  assert(badHandoffPublish.status === 0, `journey loose bad handoff publish: expected exit 0, got ${badHandoffPublish.status}`, badHandoffOutput);
+  const badHandoffPacketId = extractPublishedPacketId(badHandoffOutput, 'journey loose bad handoff publish');
+
+  writeTempApsConfig(journeyProject, 'jay');
+  const jayCheckBadHandoff = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayCheckBadHandoffOutput = outputOf(jayCheckBadHandoff);
+  assert(jayCheckBadHandoff.status === 0, `journey jay check-aps bad handoff: expected exit 0, got ${jayCheckBadHandoff.status}`, jayCheckBadHandoffOutput);
+  for (const text of ['[⚠️ 需退回補資料]', 'homepage asset check', '交接資料不足', '請對方修訂原交接']) {
+    assert(jayCheckBadHandoffOutput.includes(text), `journey jay check bad handoff: missing ${text}`, jayCheckBadHandoffOutput);
+  }
+
+  const jayDeclineBad = runApsProcess(['decline',
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'jay',
+    '--packet-id', badHandoffPacketId,
+    '--version', '1',
+    '--reason', 'Missing receiver-readable source pointer and receiver start condition',
+  ]);
+  const jayDeclineBadOutput = outputOf(jayDeclineBad);
+  assert(jayDeclineBad.status === 0, `journey jay decline bad handoff: expected exit 0, got ${jayDeclineBad.status}`, jayDeclineBadOutput);
+
+  writeTempApsConfig(journeyProject, 'adam');
+  const adamSeesDecline = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
+  const adamSeesDeclineOutput = outputOf(adamSeesDecline);
+  assert(adamSeesDecline.status === 0, `journey adam check-aps after decline: expected exit 0, got ${adamSeesDecline.status}`, adamSeesDeclineOutput);
+  for (const text of ['對方退回了', 'Missing receiver-readable source pointer', 'revise']) {
+    assert(adamSeesDeclineOutput.includes(text), `journey adam check after decline: missing ${text}`, adamSeesDeclineOutput);
+  }
+  console.log('PASS Adam/Jay shared-goal to strict handoff journey is regression-covered');
+
   publishReadyProject('strict_publish_incomplete');
   expectPublishCase(
     'strict handoff blocks incomplete packet',
@@ -280,7 +736,7 @@ try {
       '--strict-handoff',
     ],
     1,
-    ['交接資料未齊', '缺少', '共同目標', '證據位置'],
+    ['交接資料未齊', '缺少', '共同目標', '真源指標'],
   );
 
   writeTempApsConfig('starter_pack_demo', 'adam');
@@ -371,6 +827,111 @@ try {
   const provisionalJoinOutput = outputOf(provisionalJoin);
   assert(provisionalJoin.status === 0, `provisional join init: expected exit 0, got ${provisionalJoin.status}`, provisionalJoinOutput);
   console.log('PASS init allows agreed provisional starter identity to self-confirm');
+  const postJoinProject = 'post_join_peer_confirmation';
+  const postInitiatorRoot = makeHandoffProject('post-join-mira-project');
+  const postInitiatorInit = runApsProcess(
+    ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', postJoinProject, '--agent-id', 'mira_zero'],
+    postInitiatorRoot,
+  );
+  assert(postInitiatorInit.status === 0, `post-join mira init: expected exit 0, got ${postInitiatorInit.status}`, outputOf(postInitiatorInit));
+
+  writeTempApsConfig(postJoinProject, 'mira_zero');
+  const postJoinInvite = runApsProcess(['peer', 'invite']);
+  assert(postJoinInvite.status === 0, `post-join invite: expected exit 0, got ${postJoinInvite.status}`, outputOf(postJoinInvite));
+
+  const postJoinerRoot = makeHandoffProject('post-join-noah-project');
+  const postJoinerInit = runApsProcess(
+    ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', postJoinProject, '--agent-id', 'noah_joiner'],
+    postJoinerRoot,
+  );
+  assert(postJoinerInit.status === 0, `post-join noah init: expected exit 0, got ${postJoinerInit.status}`, outputOf(postJoinerInit));
+
+  writeTempApsConfig(postJoinProject, 'mira_zero');
+  const postJoinPeerAdd = runApsProcess(['peer', 'add', '--agent-id', 'noah_joiner', '--display-name', 'Noah Joiner']);
+  const postJoinPeerAddOutput = outputOf(postJoinPeerAdd);
+  assert(postJoinPeerAdd.status === 0, `post-join peer add: expected exit 0, got ${postJoinPeerAdd.status}`, postJoinPeerAddOutput);
+  assert(postJoinPeerAddOutput.includes('confirmed 已保留'), 'post-join peer add must not downgrade a confirmed joiner', postJoinPeerAddOutput);
+  const noahCardAfterAdd = JSON.parse(fs.readFileSync(path.join(hubRoot, postJoinProject, '_peers', 'agents', 'noah_joiner.json'), 'utf8'));
+  assert(noahCardAfterAdd.peer_state === 'confirmed', 'post-join peer add must preserve confirmed peer card', JSON.stringify(noahCardAfterAdd, null, 2));
+
+  const postJoinSharedGoal = runPublish([
+    '--hub-root', hubRoot,
+    '--project', postJoinProject,
+    '--agent-id', 'mira_zero',
+    '--to', 'noah_joiner',
+    '--topic', 'shared_goal_and_roles',
+    '--body',
+    [
+      '## 共同目標',
+      'Mira 和 Noah 用 APS 完成加入後共同基準確認。',
+      '## 本方任務',
+      'Mira 發出第一份共同目標與分工確認包。',
+      '## 對方任務',
+      'Noah 先確認共同基準,再接收普通交接。',
+      '## 交叉點',
+      '普通交接要等 Noah 已確認共同基準後才可推進。',
+      '## 請對方做的事',
+      '請 Noah 確認這份共同目標與分工。',
+      '## 不應誤解的事',
+      '這不是要求 Noah 立即處理普通任務。',
+      '## 真源指標',
+      'APS packet: shared_goal_and_roles v1。',
+      '## 接收方開工條件',
+      'Noah 在自己 workspace 能看到同一份 shared_goal_and_roles 並確認。',
+      '## 風險 / 未決事項',
+      '若 Noah 不同意,應退回或要求修訂。',
+    ].join('\n'),
+    '--items', '確認共同目標與分工',
+    '--strict-handoff',
+  ]);
+  const postJoinSharedGoalOutput = outputOf(postJoinSharedGoal);
+  assert(postJoinSharedGoal.status === 0, `post-join shared goal publish: expected exit 0, got ${postJoinSharedGoal.status}`, postJoinSharedGoalOutput);
+  const postJoinSharedGoalPacketId = extractPublishedPacketId(postJoinSharedGoalOutput, 'post-join shared goal publish');
+
+  writeTempApsConfig(postJoinProject, 'noah_joiner');
+  const postJoinConsume = runApsProcess(['consume',
+    '--hub-root', hubRoot,
+    '--project', postJoinProject,
+    '--agent-id', 'noah_joiner',
+    '--packet-id', postJoinSharedGoalPacketId,
+    '--version', '1',
+    '--result', 'Confirmed shared_goal_and_roles v1 for post-join peer confirmation journey',
+  ]);
+  assert(postJoinConsume.status === 0, `post-join shared goal consume: expected exit 0, got ${postJoinConsume.status}`, outputOf(postJoinConsume));
+
+  writeTempApsConfig(postJoinProject, 'mira_zero');
+  const postJoinOrdinary = runPublish([
+    '--hub-root', hubRoot,
+    '--project', postJoinProject,
+    '--agent-id', 'mira_zero',
+    '--to', 'noah_joiner',
+    '--topic', 'first_ordinary_handoff',
+    '--body',
+    [
+      '## 共同目標',
+      'Mira 和 Noah 用 APS 完成加入後第一份普通交接。',
+      '## 本方任務',
+      'Mira 已完成共同基準確認,準備交出第一個小任務。',
+      '## 對方任務',
+      'Noah 檢查第一份普通交接是否可開工。',
+      '## 交叉點',
+      'Noah 的判斷會決定下一輪是否需要補資料。',
+      '## 請對方做的事',
+      '請 Noah 回覆第一份普通交接是否可開工。',
+      '## 不應誤解的事',
+      '不要把這包當成新的共同基準版本。',
+      '## 真源指標',
+      'APS packet: shared_goal_and_roles v1; docs/demo-first-handoff.md v1。',
+      '## 接收方開工條件',
+      'Noah 已確認 shared_goal_and_roles v1,並能讀到本普通交接包。',
+      '## 風險 / 未決事項',
+      '若普通交接內容不足,Noah 應退回要求補資料。',
+    ].join('\n'),
+    '--items', '判斷第一份普通交接是否可開工',
+    '--strict-handoff',
+  ]);
+  assert(postJoinOrdinary.status === 0, `post-join first ordinary handoff publish: expected exit 0, got ${postJoinOrdinary.status}`, outputOf(postJoinOrdinary));
+  console.log('PASS post-join peer confirmation preserves confirmed joiner and reaches first ordinary handoff');
 
   publishReadyProject('publish_missing_peer');
   expectPublishCase(
@@ -439,6 +1000,8 @@ try {
       '這不是要求 Jay 在缺少來源檔時硬做。',
       '## 證據位置',
       'missing-source.md',
+      '## 接收方開工條件',
+      'Jay 能在共用 Drive 內找到 missing-source.md，否則應退回補資料。',
       '## 風險',
       '來源檔缺失。',
     ].join('\n'),
@@ -471,18 +1034,17 @@ try {
   const declineCheckAps = runApsProcess(['check-aps']);
   const declineCheckApsOutput = outputOf(declineCheckAps);
   assert(declineCheckAps.status === 0, `decline check-aps: expected exit 0, got ${declineCheckAps.status}`, declineCheckApsOutput);
-  for (const text of ['對方退回', 'missing source file', 'revise 修訂', 'withdraw 撤回', 'close 收結']) {
+  for (const text of ['對方退回', 'missing source file', '修訂', '撤回', '收結']) {
     assert(declineCheckApsOutput.includes(text), `decline check-aps: missing ${text}`, declineCheckApsOutput);
   }
   const declineDashboard = runApsProcess(['dashboard']);
   const declineDashboardOutput = outputOf(declineDashboard);
   assert(declineDashboard.status === 0, `decline dashboard: expected exit 0, got ${declineDashboard.status}`, declineDashboardOutput);
-  const declineDashboardHtml = fs.readFileSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard_adam.html'), 'utf8');
-  const declineDashboardIndexHtml = fs.readFileSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard.html'), 'utf8');
-  for (const text of ['對方退回', 'missing source file', 'revise 修訂', 'withdraw 撤回', 'close 收結']) {
-    assert(declineDashboardHtml.includes(text), `decline dashboard html: missing ${text}`, declineDashboardHtml);
+  for (const text of ['dashboard 已退役', '未寫入任何 dashboard HTML', '請用 `npx aps check-aps`']) {
+    assert(declineDashboardOutput.includes(text), `decline dashboard retired output: missing ${text}`, declineDashboardOutput);
   }
-  assert(declineDashboardIndexHtml.includes('共用索引，不是個人待辦頁'), 'decline dashboard index: missing shared-index boundary', declineDashboardIndexHtml);
+  assert(!fs.existsSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard_adam.html')), 'retired dashboard command must not write personal dashboard');
+  assert(!fs.existsSync(path.join(hubRoot, 'decline_packet_demo', '_context', 'dashboard.html')), 'retired dashboard command must not write dashboard index');
   console.log('PASS decline marks packet returned and surfaces sender next action');
 
   const identityProjectRoot = makeHandoffProject('identity-conflict-project');
@@ -586,16 +1148,31 @@ try {
   const identityCheckApsOutput = outputOf(identityCheckAps);
   assert(identityCheckAps.status === 0, `identity check-aps: expected exit 0, got ${identityCheckAps.status}`, identityCheckApsOutput);
   for (const text of [
-    '風險與提醒',
+    '需要注意',
+    '建議下一步（可直接複製給 AI）',
     'alex.ack.json 內的 agent 是 mary',
     'casey.ack.json 內的 project 是 wrong_project',
     'lane 名稱 from_bad-name 不是合法 APS 名稱',
+  ]) {
+    assert(identityCheckApsOutput.includes(text), `identity check-aps: missing ${text}`, identityCheckApsOutput);
+  }
+  for (const text of ['風險與提醒', '數量摘要（排錯用）', '同步與 APS Live（排錯用）']) {
+    assert(!identityCheckApsOutput.includes(text), `identity check-aps default: should not include ${text}`, identityCheckApsOutput);
+  }
+  const identityCheckApsFull = runApsProcess(['check-aps', '--full'], identityProjectRoot);
+  const identityCheckApsFullOutput = outputOf(identityCheckApsFull);
+  assert(identityCheckApsFull.status === 0, `identity check-aps --full: expected exit 0, got ${identityCheckApsFull.status}`, identityCheckApsFullOutput);
+  for (const text of [
+    '風險與提醒',
+    '數量摘要（排錯用）',
+    '同步與 APS Live（排錯用）',
+    'HTML dashboard 已退役',
     'bob.json 內的 agent_id 是 robert',
     'casey.json 內的 project 是 wrong_project',
     'dana.json 內的 lane 是 from_different_dana',
     'bob 有 peer card,但缺少 lane 缺少 ack',
   ]) {
-    assert(identityCheckApsOutput.includes(text), `identity check-aps: missing ${text}`, identityCheckApsOutput);
+    assert(identityCheckApsFullOutput.includes(text), `identity check-aps --full: missing ${text}`, identityCheckApsFullOutput);
   }
   console.log('PASS identity conflict scan catches ack, lane, peer-card, and incomplete identity issues');
 
@@ -629,7 +1206,10 @@ try {
         '這不是要求 Jay 發佈版本或覆寫文件。',
         '',
         '## 證據位置',
-        '參考 README 與 skills/aps/SKILL.md 的新手交接流程。',
+        '參考共用 Drive 內 README.md 與 skills/aps/SKILL.md 的新手交接流程。',
+        '',
+        '## 接收方開工條件',
+        'Jay 能在自己的項目資料夾找到 README.md 與 skills/aps/SKILL.md，並確認這兩份檔案是最新同步版本。',
         '',
         '## 風險 / 未決事項',
         '仍需真實新手演練驗證。',
@@ -673,6 +1253,9 @@ try {
         '## 證據位置',
         '參考 README 與 skills/aps/SKILL.md。',
         '',
+        '## 接收方開工條件',
+        'Jay 能在自己的項目資料夾找到 README.md 與 skills/aps/SKILL.md。',
+        '',
         '## 風險 / 未決事項',
         '仍需真實新手演練驗證。',
       ].join('\n'),
@@ -715,7 +1298,7 @@ try {
       '--strict-handoff',
     ],
     1,
-    ['交接資料未齊', '內容不足', '共同目標', '證據位置'],
+    ['交接資料未齊', '內容不足', '共同目標', '真源指標'],
   );
 
   publishReadyProject('strict_publish_template_words');
@@ -757,8 +1340,268 @@ try {
       '--strict-handoff',
     ],
     1,
-    ['交接資料未齊', '內容不足', '共同目標', '本方任務', '證據位置'],
+    ['交接資料未齊', '內容不足', '共同目標', '本方任務', '真源指標'],
   );
+
+  publishReadyProject('strict_local_source');
+  expectPublishCase(
+    'strict handoff blocks sender-local-only source',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_local_source',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'local_only_source',
+      '--body',
+      [
+        '## 共同目標',
+        '讓 Jay 審閱首頁交接流程。',
+        '',
+        '## 本方任務',
+        'Adam 已整理目前首頁草稿。',
+        '',
+        '## 對方任務',
+        'Jay 需要審閱首頁草稿。',
+        '',
+        '## 交叉點',
+        'Jay 只審閱首頁草稿，不改其他頁。',
+        '',
+        '## 請對方做的事',
+        '請審閱首頁草稿是否清楚。',
+        '',
+        '## 不應誤解',
+        '這不是要求 Jay 發佈網站。',
+        '',
+        '## 證據位置',
+        'C:\\Users\\adam\\Desktop\\homepage-draft.md',
+        '',
+        '## 接收方開工條件',
+        'Jay 能讀到首頁草稿。',
+        '',
+        '## 風險 / 未決事項',
+        '若 Jay 讀不到草稿，應退回補資料。',
+      ].join('\n'),
+      '--items', '審閱首頁草稿是否清楚',
+      '--strict-handoff',
+    ],
+    1,
+    ['交接資料未齊', '可共享真源指標'],
+  );
+
+  publishReadyProject('strict_no_start');
+  expectPublishCase(
+    'strict handoff blocks missing receiver start condition',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_no_start',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'missing_start_condition',
+      '--body',
+      [
+        '## 共同目標',
+        '讓 Jay 審閱首頁交接流程。',
+        '',
+        '## 本方任務',
+        'Adam 已整理目前首頁草稿。',
+        '',
+        '## 對方任務',
+        'Jay 需要審閱首頁草稿。',
+        '',
+        '## 交叉點',
+        'Jay 只審閱首頁草稿，不改其他頁。',
+        '',
+        '## 請對方做的事',
+        '請審閱首頁草稿是否清楚。',
+        '',
+        '## 不應誤解',
+        '這不是要求 Jay 發佈網站。',
+        '',
+        '## 證據位置',
+        '共用 Drive 內 docs/guides/index.html，版本以 2026-06-14 同步檔為準。',
+        '',
+        '## 風險 / 未決事項',
+        '若 Jay 讀不到草稿，應退回補資料。',
+      ].join('\n'),
+      '--items', '審閱首頁草稿是否清楚',
+      '--strict-handoff',
+    ],
+    1,
+    ['交接資料未齊', '接收方開工條件'],
+  );
+  publishReadyProject('strict_secret_like_body');
+  const fakeSecretSamples = [
+    ['openai key', 'sk-' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['anthropic key', 'sk-' + 'ant-APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['github pat', 'github_pat_' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['github oauth', 'gho_' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['github server', 'ghs_' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['notion token', 'ntn_' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['secret prefix', 'secret_' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['google oauth', 'ya29.' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['oauth refresh', '1//' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['slack bot', 'xoxb-' + 'APS-QC-FAKE-SECRET-000000'],
+    ['slack user', 'xoxp-' + 'APS-QC-FAKE-SECRET-000000'],
+    ['slack app', 'sl.' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['google api', 'AIza' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
+    ['aws access', 'AKIAABCDEFGHIJKLMNOP'],
+    ['private key', '-----BEGIN PRIVATE KEY-----\\nAPS_QC_FAKE_SECRET_DO_NOT_USE_000000\\n-----END PRIVATE KEY-----'],
+  ];
+  for (const [sampleName, sampleValue] of fakeSecretSamples) {
+    expectPublishCase(
+      `strict handoff blocks credential-like body: ${sampleName}`,
+      [
+        '--hub-root', hubRoot,
+        '--project', 'strict_secret_like_body',
+        '--agent-id', 'adam',
+        '--to', 'jay',
+        '--topic', `credential_like_body_${sampleName.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
+        '--body',
+        [
+          '## 共同目標',
+          '讓 Jay 審閱首頁交接流程。',
+          '',
+          '## 本方任務',
+          'Adam 已整理目前首頁草稿。',
+          '',
+          '## 對方任務',
+          'Jay 需要審閱首頁草稿。',
+          '',
+          '## 交叉點',
+          'Jay 只審閱首頁草稿，不改其他頁。',
+          '',
+          '## 請對方做的事',
+          '請審閱首頁草稿是否清楚。',
+          '',
+          '## 不應誤解',
+          '這不是要求 Jay 發佈網站。',
+          '',
+          '## 證據位置',
+          '共用 Drive 內 docs/guides/index.html，版本以 2026-06-14 同步檔為準。',
+          '',
+          '## 接收方開工條件',
+          'Jay 能讀到共用 Drive 內 docs/guides/index.html。',
+          '',
+          '## 風險 / 未決事項',
+          `測試用假字串 ${sampleValue} 必須被 strict handoff 擋下。`,
+        ].join('\\n'),
+        '--items', '審閱首頁草稿是否清楚',
+        '--strict-handoff',
+      ],
+      1,
+      ['交接資料未齊', 'API key', 'token', '憑證'],
+    );
+  }
+  const statusMatrixProject = 'status_lifecycle_matrix';
+  writeTempApsConfig(statusMatrixProject, 'adam');
+  writeFile(path.join(hubRoot, statusMatrixProject, 'from_adam', 'outbox.log.md'), '');
+  writeFile(path.join(hubRoot, statusMatrixProject, 'from_jay', 'outbox.log.md'), '');
+  writeFile(
+    path.join(hubRoot, statusMatrixProject, '_ack', 'jay.ack.json'),
+    `${JSON.stringify({ agent: 'jay', project: statusMatrixProject, consumed: [], declined: [], open_questions: [] }, null, 2)}\n`,
+  );
+  writePeerCard(statusMatrixProject, 'adam', 'Adam');
+  writePeerCard(statusMatrixProject, 'jay', 'Jay');
+
+  const publishLifecyclePacket = (topic, body) => {
+    writeTempApsConfig(statusMatrixProject, 'adam');
+    const result = runPublish([
+      '--hub-root', hubRoot,
+      '--project', statusMatrixProject,
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', topic,
+      '--body', body,
+      '--items', '處理這個 lifecycle 狀態矩陣案例',
+    ]);
+    const output = outputOf(result);
+    assert(result.status === 0, `status lifecycle ${topic} publish: expected exit 0, got ${result.status}`, output);
+    return extractPublishedPacketId(output, `status lifecycle ${topic} publish`);
+  };
+
+  const expectLifecycleStatus = (name, packetId, requiredText) => {
+    writeTempApsConfig(statusMatrixProject, 'adam');
+    const result = runApsProcess(['status', '--hub-root', hubRoot, '--project', statusMatrixProject, '--agent-id', 'adam', '--packet-id', packetId]);
+    const output = outputOf(result);
+    assert(result.status === 0, `${name}: expected exit 0, got ${result.status}`, output);
+    for (const text of requiredText) {
+      assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
+    }
+  };
+
+  const reviewPacketId = publishLifecyclePacket('status_matrix_review', '請 Jay 審閱 lifecycle 狀態矩陣案例。');
+  expectLifecycleStatus('status matrix pending v1', reviewPacketId, ['最新版本: v1', '尚未看到收件方處理此最新版本']);
+  writeTempApsConfig(statusMatrixProject, 'adam');
+  const reviseMatrix = runApsProcess(['revise',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'adam',
+    '--packet-id', reviewPacketId,
+    '--body', 'v2 補充 Jay 需要的開工條件。',
+    '--reason', '補齊 receiver start condition for lifecycle matrix',
+    '--items', '重新審閱 lifecycle 狀態矩陣案例',
+  ]);
+  assert(reviseMatrix.status === 0, `status matrix revise: expected exit 0, got ${reviseMatrix.status}`, outputOf(reviseMatrix));
+  assert(outputOf(reviseMatrix).includes('已修訂'), 'status matrix revise: missing revised output', outputOf(reviseMatrix));
+  expectLifecycleStatus('status matrix pending v2', reviewPacketId, ['最新版本: v2', '尚未看到收件方處理此最新版本']);
+  writeTempApsConfig(statusMatrixProject, 'jay');
+  const declineMatrix = runApsProcess(['decline',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'jay',
+    '--packet-id', reviewPacketId,
+    '--version', '2',
+    '--reason', 'Need one more receiver-readable source pointer',
+  ]);
+  assert(declineMatrix.status === 0, `status matrix decline v2: expected exit 0, got ${declineMatrix.status}`, outputOf(declineMatrix));
+  expectLifecycleStatus('status matrix declined v2', reviewPacketId, ['最新版本: v2', '收件方已退回 / 不能處理', 'Need one more receiver-readable source pointer']);
+  writeTempApsConfig(statusMatrixProject, 'adam');
+  const withdrawOldVersion = runApsProcess(['withdraw',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'adam',
+    '--packet-id', reviewPacketId,
+    '--version', '1',
+    '--reason', 'old version boundary check',
+  ]);
+  assert(withdrawOldVersion.status === 1, `status matrix withdraw old version: expected exit 1, got ${withdrawOldVersion.status}`, outputOf(withdrawOldVersion));
+  assert(outputOf(withdrawOldVersion).includes('withdraw only supports the latest version'), 'status matrix withdraw old version: missing latest-version boundary', outputOf(withdrawOldVersion));
+
+  const withdrawPacketId = publishLifecyclePacket('status_matrix_withdraw', '請 Jay 忽略這個稍後撤回的案例。');
+  writeTempApsConfig(statusMatrixProject, 'adam');
+  const withdrawMatrix = runApsProcess(['withdraw',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'adam',
+    '--packet-id', withdrawPacketId,
+    '--reason', 'No longer needed for lifecycle matrix',
+  ]);
+  assert(withdrawMatrix.status === 0, `status matrix withdraw latest: expected exit 0, got ${withdrawMatrix.status}`, outputOf(withdrawMatrix));
+  expectLifecycleStatus('status matrix withdrawn', withdrawPacketId, ['最新版本: v1', '最新版本已撤回']);
+
+  const closePacketId = publishLifecyclePacket('status_matrix_close', '請 Jay 處理後讓 Adam 收結這個案例。');
+  writeTempApsConfig(statusMatrixProject, 'jay');
+  const consumeMatrix = runApsProcess(['consume',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'jay',
+    '--packet-id', closePacketId,
+    '--version', '1',
+    '--result', 'Handled lifecycle matrix close case',
+  ]);
+  assert(consumeMatrix.status === 0, `status matrix consume: expected exit 0, got ${consumeMatrix.status}`, outputOf(consumeMatrix));
+  expectLifecycleStatus('status matrix consumed', closePacketId, ['最新版本: v1', '收件方已標記處理', 'Handled lifecycle matrix close case']);
+  writeTempApsConfig(statusMatrixProject, 'adam');
+  const closeMatrix = runApsProcess(['close',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'adam',
+    '--packet-id', closePacketId,
+    '--reason', 'Accepted receiver result for lifecycle matrix',
+  ]);
+  assert(closeMatrix.status === 0, `status matrix close: expected exit 0, got ${closeMatrix.status}`, outputOf(closeMatrix));
+  expectLifecycleStatus('status matrix closed', closePacketId, ['最新版本: v1', '已收結', 'Accepted receiver result for lifecycle matrix']);
+  console.log('PASS status, revise, withdraw, close lifecycle matrix is regression-covered');
 
   packet('context_valid', 'adam', '20260531T120000Z__context_source');
   contextLog('context_valid', 'adam', {
@@ -869,7 +1712,7 @@ try {
   );
   writeFile(
     path.join(hubRoot, 'dashboard_daily', 'from_adam', 'packets', '20260531T120500Z__shared_goal_and_roles__v1', 'packet.md'),
-    `---\npacket_id: 20260531T120500Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: dashboard_daily\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-05-31T12:05:00Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"確認這份共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## 共同目標\n用 APS 驗證一個人可快速看懂項目現況、分工與下一步。\n\n## 每人角色\nadam 負責發起與整理; jay 負責確認可讀性與回覆。\n\n## 第一輪分工\nadam 發出共同目標與分工; jay 確認或指出不一致。\n\n## 驗收標準\nDashboard 首屏能看到共同目標、角色分工、交接同步和下一步。\n`,
+    `---\npacket_id: 20260531T120500Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: dashboard_daily\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-05-31T12:05:00Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"確認這份共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## 共同目標\n用 APS 驗證一個人可快速看懂項目現況、分工與下一步。\n\n## 每人角色\nadam 負責發起與整理; jay 負責確認可讀性與回覆。\n\n## 第一輪分工\nadam 發出共同目標與分工; jay 確認或指出不一致。\n\n## 驗收標準\nCheck APS terminal 狀態能看到共同目標、角色分工、交接同步和下一步。\n`,
   );
   writeFile(
     path.join(hubRoot, 'dashboard_daily', 'from_adam', 'packets', '20260531T121000Z__release_review__v1', 'packet.md'),
@@ -1014,11 +1857,11 @@ try {
     ['已生成唯讀 HTML 大局速覽', 'overview.html'],
   );
   const overviewHtml = fs.readFileSync(path.join(hubRoot, 'context_add', '_context', 'overview.html'), 'utf8');
-  assert(overviewHtml.includes('APS 營運總覽'), 'context html: missing operations overview title', overviewHtml);
-  assert(overviewHtml.includes('資料是否同步'), 'context html: missing troubleshooting sync section', overviewHtml);
+  assert(overviewHtml.includes('Project Context Index'), 'context html: missing context overview title', overviewHtml);
+  assert(overviewHtml.includes('背景索引'), 'context html: missing background index section', overviewHtml);
   assert(overviewHtml.includes('daily_summary'), 'context html: missing generated context workstream', overviewHtml);
   assert(overviewHtml.includes('packet:jay:20260531T120000Z__daily_summary:v1'), 'context html: missing source ref', overviewHtml);
-  assert(overviewHtml.includes('這只適用於這部電腦，不要放入給對方的通知'), 'context html: local path should be marked machine-local', overviewHtml);
+  assert(!overviewHtml.includes(hubRoot), 'context html: should not expose local hub path after dashboard retirement', overviewHtml);
   console.log('PASS context html contains safe overview content');
   expectCase(
     'context html marks conflict freshness as bad',
@@ -1030,77 +1873,60 @@ try {
   assert(conflictHtml.includes('badge bad') && conflictHtml.includes('與 packet 衝突'), 'context html: conflict freshness should use bad badge', conflictHtml);
   console.log('PASS context html uses bad badge for conflict freshness');
   expectDashboardCase(
-    'dashboard creates operations overview',
+    'dashboard command is retired and writes no HTML',
     ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay'],
     0,
-    ['已生成唯讀 APS 營運總覽', '個人 dashboard', 'dashboard_adam.html', '共用入口', 'dashboard.html'],
+    ['dashboard 已退役', '未寫入任何 dashboard HTML', '請用 `npx aps check-aps`', 'APS Live 交接追蹤頁'],
   );
-  const dashboardHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard_adam.html'), 'utf8');
-  const dashboardIndexHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html'), 'utf8');
-  for (const text of [
-    'APS 營運總覽',
-    '新手決策視角',
-    '頁面擁有人',
-    '👤 個人頁',
-    '只看這個 APS 名稱的待辦',
-    '不是你？返回共用入口',
-    '自己',
-    '對方',
-    '🔎 現在怎樣做',
-    '🚀 待我處理',
-    '看到 pending 不等於可以直接做',
-    '開工判斷',
-    '⚠️ 需退回補資料',
-    '🎯 共同目標與分工',
-    '確認進度',
-    '用 APS 驗證一個人可快速看懂項目現況、分工與下一步。',
-    'adam 負責發起與整理; jay 負責確認可讀性與回覆。',
-    '👥 逐人確認狀態',
-    '已確認',
-    '🔧 資料是否同步',
-    '此頁只讀，不會通知對方',
-    '建議下一步',
-    '📤 我交出去的事',
-    '📎 證據來源',
-    '🗂️ 背景資料',
-    '👥 誰在這個項目',
-    '⚠️ 風險與未決',
-    'daily_summary',
-    '對方已標記處理',
-    'ack 已記錄',
-    '不推斷對方是否已看到通知',
-    '打開資料夾',
-    '共用 Drive 本機路徑',
-    'Google Docs',
-    'https://docs.google.com/document/d/demo-project-context-index',
-    '技術來源：已同步的 packet / outbox / ack / context',
-  ]) {
-    assert(dashboardHtml.includes(text), `dashboard html: missing ${text}`, dashboardHtml);
-  }
-  assert(dashboardHtml.includes(hubRoot), 'dashboard html: should show local hub path in troubleshooting area', dashboardHtml);
-  assert(!dashboardHtml.includes('<h2>今日要看</h2>'), 'dashboard html: should not keep a separate 今日要看 section', dashboardHtml);
-  assert(!dashboardHtml.includes('<strong>執行真相一律以 packet / outbox / ack 為準。</strong>'), 'dashboard html: should not lead with packet authority warning', dashboardHtml);
-  for (const text of [
-    'APS dashboard 入口',
-    '共用索引，不是個人待辦頁',
-    '🧭 共用入口，不是個人待辦',
-    'dashboard_adam.html',
-    '如果你不是 adam，不要照這頁處理待辦',
-    'dashboard_jay.html 尚未生成',
-    '每次執行 <code>Check APS</code> 或 <code>dashboard</code> 時，APS 會根據 peer 清單與已生成檔案重新計算此表。',
-    '生成狀態',
-    '✅ 已生成：adam 的個人頁（本次更新）',
-    '🚀 尚未生成：jay 需要在自己的本機項目資料夾執行 Check APS',
-    '請打開自己的 APS 名稱頁',
-  ]) {
-    assert(dashboardIndexHtml.includes(text), `dashboard index html: missing ${text}`, dashboardIndexHtml);
-  }
-  assert(!dashboardIndexHtml.includes('以 adam 視角查看'), 'dashboard index html: should not claim to be adam perspective', dashboardIndexHtml);
-  assert(!dashboardIndexHtml.includes('待我處理'), 'dashboard index html: should not include personal action sections', dashboardIndexHtml);
-  console.log('PASS dashboard contains operations overview sections and Google Docs link');
+  assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard_adam.html')), 'retired dashboard must not write personal dashboard');
+  assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html')), 'retired dashboard must not write dashboard index');
+  const autoGeneratedLiveProjectPath = path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_adam.html');
   expectCheckApsCase(
-    'check-aps shows full APS status and updates dashboard',
+    'check-aps shows user-facing status and keeps troubleshooting out of default view',
     ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay'],
+    0,
+    [
+      'APS 整體狀態',
+      '結論',
+      '下一句可對 AI 說',
+      '交接包狀態',
+      '是否如期',
+      '建議下一步',
+      '建議下一步（可直接複製給 AI）',
+      '```text',
+      '[⚠️ 需退回補資料]',
+      '[🔎 先核對風險]',
+      'APS 狀態已在 terminal 顯示',
+      'HTML dashboard 已退役',
+      '不用打開 HTML 也可以繼續',
+      '真正操作仍在這個 AI terminal',
+      '不是背景自動監察',
+      'APS Live 即時協作',
+      `APS Live: ${autoGeneratedLiveProjectPath}`,
+      '頁面已由 Check APS 自動生成 / 更新',
+      '你只需打開頁面使用',
+      'Live 只做即時核對',
+    ],
+    [
+      '📊 數量摘要（排錯用）',
+      '🔁 同步與 APS Live（排錯用）',
+      'dashboard.html',
+      '🎯 共同目標與分工詳情',
+      '📤 我交出去的事',
+      '👥 協作對象',
+      '共用 Drive 本機路徑:',
+      '來源:',
+      'packet:',
+      '可對 AI 說：「請讀',
+      '生成方式：請 AI 執行',
+    ],
+  );
+  assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard_adam.html')), 'check-aps must not write personal dashboard after retirement');
+  assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html')), 'check-aps must not write dashboard index after retirement');
+  assert(fs.existsSync(autoGeneratedLiveProjectPath), 'check-aps should auto-generate APS Live HTML when Live coordination is useful');
+  expectCheckApsCase(
+    'check-aps --full shows troubleshooting details',
+    ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay', '--full'],
     0,
     [
       'APS 整體狀態',
@@ -1111,18 +1937,12 @@ try {
       '等待對方: 0',
       '用 APS 驗證一個人可快速看懂項目現況、分工與下一步。',
       '逐人確認: jay: 已確認',
-      '資料是否同步（排錯用）',
-      'HTML dashboard',
-      '目前判斷',
-      '待我處理',
-      '[⚠️ 需退回補資料]',
-      '[🔎 先核對風險]',
-      '來源:',
-      '我交出去的事',
-      '協作對象',
-      '個人 dashboard 已按需更新',
-      '共用 dashboard 入口已按需更新',
-      '不是背景自動監察',
+      '📊 數量摘要（排錯用）',
+      '🔁 同步與 APS Live（排錯用）',
+      'HTML dashboard 已退役',
+      '共用 Drive 本機路徑:',
+      '建議下一步（可直接複製給 AI）',
+      '來源: packet:',
     ],
   );
   expectCheckApsCase(
@@ -1133,10 +1953,510 @@ try {
       '共同目標與分工: 未見目前有效基準',
       '[🔎 先建立基準]',
       '不要先發普通任務包',
-      'shared_goal_and_roles',
-      '資料是否同步（排錯用）',
+      '下一句可對 AI 說',
     ],
   );
+  expectCheckApsCase(
+    'check-aps demo preview shows terminal-first flow without real Drive writes',
+    ['--demo-preview'],
+    0,
+    [
+      'Demo preview',
+      '假資料示範',
+      '不讀 .aps/config.json',
+      '不寫共用 Drive',
+      'APS 整體狀態',
+      '結論',
+      '下一句可對 AI 說',
+      '交接包狀態',
+      '是否如期',
+      '建議下一步',
+      '建議下一步（可直接複製給 AI）',
+      '```text',
+      '有 1 件交接資料不足',
+      '需退回補資料',
+      'demo preview 不會生成 dashboard HTML',
+      'APS Live 即時協作',
+      '正式項目會由 Check APS 自動生成 APS Live 頁',
+      'demo preview 不會寫入 HTML',
+      'Live 只做即時核對',
+    ],
+    [
+      '📊 數量摘要（排錯用）',
+      '🔁 同步與 APS Live（排錯用）',
+      '共用 Drive 本機路徑:',
+      '來源:',
+      'packet:',
+      '可對 AI 說：「請讀',
+      '生成方式：請 AI 執行',
+    ],
+  );
+  expectCheckApsCase(
+    'check-aps demo preview shows shared-goal confirmation mainline',
+    ['--demo-preview', '--scenario', 'shared-goal'],
+    0,
+    [
+      '示範場景: 共同目標與分工確認',
+      '共同目標與分工仍未完成逐人確認',
+      '第一輪正式任務要先等基準一致',
+      '等待協作者確認',
+      '建議開 APS Live',
+      '正式項目會由 Check APS 自動生成 APS Live 頁',
+      'demo preview 不會寫入 HTML',
+      '正式確認仍要回到 terminal',
+      '請用 APS 整理還有誰未確認共同目標與分工',
+    ],
+    [
+      '📊 數量摘要（排錯用）',
+      '🔁 同步與 APS Live（排錯用）',
+      '共用 Drive 本機路徑:',
+      '生成方式：請 AI 執行',
+    ],
+  );
+  expectCheckApsCase(
+    'check-aps demo preview --full shows troubleshooting details',
+    ['--demo-preview', '--full'],
+    0,
+    [
+      'Demo preview',
+      '📊 數量摘要（排錯用）',
+      '🔁 同步與 APS Live（排錯用）',
+      '共用 Drive 本機路徑:',
+      '建議下一步（可直接複製給 AI）',
+      '來源: packet:',
+    ],
+  );
+  const liveDemoPath = path.join(runRoot, 'aps-live-demo.html');
+  const liveDemoDryRunPath = path.join(runRoot, 'aps-live-demo-dry-run.html');
+  expectLiveCase(
+    'aps live demo dry-run checks handoff check page plan without writing html',
+    ['--demo-preview', '--dry-run', '--output', liveDemoDryRunPath],
+    0,
+    [
+      'dry-run 通過',
+      '將生成 HTML',
+      '未寫入 HTML',
+      '未建立資料夾',
+      '未改正式 APS 狀態',
+      '狀態欄位:',
+      'current_case_title',
+      'current_case_summary',
+      'current_question',
+      'suggested_message',
+      'current_station',
+      'can_start_label',
+      'waiting_for',
+      'next_formal_action',
+      'tracking_steps',
+      'handoff_chains',
+      'context_cards',
+      'evidence_refs',
+      'Trystero 是 APS Live 主流程',
+      '共同目標與分工確認',
+    ],
+  );
+  assert(!fs.existsSync(liveDemoDryRunPath), 'aps live demo dry-run should not write output html');
+
+  expectLiveCase(
+    'aps live demo preview creates local handoff check page without Drive writes',
+    ['--demo-preview', '--output', liveDemoPath],
+    0,
+    [
+      'APS Live 交接追蹤頁示範',
+      '不讀 .aps/config.json',
+      '不寫共用 Drive',
+      '不更新 packet / outbox / ack',
+      'Trystero 是 APS Live 主流程',
+    ],
+  );
+  const liveDemoHtml = fs.readFileSync(liveDemoPath, 'utf8');
+  for (const text of [
+    'APS Live 交接追蹤',
+    '交接單',
+    '交接單 1/1',
+    '目前只顯示主要交接單',
+    '正式交接仍是 adam → jay',
+    '交接進度',
+    'tracking-step-icon',
+    'tracking-step-status',
+    'tracking-legend',
+    '已完成',
+    '進行中',
+    '未通過 / 需處理',
+    '未開始',
+    '任務',
+    '真源',
+    '開工條件',
+    '交接事件紀錄',
+    '最近交接事件',
+    '展開完整交接事件紀錄',
+    'event-time',
+    '開始',
+    '留言 / Comment',
+    '尚未正式 close',
+    '目前階段與正式操作',
+    '目前狀態',
+    '正式操作位置',
+    '下一句可對 AI 說',
+    'APS decline',
+    '等待 jay 確認共同目標與分工',
+    '本機 AI 帶我來 APS Live',
+    '完成協商後交給本機 AI',
+    '它只草擬下一步，不會直接寫入 APS 正式紀錄',
+    '交給本機 AI 草擬下一步',
+    '交給本機 AI 整理下一步',
+    'AI 整理方式',
+    '協調與回應',
+    '本次 Live session',
+    '接收方快速回應',
+    '✅ 已收到',
+    '⚠️ 需補資料',
+    '❌ 不同意',
+    'data-live-reply="received"',
+    'data-live-reply="need-info"',
+    'data-live-reply="disagree"',
+    'handoff-reply',
+    'reply_label',
+    'reply_detail',
+    '已送出快速回應',
+    '可交給本機 AI 整理正式下一步',
+    '這是給對方看的訊息草稿',
+    '連接 APS Live',
+    '發送核對訊息',
+    'id="discussionStatus"',
+    'id="forwardToAgentAfterDiscussion"',
+    'disabled>等待對方進入後才能發送核對訊息',
+    '⏳ 本次 session 尚未發送核對訊息',
+    '清空紀錄',
+    '整理共識 / 分歧 / 待決定事項',
+    '產生補資料請求',
+    '草擬退回理由',
+    '判斷可否開工',
+    '回到本機 AI 對話繼續 APS 流程',
+    'Terminal 可做的正式選項',
+    '確認 / 同意',
+    '提出異議',
+    '退回 / 補資料',
+    '收結 / close',
+    '共同目標與分工草稿 v1',
+    'joinRoom',
+    'makeAction',
+    'aps-message',
+    'onPeerJoin',
+    'onPeerLeave',
+    '共同目標與分工確認',
+    'jay: 等待確認',
+    '整理對方回饋後',
+    '請用 APS 跟進以下 APS Live 交接追蹤協調內容',
+    '今次 APS Live 已帶入的交接貨單',
+    '目前追蹤狀態',
+    '本機 AI 已知的項目背景',
+    '依據摘要',
+    '交給本機 AI 整理下一步',
+    'aps-live-agent-queue',
+    "bridge.url + '/queue'",
+    '✅ 已發送核對訊息',
+    '✅ 已發送。等待對方回覆',
+    '等待對方進入後才能發送核對訊息',
+    '未連接，請先用上方按鈕連接',
+    '對方尚未進入 APS Live。請等對方進入後再發送',
+    '同一 APS 身份的另一個視窗',
+    '這不是協作者，不能當成',
+    '正在確認是否真的是協作者',
+    '協作者已確認身份',
+    '已載入本次頁面 session 記錄',
+    'aps-live-session-v1:',
+    '✅ 已交給本機 AI 整理下一步',
+    '🤖 已交給本機 AI',
+    '本次 session 記錄已清空',
+    '本機 AI 佇列未連接',
+    '請先整理，不要直接套用',
+    '回到本機 AI',
+    'local-browser-preview',
+    'local-browser-preview',
+  ]) {
+    assert(liveDemoHtml.includes(text), `aps live demo html: missing ${text}`, liveDemoHtml);
+  }
+  for (const text of [
+    'id="consume"',
+    'id="decline"',
+    'id="revise"',
+    'id="withdraw"',
+    'id="close"',
+    'id="publish"',
+    'id="forwardToAgentTop"',
+    'id="startLiveTop"',
+    '<h2>連接</h2>',
+    '發給協作者',
+    '<h2>目前狀態</h2>',
+    '尚未發送訊息。先連接 APS Live',
+    '⚠️ 未連接：群聊訊息草稿',
+    '⚠️ 未連接，這只是本機草稿',
+    'APS Live 診斷接收器',
+    'APS Live 項目共識群聊頁',
+    '交接資料板',
+    '共同目標下的交接鏈',
+    '本機 AI 已帶入的上游資訊',
+    '需要核對的問題',
+    'aps-live-tracking-v2:',
+    '<h2>交回本機 AI</h2>',
+    'forwardToAgentInline',
+    '交給本機 AI 判斷下一步',
+    '即時群聊訊息',
+    '發送群聊訊息',
+    '已發送群聊訊息',
+    '項目共識群聊內容',
+    '你來到這頁，通常是因為本機 AI 判斷',
+    '如果你不知要寫甚麼，先選一個情景',
+    '共同目標未確認',
+    '交接資料不夠',
+    '雙方狀態不同步',
+    '日常項目討論',
+    '進階用途',
+    '進階連線資料',
+    '進階：本機狀態、協作者與排錯資料',
+    '在線代理',
+    '最新回饋',
+    '共識草稿',
+    '廣播我看到的狀態',
+    '廣播回饋草稿',
+    '廣播共識草稿',
+    '把我的狀態放入 Live 訊息',
+    '複製回 terminal 下一句',
+    '轉交本機 AI 跟進',
+    '再貼到自己的 AI terminal',
+    '回到 terminal 繼續 APS 正式流程',
+    '正在連接 Trystero room',
+    '已連接 Trystero room',
+    'Trystero 未連接',
+    'Trystero peer joined',
+    'Trystero peer left',
+    '已複製整理 prompt',
+    '請先在 terminal 執行 aps live-bridge',
+    '目前本機 APS 狀態',
+    'JSON.stringify(recentMessages',
+    '生成 APS 正式動作草稿',
+    '比對雙方看到的狀態',
+    '不可把 Live 訊息當成 APS ack',
+    '正式紀錄邊界',
+    '正式寫入 Drive 前仍要你批准',
+    '正式寫回 Drive 前等我確認',
+    '正式動作等我確認',
+    '判斷是否需要寫回 APS 正式紀錄',
+    '這頁只通訊，不替你完成正式紀錄',
+    '不可把 Live 訊息當成對方已正式確認',
+    '給 AI 核對用的狀態資料',
+    '我這邊看到的狀態',
+    '<code>packet:',
+    '對方看到的狀態',
+    '只在 Check APS / check Drive / 本機 AI 判斷交接卡住時',
+    'APS Live is not a chat room',
+    'data:image/png',
+  ]) {
+    assert(!liveDemoHtml.includes(text), `aps live demo html: should not expose old or formal-action wording ${text}`, liveDemoHtml);
+  }
+  const connectButtonCount = (liveDemoHtml.match(/id="connectLive"/g) || []).length;
+  assert(connectButtonCount === 1, `aps live demo html: expected one connect button, got ${connectButtonCount}`, liveDemoHtml);
+  assert(liveDemoHtml.indexOf('id="connectLive"') < liveDemoHtml.indexOf('完成協商後交給本機 AI'), 'aps live demo html: local AI handoff should appear after live coordination controls', liveDemoHtml);
+  assert(liveDemoHtml.indexOf('id="messages"') < liveDemoHtml.indexOf('id="forwardToAgentAfterDiscussion"'), 'aps live demo html: local AI handoff button should be after discussion history', liveDemoHtml);
+  assert(liveDemoHtml.indexOf('💬 異常協調') < liveDemoHtml.indexOf('id="messages"'), 'aps live demo html: message history should live inside discussion flow', liveDemoHtml);
+  console.log('PASS aps live demo handoff check page keeps formal APS boundary');
+
+  const liveProjectDryRunPath = path.join(runRoot, 'aps-live-project-dry-run.html');
+  const liveProjectDryRun = runLive(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--dry-run', '--output', liveProjectDryRunPath]);
+  const liveProjectDryRunText = outputOf(liveProjectDryRun);
+  assert(liveProjectDryRun.status === 0, `aps live project dry-run: expected exit 0, got ${liveProjectDryRun.status}`, liveProjectDryRunText);
+  for (const text of [
+    'dry-run 通過',
+    '將生成 HTML',
+    '未寫入 HTML',
+    '未建立資料夾',
+    '未改正式 APS 狀態',
+    '狀態欄位:',
+    'current_case_title',
+    'current_case_summary',
+    'current_question',
+    'suggested_message',
+    'current_station',
+    'can_start_label',
+    'waiting_for',
+    'next_formal_action',
+    'tracking_steps',
+    'handoff_chains',
+    'context_cards',
+    'evidence_refs',
+    '回到本機 AI 可直接說',
+  ]) {
+    assert(liveProjectDryRunText.includes(text), `aps live project dry-run: missing ${text}`, liveProjectDryRunText);
+  }
+  assert(!fs.existsSync(liveProjectDryRunPath), 'aps live project dry-run should not write output html');
+  console.log('PASS aps live project dry-run checks plan without writing html');
+
+  const liveOutput = runLive(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam']);
+  const liveOutputText = outputOf(liveOutput);
+  assert(liveOutput.status === 0, `aps live project handoff check page: expected exit 0, got ${liveOutput.status}`, liveOutputText);
+  for (const text of [
+    'APS Live 交接追蹤頁',
+    '不寫 packet / outbox / ack',
+    '回到本機 AI 可直接說',
+    '請回到本機 AI',
+  ]) {
+    assert(liveOutputText.includes(text), `aps live project output: missing ${text}`, liveOutputText);
+  }
+  const liveProjectHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_adam.html'), 'utf8');
+  const livePeerOutput = runLive(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'jay']);
+  const livePeerOutputText = outputOf(livePeerOutput);
+  assert(livePeerOutput.status === 0, `aps live peer page: expected exit 0, got ${livePeerOutput.status}`, livePeerOutputText);
+  const livePeerHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_jay.html'), 'utf8');
+  const liveRoomId = liveProjectHtml.match(/const roomId = "([^"]+)"/);
+  const livePeerRoomId = livePeerHtml.match(/const roomId = "([^"]+)"/);
+  assert(liveRoomId && livePeerRoomId, 'aps live project html: room id should be visible in generated script for QC');
+  assert(liveRoomId[1] === livePeerRoomId[1], `aps live project html: paired pages should share one Trystero room, got ${liveRoomId[1]} and ${livePeerRoomId[1]}`);
+  assert(liveProjectHtml.includes('"live_participants"'), 'aps live project html: snapshot should include project live participants for 3+ coordination');
+  assert(liveProjectHtml.includes('function bindPeerEvent'), 'aps live project html: should include Trystero peer-event compatibility binding');
+  assert(liveProjectHtml.includes("bindPeerEvent(room, 'onPeerJoin'"), 'aps live project html: should bind onPeerJoin through compatibility layer');
+  assert(liveProjectHtml.includes("bindPeerEvent(room, 'onPeerLeave'"), 'aps live project html: should bind onPeerLeave through compatibility layer');
+  for (const text of [
+    'project',
+    'agent_id',
+    'seen_shared_goal',
+    'seen_packet',
+    'seen_ack',
+    'current_case_title',
+    'current_question',
+    'current_station',
+    'can_start_label',
+    'waiting_for',
+    'next_formal_action',
+    'tracking_steps',
+    'handoff_chains',
+    '交接單',
+    '交接單 1/1',
+    '目前只顯示主要交接單',
+    '正式交接仍是 adam → jay',
+    'tracking-step-icon',
+    'tracking-step-status',
+    'tracking-legend',
+    '已完成',
+    '進行中',
+    '未通過 / 需處理',
+    '未開始',
+    '任務',
+    '真源',
+    '開工條件',
+    '交接事件紀錄',
+    '展開完整交接事件紀錄',
+    'event-time',
+    '開始',
+    '留言 / Comment',
+    '尚未正式 close',
+    '目前階段與正式操作',
+    '目前狀態',
+    '正式操作位置',
+    '下一句可對 AI 說',
+    'APS decline',
+    '協調與回應',
+    '完成協商後交給本機 AI',
+    '今次要核對',
+    '目前站點',
+    '等誰行動',
+    '能否開工',
+    '本機 AI 已知的項目背景',
+    'Terminal 可做的正式選項',
+    '確認 / 同意',
+    '提出異議',
+    '退回 / 補資料',
+    '收結 / close',
+    'feedback_status',
+    'pending_decision',
+    'local_drive_state',
+    'blocker',
+    'proposed_terminal_action',
+    '交給本機 AI 整理下一步',
+    '交給本機 AI 草擬下一步',
+    'id="forwardToAgentAfterDiscussion"',
+    '本機 AI 佇列未連接',
+  ]) {
+    assert(liveProjectHtml.includes(text), `aps live project html: missing ${text}`, liveProjectHtml);
+  }
+  for (const text of [
+    '這頁只通訊，不替你完成正式紀錄',
+    'Live 不可做的事',
+    '進階：本機狀態、協作者與排錯資料',
+    '進階連線資料',
+    '<pre id=',
+    '<code>packet:',
+    '回到 terminal 繼續 APS 正式流程',
+    '已複製整理 prompt',
+    '請先在 terminal 執行 aps live-bridge',
+    '目前本機 APS 狀態',
+    'JSON.stringify(recentMessages',
+    '交接資料板',
+    '共同目標下的交接鏈',
+    '本機 AI 已帶入的上游資訊',
+    '需要核對的問題',
+    '<h2>交回本機 AI</h2>',
+    'forwardToAgentInline',
+    'id="forwardToAgentTop"',
+    '交給本機 AI 判斷下一步',
+  ]) {
+    assert(!liveProjectHtml.includes(text), `aps live project html: should keep ${text} out of user UI`, liveProjectHtml);
+  }
+  const liveBridgeTokenPath = path.join(hubRoot, 'dashboard_daily', '_context', 'live_bridge_token.json');
+  assert(fs.existsSync(liveBridgeTokenPath), 'aps live project should create local bridge token');
+  const liveBridgeToken = JSON.parse(fs.readFileSync(liveBridgeTokenPath, 'utf8'));
+  assert(liveBridgeToken.token && liveBridgeToken.token.length >= 32, 'aps live project bridge token should be generated');
+  const liveProjectPath = path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_adam.html');
+  const liveLinkCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam']);
+  const liveLinkCheckApsText = outputOf(liveLinkCheckAps);
+  assert(liveLinkCheckAps.status === 0, `check-aps live link: expected exit 0, got ${liveLinkCheckAps.status}`, liveLinkCheckApsText);
+  for (const text of [
+    'APS Live 即時協作',
+    `APS Live: ${liveProjectPath}`,
+    'Live 只做即時核對',
+  ]) {
+    assert(liveLinkCheckApsText.includes(text), `check-aps live link: missing ${text}`, liveLinkCheckApsText);
+  }
+
+  writeFile(
+    path.join(hubRoot, 'dashboard_daily', '_context', 'live_queue', '20260614T130000Z__review_consensus.json'),
+    `${JSON.stringify({
+      id: '20260614T130000Z__review_consensus',
+      queued_at: '2026-06-14T13:00:00Z',
+      project: 'dashboard_daily',
+      source: 'aps-live',
+      payload: {
+        kind: 'aps-live-agent-queue',
+        task_mode: '整理共識、分歧、待決定事項',
+        agent_id: 'adam',
+        prompt: '請用 APS 跟進以下 APS Live 交接追蹤協調內容。',
+        recent_messages: [{ source: 'jay', data: { text: '共同目標 v1 需要補充驗收標準。' } }],
+      },
+    }, null, 2)}\n`,
+  );
+  const liveQueueCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam']);
+  const liveQueueCheckApsText = outputOf(liveQueueCheckAps);
+  assert(liveQueueCheckAps.status === 0, `check-aps live queue: expected exit 0, got ${liveQueueCheckAps.status}`, liveQueueCheckApsText);
+  for (const text of [
+    'APS Live 待本機 AI 整理',
+    'Live 討論已送入本機 AI 待處理佇列',
+    '請用 APS 讀取 APS Live 待處理佇列',
+    '已有 APS Live 討論待本機 AI 整理與判斷',
+  ]) {
+    assert(liveQueueCheckApsText.includes(text), `check-aps live queue: missing ${text}`, liveQueueCheckApsText);
+  }
+  const liveQueueOutput = runLiveQueue(['--hub-root', hubRoot, '--project', 'dashboard_daily']);
+  const liveQueueText = outputOf(liveQueueOutput);
+  assert(liveQueueOutput.status === 0, `aps live-queue: expected exit 0, got ${liveQueueOutput.status}`, liveQueueText);
+  for (const text of [
+    'APS Live 待本機 AI 整理',
+    '整理共識、分歧、待決定事項',
+    '請用 APS 跟進以下 APS Live 交接追蹤協調內容',
+  ]) {
+    assert(liveQueueText.includes(text), `aps live-queue: missing ${text}`, liveQueueText);
+  }
+  console.log('PASS aps live creates project handoff check page with diagnostic message shape');
+
   writeTempApsConfig('dashboard_dynamic_names', 'mary');
   for (const peerId of ['mary', 'tom', 'fanny']) {
     writeFile(path.join(hubRoot, 'dashboard_dynamic_names', `from_${peerId}`, 'outbox.log.md'), '');
@@ -1153,30 +2473,24 @@ try {
     );
   }
   expectDashboardCase(
-    'dashboard index is driven by arbitrary APS names',
+    'dashboard retirement keeps arbitrary APS names out of stale HTML',
     ['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names', '--agent-id', 'mary'],
     0,
-    ['dashboard_mary.html', 'dashboard.html'],
+    ['dashboard 已退役', '未寫入任何 dashboard HTML', '請用 `npx aps check-aps`'],
   );
-  const dynamicIndexHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', 'dashboard.html'), 'utf8');
-  const dynamicPersonalHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', 'dashboard_mary.html'), 'utf8');
-  for (const text of [
-    '✅ 已生成：mary 的個人頁（本次更新）',
-    '🚀 尚未生成：tom 需要在自己的本機項目資料夾執行 Check APS',
-    '🚀 尚未生成：fanny 需要在自己的本機項目資料夾執行 Check APS',
-    'dashboard_tom.html 尚未生成',
-    'dashboard_fanny.html 尚未生成',
-  ]) {
-    assert(dynamicIndexHtml.includes(text), `dynamic dashboard index: missing ${text}`, dynamicIndexHtml);
-  }
-  for (const text of ['自己', '<strong>mary</strong>', '對方', '<strong>tom</strong>', '<strong>fanny</strong>']) {
-    assert(dynamicPersonalHtml.includes(text), `dynamic personal dashboard: missing ${text}`, dynamicPersonalHtml);
-  }
+  assert(!fs.existsSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', 'dashboard.html')), 'retired dashboard must not write dynamic dashboard index');
+  assert(!fs.existsSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', 'dashboard_mary.html')), 'retired dashboard must not write dynamic personal dashboard');
   const dynamicCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names', '--agent-id', 'mary']);
   const dynamicCheckApsOutput = outputOf(dynamicCheckAps);
   assert(dynamicCheckAps.status === 0, `dynamic check-aps: expected exit 0, got ${dynamicCheckAps.status}`, dynamicCheckApsOutput);
-  for (const text of ['本機代理: mary', 'fanny: 已確認', 'tom: 已確認', 'dashboard_mary.html']) {
+  for (const text of ['本機代理: mary', '建議下一步（可直接複製給 AI）', 'check-aps --full']) {
     assert(dynamicCheckApsOutput.includes(text), `dynamic check-aps: missing ${text}`, dynamicCheckApsOutput);
+  }
+  const dynamicCheckApsFull = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names', '--agent-id', 'mary', '--full']);
+  const dynamicCheckApsFullOutput = outputOf(dynamicCheckApsFull);
+  assert(dynamicCheckApsFull.status === 0, `dynamic check-aps --full: expected exit 0, got ${dynamicCheckApsFull.status}`, dynamicCheckApsFullOutput);
+  for (const text of ['本機代理: mary', 'fanny: 已確認', 'tom: 已確認', 'HTML dashboard 已退役']) {
+    assert(dynamicCheckApsFullOutput.includes(text), `dynamic check-aps --full: missing ${text}`, dynamicCheckApsFullOutput);
   }
   for (const staleSnippet of [
     'dashboard_adam.html',
@@ -1192,10 +2506,23 @@ try {
     '>jay<',
     '>user_2<',
   ]) {
-    assert(!dynamicIndexHtml.includes(staleSnippet), `dynamic dashboard index: leaked stale demo snippet ${staleSnippet}`, dynamicIndexHtml);
-    assert(!dynamicPersonalHtml.includes(staleSnippet), `dynamic personal dashboard: leaked stale demo snippet ${staleSnippet}`, dynamicPersonalHtml);
     assert(!dynamicCheckApsOutput.includes(staleSnippet), `dynamic check-aps: leaked stale demo snippet ${staleSnippet}`, dynamicCheckApsOutput);
+    assert(!dynamicCheckApsFullOutput.includes(staleSnippet), `dynamic check-aps --full: leaked stale demo snippet ${staleSnippet}`, dynamicCheckApsFullOutput);
   }
+  const dynamicLiveRooms = [];
+  for (const peerId of ['mary', 'tom', 'fanny']) {
+    const liveOutput = runLive(['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names', '--agent-id', peerId]);
+    const liveText = outputOf(liveOutput);
+    assert(liveOutput.status === 0, `dynamic aps live ${peerId}: expected exit 0, got ${liveOutput.status}`, liveText);
+    const html = fs.readFileSync(path.join(hubRoot, 'dashboard_dynamic_names', '_context', `aps-live_${peerId}.html`), 'utf8');
+    const room = html.match(/const roomId = "([^"]+)"/);
+    assert(room, `dynamic aps live ${peerId}: missing room id`, html);
+    dynamicLiveRooms.push(room[1]);
+    for (const expectedPeer of ['mary', 'tom', 'fanny']) {
+      assert(html.includes(`"${expectedPeer}"`), `dynamic aps live ${peerId}: missing live participant ${expectedPeer}`, html);
+    }
+  }
+  assert(new Set(dynamicLiveRooms).size === 1, `dynamic aps live: 3+ project pages should share one Trystero room, got ${dynamicLiveRooms.join(', ')}`);
   console.log('PASS dashboard and check-aps are driven by arbitrary APS names');
   expectInboxCase(
     'inbox daily brief includes context as background',

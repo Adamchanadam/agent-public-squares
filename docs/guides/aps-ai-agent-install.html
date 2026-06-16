@@ -82,7 +82,7 @@
   <a class="site-nav__link site-nav__link--active" href="aps-ai-agent-install.html">AI 代理安裝 / 升級</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-06-13</span>
+  <span class="site-nav__hint">2026-06-14</span>
 </nav>
 
 <header class="cover">
@@ -101,7 +101,8 @@
     <li>本頁同時適用於新安裝與既有 APS 項目升級。先檢查 <code>.aps/config.json</code>；有就升級，沒有才新安裝。</li>
     <li>新安裝路徑是 Agent Handoff Kit → npm install → APS init → APS doctor。</li>
     <li>既有 APS 項目走升級路徑：npm install → APS upgrade → APS doctor。不要重建共用 Drive 資料夾，不要重跑 <code>aps init</code>。</li>
-    <li>安裝後先建立共同目標與分工，不要直接邀請協作者或發交接包。</li>
+    <li>安裝後先建立「夠安全開始」的共同目標與分工，不要直接邀請協作者或發交接包。</li>
+    <li>AI 不可只列命令；必須按狀態推進下一步。沒有共同基準就建立，已有基準但未有協作者就主動引導生成邀請，已有已確認協作者才請對方確認共同基準或整理第一輪交接草稿。</li>
     <li>若項目已有共同目標與分工，後加入 peer 要先取得最新版，不要自行重建另一份。</li>
   </ul>
 </section>
@@ -198,24 +199,26 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
       <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>；新項目已初始化，既有項目已健康檢查，必要升級已經用戶確認。</td></tr>
       <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 APS 名稱。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
-      <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，先回答現在能否推進、卡在哪、下一句要叫 AI 做甚麼；再讀取項目代號、共同目標與分工、收件、發件、協作對象、風險與排錯用同步資料。它不是自動派工，也不是背景自動監察。</td></tr>
-      <tr><td>HTML dashboard</td><td><code>check-aps</code> 會按需更新個人頁 <code>_context/dashboard_&lt;APS名稱&gt;.html</code>，並更新共用入口 <code>_context/dashboard.html</code>。個人頁才可顯示「待我處理」「我交出去的事」和下一步；共用入口只用來選自己的 APS 名稱頁，不可冒充任何一位用戶視角。本機共用 Drive 路徑只適用於這部電腦，不可放入給對方的通知。</td></tr>
-      <tr><td>下一步</td><td>先帶用戶建立「共同目標與分工」，確認共同目標、參與者、角色、第一輪分工、不可做事項、驗收標準、第一個邀請對象與第一輪交接對象；確認後，必須問是否本機保存、發給 confirmed peer 確認，或先邀請對方再發確認包。示範人名不得當作固定預設。</td></tr>
+      <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。排錯用的數量、同步、路徑、來源編號和完整追溯資料由 AI 自己使用，不預設丟給用戶；只有需要深入排錯時才用 <code>check-aps --full</code> 展開。它不是自動派工，也不是背景自動監察。</td></tr>
+      <tr><td>HTML dashboard</td><td>HTML dashboard 已退役；<code>check-aps</code> 不再生成個人 dashboard 或 <code>_context/dashboard.html</code>。真正操作主線在 AI terminal；若有真實卡點需要即時釐清，<code>Check APS</code> 可按需生成 APS Live 交接追蹤頁。正式寫入仍回到 terminal，經用戶確認後才寫入 APS 紀錄。</td></tr>
+      <tr><td>下一步</td><td>先帶用戶建立「夠安全開始」的共同目標與分工，確認共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項與最小驗收方式；其他分工或邀請細節可先標為未定。確認後，必須按狀態推進：未落地就問本機保存；已有已確認協作者就請對方確認共同基準或整理第一輪交接草稿；未有協作者就主動生成可轉發邀請，對方在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑加入，APS 名稱由對方自己確認。示範人名不得當作固定預設。</td></tr>
     </tbody>
   </table>
 </section>
 
 <section>
-  <h2>安裝後：先建立共同目標與分工</h2>
-  <p class="lede">這是安裝成功後的第一個產品流程。不要直接叫用戶邀請對方或發測試包，先把團隊共同口徑定好，並引導用戶決定是否落地。</p>
+  <h2>安裝後：先建立夠安全開始的共同基準</h2>
+  <p class="lede">這是安裝成功後的第一個產品流程。不要直接叫用戶邀請對方或發測試包，先把團隊共同口徑定到足以安全開始；未定的地方可以標明，之後按實際進展修訂。</p>
   <ol class="steps">
-    <li><strong>向用戶說明用途。</strong>共同目標與分工會成為這個 APS project 的目前有效基準，用於之後邀請 peer、發第一輪交接包、以及對方 <code>check Drive</code> 時判斷能否接手。</li>
+    <li><strong>向用戶說明用途。</strong>共同目標與分工會成為這個 APS project 的目前有效基準，用於之後邀請 peer、發第一輪交接包、以及對方 <code>check Drive</code> 時判斷能否接手。它不是完整項目計劃。</li>
     <li><strong>由 AI 先整理草稿。</strong>從用戶已提供的項目背景、目前資料夾內容和對話中整理；缺資料才問，最多問三個關鍵問題。</li>
-    <li><strong>共同目標與分工至少包含：</strong>共同目標、參與者與 APS 名稱、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。</li>
+    <li><strong>起步先有五項：</strong>共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項、最小驗收方式。</li>
+    <li><strong>其餘可先未定。</strong>每人長期角色、完整第一輪分工、第一個邀請對象、第一輪交接對象、詳細驗收標準，可以先標為「未定」或「待確認」。</li>
     <li><strong>不要硬套示範人名。</strong>實際參與者、角色和 APS 名稱必須由用戶提供，或由 AI 整理後交用戶確認。</li>
-    <li><strong>可以加欄。</strong>八項是最低欄位；若項目需要截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以加入，但不要刪除核心欄位。</li>
-    <li><strong>先讓用戶確認。</strong>確認共同目標與分工內容、第一個邀請對象、以及可否作為這個 project 的目前有效基準。</li>
-    <li><strong>確認後必須問落地。</strong>不要只把內容留在對話。問用戶要本機保存、發給 confirmed peer 確認，或先邀請對方再發確認包；若用戶暫不落地，明確標示內容尚未寫入本機檔案或共用 Drive。</li>
+    <li><strong>可以加欄。</strong>八項是 AI 的檢查框架，不是新手一開始必填表；若項目需要截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以加入，但不要刪除共同目標、邊界和最小驗收方式。</li>
+    <li><strong>先讓用戶確認。</strong>確認這份基準是否夠安全開始、未定項是否如實標出、以及可否作為這個 project 的目前有效基準。</li>
+    <li><strong>確認後必須問落地。</strong>不要只把內容留在對話。問用戶要本機保存、讓已確認協作者確認共同基準，或先邀請對方加入；若用戶暫不落地，明確標示內容尚未寫入本機檔案或共用 Drive。</li>
+    <li><strong>未有協作者時主動邀請。</strong>若基準已確認但沒有 confirmed peer，AI 應主動說「我可以替你生成一段可轉發給對方 AI 的加入邀請」，然後使用 <code>peer invite</code>。不要等用戶知道這條命令。</li>
     <li><strong>避免平行版本。</strong>一個 APS project 只應有一份目前有效的共同目標與分工；可以修訂出新版本，不應由各 peer 各自建立互相打架的版本。</li>
     <li><strong>對方要透過 APS 收到。</strong>不要說放入 <code>_hub</code> 根目錄後 peer 就會自動收到。要讓對方 <code>check Drive</code> 時看到，應用 topic <code>shared_goal_and_roles</code> 一對一發給 confirmed peer。</li>
     <li><strong>多人逐一確認。</strong>APS 沒有群發確認。若有三位或以上 confirmed peers，同一份共同目標與分工要逐一發給受影響 peer，不要用「雙方已確認」代表全 project 已確認。</li>
@@ -223,7 +226,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
     <li><strong>修訂要有版本。</strong>共同目標、長期角色、驗收標準、不可做事項或影響多個交接包的分工邊界改變，才修訂基準。普通任務、bugfix、補資料、審閱或單次交付，走普通 APS packet 或 <code>revise</code>。</li>
     <li><strong>不一致時停下確認。</strong>若收到另一份不一致內容，發 <code>shared_goal_and_roles_clarification</code> 或要求修訂原包，不要直接開始任務。</li>
   </ol>
-  <pre>請先幫我建立這個 APS 項目的共同目標與分工，再決定是否邀請或發給協作者確認。共同目標與分工要包括共同目標、參與者與 APS 名稱、每人角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象、第一輪交接對象。參與者和 APS 名稱由我確認；如項目有額外要求，可以加欄，但不要刪除核心欄位。確認後，請問我要不要本機保存，或用 shared_goal_and_roles 發給 confirmed peer 確認。若已有基準，請先讀最新版，不要重建另一份。</pre>
+  <pre>請先幫我建立這個 APS 項目夠安全開始的共同目標與分工，再決定是否保存、邀請協作者，或讓已加入的協作者確認。起步先有共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項、最小驗收方式；每人長期角色、完整第一輪分工、第一個邀請對象、第一輪交接對象和詳細驗收標準，可以先標為未定或待確認。不要為了填滿欄位而假裝已定。確認後，請按狀態推進：未落地就問我要不要本機保存；已有已確認協作者就用 shared_goal_and_roles 讓對方確認共同基準；未有協作者就主動替我生成可轉發邀請。若已有基準，請先讀最新版，不要重建另一份。日後要正式交接任務時，教用戶用穩定說法：請用 APS 把這段工作交接給 &lt;協作者&gt;，先整理草稿，等我確認後才寫入共用 Drive。</pre>
 </section>
 
 <section>
@@ -243,12 +246,13 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
     <li>安裝是否成功。</li>
     <li>目前項目代號與自己的 APS 名稱。</li>
     <li><code>doctor</code> 是否通過。</li>
-    <li>下一句建議用戶說甚麼：先說「請幫我建立這個 APS 項目的共同目標與分工」，確認後必須問落地方式；日後要看整體狀態可說 <code>Check APS</code>。</li>
+    <li>不要把安裝完成當成終點。若用戶仍在同一段 AI 對話內，安裝成功後要主動接上「共同目標與分工」流程：先整理夠安全開始的草稿，缺資料才問最多三個關鍵問題；確認後按狀態建議保存、邀請、讓協作者確認共同基準或整理第一輪交接草稿。</li>
+    <li>只在 AI 沒有自動接上、或用戶日後想手動觸發時，才建議用戶說：「請幫我建立這個 APS 項目夠安全開始的共同目標與分工」。日後要看整體狀態可說 <code>Check APS</code>。</li>
   </ul>
 </section>
 
 <footer>
-  Agent Public Squares · AI 代理安裝指引 · 最新更新 2026-06-13
+  Agent Public Squares · AI 代理安裝指引 · 最新更新 2026-06-14
 </footer>
 
 </main>

@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Public Squares 教學中心 — APS install, check Drive, Check APS</title>
-<meta name="description" content="Agent Public Squares teaching hub for installing APS with a local AI agent, joining an APS invite, checking shared Google Drive task handoff records, and learning daily APS commands.">
+<title>Agent Public Squares 教學中心 — APS 交接與加入教學</title>
+<meta name="description" content="Agent Public Squares 教學中心：讓非技術用戶知道 APS 怎樣支援 group project 交接，並讓本機 AI 代理帶你完成安裝、加入和交接。">
 <link rel="canonical" href="https://adamchanadam.github.io/agent-public-squares/docs/guides/index.html">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Agent Public Squares 教學中心">
-<meta property="og:description" content="Install APS with Codex or Claude Code, join an APS invite, and learn check Drive / Check APS workflows.">
+<meta property="og:description" content="用本機 AI 代理安裝或加入 APS，讓 group project 的工作可以清楚交接給指定協作者。">
 <meta property="og:url" content="https://adamchanadam.github.io/agent-public-squares/docs/guides/index.html">
 <meta property="og:site_name" content="Agent Public Squares">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Agent Public Squares 教學中心">
-<meta name="twitter:description" content="Guides for installing APS, joining invites, and using AI agent handoff over Google Drive.">
+<meta name="twitter:description" content="讓本機 AI 代理帶你完成 APS 安裝、加入和 group project 交接。">
 <style>
   :root {
     --ink: #1b2230;
@@ -75,58 +75,66 @@
   <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
-  <span class="site-nav__hint">2026-06-13</span>
+  <span class="site-nav__hint">2026-06-14</span>
 </nav>
 
 <header class="cover">
-  <div class="eyebrow">教學中心</div>
-  <h1>新手先用 AI 代理安裝，不用自己讀命令。</h1>
-  <p class="subtitle">這裡把人類閱讀與 AI 代理操作分開。人類只要知道自己處於哪個情況，然後把指定頁面交給 Codex、Claude Code 或其他本機代理型 AI。APS 用共用 Google Drive 資料夾保存一對一交接包，幫同一個項目的協作者與各自本機 AI 代理清楚交接任務。</p>
+  <div class="eyebrow">📚 教學中心</div>
+  <h1>你想完成哪一種交接？讓 AI 帶你走。</h1>
+  <p class="subtitle">APS 不是另一套要學的命令，而是 group project 的交接工具。要交接時，直接對本機 AI 說「用 APS 把這段工作交接給誰」最穩定；AI 會整理草稿、等你確認、再寫入共用 Google Drive。若交接卡住，APS Live 可作即時核對與交接追蹤；正式寫入仍回到本機 AI / terminal，由你確認。</p>
 </header>
 
 <section>
-  <h2>你現在是哪一種情況？</h2>
+  <h2>🧭 你現在想做甚麼？</h2>
   <div class="guide-list">
     <a class="guide-card" href="aps-onboarding-walkthrough.html">
-      <span class="tag ok">第一次自己設置</span>
-      <h3>我想在自己的項目安裝 APS</h3>
-      <p>人類版新手頁。它只教你複製一段 prompt 給本機 AI 代理，讓 AI 帶你完成安裝、檢查，並在邀請協作者前先建立共同目標與分工。</p>
+      <span class="tag ok">開始多人項目</span>
+      <h3>🚀 我想開始一個需要交接的項目</h3>
+      <p>先讓 AI 接好 APS，建立共同目標與分工，之後才邀請協作者和做第一輪交接。</p>
     </a>
     <a class="guide-card" href="aps-ai-agent-install.html">
       <span class="tag warn">給 AI 讀</span>
-      <h3>AI 代理安裝操作頁</h3>
+      <h3>🛠️ AI 代理安裝操作頁</h3>
       <p>Codex、Claude Code 這類本機 AI 代理應讀這一頁。裏面有完整檢查清單、命令順序、確認邊界與錯誤處理。</p>
     </a>
     <a class="guide-card" href="aps-join-invite.html">
-      <span class="tag">被人邀請加入</span>
-      <h3>我收到 APS 協作邀請</h3>
-      <p>如果有人已經邀請你加入項目，從這頁開始。你一樣可以把 prompt 交給本機 AI 代理處理。</p>
+      <span class="tag">接手別人的工作</span>
+      <h3>📩 我收到 Adam 的協作邀請或交接</h3>
+      <p>從這頁開始，讓本機 AI 確認你接的是同一個項目、同一份共同目標，再判斷 Adam 交來的工作能否開工。</p>
     </a>
   </div>
 </section>
 
 <section>
-  <h2>最快路徑</h2>
-  <p class="lede">如果你不想分辨太多，直接把這段貼給本機代理型 AI：</p>
-  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
-https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
-
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。加入成功後，先用 Check APS 核對是否已收到最新版共同目標與分工；未見基準或我未確認該版本前，不要處理普通任務包，也不要自行重建另一份共同目標與分工。</pre>
-  <p>安裝成功後，第一步是請 AI 建立共同目標與分工，先定好共同目標、參與者、角色、第一輪分工、不可做的事、驗收標準、第一個邀請對象和第一輪交接對象，再決定是否本機保存、發給 confirmed peer 確認，或先邀請協作者。示範人名不可當作固定預設；實際參與者和 APS 名稱由用戶提供或確認。</p>
-  <p>同一個 APS project 只應有一份目前有效的共同目標與分工。三位或以上協作者要逐一確認；後加入協作者要先取得最新版，不應自行重建。只有共同目標、長期角色、驗收標準、不可做事項或會影響多個交接包的分工邊界改變時，才修訂這份基準；普通任務細節用交接包或修訂包處理。</p>
-</section>
-
-<section>
-  <h2>安裝後日常怎樣叫 AI？</h2>
+  <h2>🔎 讀完後應該清楚兩件事</h2>
   <ul>
-    <li>要看整體交接狀態，說 <code>Check APS</code>。AI 會先判斷現在能否推進、卡在哪、下一句要叫 AI 做甚麼，再整理共同目標與分工、收件、發件、協作對象、風險和排錯用同步資料；它只整理本機已同步資料，不會自動派工，也不會背景自動監察。</li>
-    <li>要查看對方有沒有新交接，說 <code>check Drive</code>。</li>
-    <li>要交給指定協作者，說「用 APS 交給指定協作者」。AI 應先整理交接內容和風險，等你確認後才寫入共用 Drive 資料夾。</li>
+    <li>你對 APS 的運作流程有概念：它不是你的項目目標，而是在需要跨人、跨機、可追蹤交接時，幫 Adam 和 Jay 的 AI 對齊共同目標、整理交接、判斷能否接手。</li>
+    <li>你知道下一步怎樣操 APS：不用背內部命令；直接說「用 APS 把哪段工作交接給誰」，AI 會引導你確認、邀請、交接或收件。</li>
   </ul>
 </section>
 
 <section>
-  <h2>為甚麼要分人類頁和 AI 頁？</h2>
+  <h2>⚡ 最快路徑</h2>
+  <p class="lede">如果你不想分辨太多，直接把這段貼給本機代理型 AI：</p>
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
+https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
+
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。加入成功後，先用 Check APS 核對是否已收到最新版共同目標與分工；未見基準或我未確認該版本前，不要處理 Adam 交來的工作，也不要自行重建另一份共同目標與分工。</pre>
+  <p>安裝成功後，AI 不應把安裝當成終點。它要主動建立「共同目標與分工」，先做到夠安全開始：共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項和最小驗收方式先清楚；其他角色、第一輪分工、邀請對象或詳細驗收可以先標為「未定」。公開頁以 Adam / Jay 作示範，只為方便分清兩邊；實際參與者和 APS 名稱由用戶提供或確認，不可當作固定預設。</p>
+  <p>同一個 APS project 只應有一份目前有效的共同目標與分工。三位或以上協作者要逐一確認；後加入協作者要先取得最新版，不應自行重建。只有共同目標、長期角色、驗收標準、不可做事項或會影響多個交接的分工邊界改變時，才修訂這份基準；普通任務細節由 AI 整理成當次交接或修訂，不要升格成新的共同基準。</p>
+</section>
+
+<section>
+  <h2>💬 安裝後日常怎樣叫 AI？</h2>
+  <ul>
+    <li>要看整體交接狀態，說 <code>Check APS</code>。AI 會先判斷現在能否推進、卡在哪、下一句要叫 AI 做甚麼；排錯用的同步、來源編號和完整追溯資料由 AI 自己使用，只有需要深入排錯時才展開。它只整理本機已同步資料，不會自動派工，也不會背景自動監察。</li>
+    <li>要查看對方有沒有新交接，說 <code>check Drive</code>。APS 只整理已同步資料和下一步風險，不會自動通知對方，也不會自動打開對方的 AI。</li>
+    <li>要交給指定協作者，直接說 <code>請用 APS 把這段工作交接給 Jay，先整理草稿，等我確認後才寫入共用 Drive。</code> AI 會整理交接內容和風險，等你確認後才寫入共用 Drive 資料夾。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>🔎 為甚麼要分人類頁和 AI 頁？</h2>
   <ul>
     <li>人類新手不需要先理解 <code>npx</code>、<code>doctor</code>、<code>init</code>、<code>peer invite</code>、<code>peer add</code>。</li>
     <li>本機 AI 代理需要完整規格，否則容易在錯誤資料夾或錯誤 Drive 路徑動手。</li>
@@ -135,7 +143,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 </section>
 
 <footer>
-  Agent Public Squares · 教學中心 · 最新更新 2026-06-13
+  Agent Public Squares · 教學中心 · 最新更新 2026-06-14
 </footer>
 
 </main>
