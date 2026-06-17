@@ -16,12 +16,12 @@ Agent Public Squares（APS）讓同一個項目的多位用戶，透過共用 Go
 
 ## 目前可信狀態
 
-APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可安裝的 npm 套件、GitHub release、Apache 2.0 授權、AI 代理安裝指引、加入邀請頁、日常使用入口和本地品質檢查命令。
+APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可安裝的 npm 套件、GitHub release、Apache 2.0 授權、AI 代理安裝與升級指引、加入邀請頁、日常使用入口和本地品質檢查命令。
 
 | 項目 | 目前狀態 |
 |---|---|
-| 公開版本 | `@adamchanadam/aps@0.2.24` |
-| 最新 GitHub release | `v0.2.24` |
+| 公開版本 | `@adamchanadam/aps@0.2.25` |
+| 最新 GitHub release | `v0.2.25` |
 | 授權 | Apache License 2.0 |
 | 支援環境 | Node.js 18 或以上 |
 | 建議用途 | 受控實際試行、雙方 AI 交接測試、日常協作流程打磨 |
@@ -32,7 +32,7 @@ APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可�
 ## 快速開始
 
 - 第一次使用：[先看人類新手頁](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-onboarding-walkthrough.html)
-- 交給本機 AI 安裝：[AI 代理安裝指引](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html)
+- 交給本機 AI 安裝或升級：[AI 代理安裝與升級指引](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html)
 - 收到邀請：[加入 APS 協作邀請](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html)
 - 查看整體狀態：在已安裝 APS 的項目中對 AI 說 `Check APS`
 - 查看新交接：在已安裝 APS 的項目中對 AI 說 `check Drive`
@@ -41,8 +41,8 @@ APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可�
 
 - 用 Google Drive 做交換層，不要求協作者共用同一部電腦或同一個 AI 對話。
 - 每份交接包都有收件人、版本、主題、狀態和可追蹤記錄，不靠口頭摘要猜測。
-- 安裝主路徑交給本機 AI 代理執行，人類只需要確認路徑、項目代號和自己的身份名稱。
-- 普通邀請不會替受邀者預先取 APS 名稱；受邀者把邀請中的剪刀區塊貼給自己的 AI，再在自己電腦上選定名稱。
+- 安裝主路徑交給本機 AI 代理執行；人類可只指出 Google Drive 本機根目錄，AI 會建議 APS 共用位置、項目代號和自己的身份名稱。
+- 邀請新協作者使用一次加入邀請碼；邀請碼代表可加入項目，不代表受邀者的 APS 名稱。受邀者把邀請中的剪刀區塊貼給自己的 AI，再在自己電腦上選定名稱。
 - 文件明確說明哪些事 APS 不會做，例如不會自動通知對方、不會自動派工、不會替人類省略確認。
 - repo 保留本地品質檢查命令，方便後續版本持續驗證核心流程。
 
@@ -74,7 +74,7 @@ APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤
 
 ### APS 目前是否生產級？
 
-不是。`@adamchanadam/aps@0.2.24` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
+不是。`@adamchanadam/aps@0.2.25` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
 
 ## 文件與支援入口
 
@@ -83,26 +83,26 @@ APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤
 - [npm 套件頁](https://www.npmjs.com/package/@adamchanadam/aps)：查看目前公開套件版本
 - [GitHub Issues](https://github.com/Adamchanadam/agent-public-squares/issues)：回報問題或提出改進建議
 
-## 第一次安裝
+## 第一次安裝或既有項目升級
 
-在你想使用 APS 的本機項目資料夾打開 Codex、Claude Code 或同等本機代理型 AI，貼上以下整段：
+在你想使用 APS 的本機項目資料夾打開 Codex、Claude Code 或同等本機代理型 AI，貼上以下整段。這同一段也適用於已有 APS 的項目升級：
 
 ```text
-請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
+請在目前本機項目資料夾，按這頁指引帶我安裝、加入或升級 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝、加入或升級。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑；這代表既有 APS 項目，應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor。不要重跑 aps init、不要重建共用 Drive 資料夾、不要覆寫既有交接、ack、peer 或共同目標與分工。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並等我確認後才建立。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
 ```
 
-你仍然要準備三件資料：
+你仍然要確認三件資料；若你只知道 Google Drive 本機根目錄，AI 應建議預設位置，例如 `Agent_Public_Squares`，並在你確認後建立：
 
-- Google Drive 同步到本機的共用資料夾路徑
+- Google Drive 同步到本機的位置，或 AI 建議的 APS 共用資料夾路徑
 - 這個合作項目的項目代號
 - 你自己的 APS 名稱
 
-AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到自己電腦；每部電腦都要使用自己看到的 Google Drive 本機路徑。普通邀請不會替你預先取名，你的 APS 名稱由你自己確認。
+AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到自己電腦；每部電腦都要使用自己看到的 Google Drive 本機路徑。邀請碼不替你命名，你的 APS 名稱由你自己確認。
 
-請先把 Google Drive 的 APS 共用資料夾設為「可離線使用」。在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選「顯示其他選項」→「離線存取」→「可離線使用」。參考圖在 [第一次安裝教學](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-onboarding-walkthrough.html)。
+AI 建立或確認 APS 共用資料夾後，請把該資料夾設為「可離線使用」。在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選「顯示其他選項」→「離線存取」→「可離線使用」。參考圖在 [第一次安裝教學](https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-onboarding-walkthrough.html)。
 
 普通網頁聊天 AI 如果不能讀寫你的本機資料夾，就不適合直接安裝。它最多只能解釋步驟。
 
@@ -118,7 +118,7 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 
 這不是每位用戶各自一份的私人草稿。一個 APS project 只應有一份目前有效的共同目標與分工；可以修訂出新版本，但不應平行存在兩套互相打架的口徑。未定的地方要如實標出，不要為了填滿欄位而假裝已定。確認後，AI 應主動問是否要本機保存、發給已確認的協作者確認，或先邀請對方再發確認包。要讓對方透過 APS 收到，應一對一發出交接包，而不是只把檔放進 `_hub` 根目錄。這一步可以避免每一邊的 AI 各自理解項目目標和分工，令後面的交接口徑不一致。
 
-你不用知道 APS 裏面下一條命令是甚麼。AI 應該按目前狀態推進：沒有共同基準就先建立；已有基準但未落地就先保存或發確認包；已有基準但未有協作者，就主動替你生成可轉發的加入邀請。對方要在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑完成加入；對方 APS 名稱由對方自己確認。
+你不用知道 APS 裏面下一條命令是甚麼。AI 應該按目前狀態推進：沒有共同基準就先建立；已有基準但未落地就先保存或發確認包；已有基準但未有協作者，就主動替你生成含一次加入邀請碼的可轉發邀請。對方要在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑完成加入；對方 APS 名稱由對方自己確認。
 
 項目持續進行時，共同目標與分工可以改，但要當成修訂目前有效版本，不要另開第二份。只有共同目標、長期角色、驗收標準、不可做事項或會影響多個交接包的分工邊界改變時，才修訂它；普通 bugfix、單次交付、補資料、審閱或某一輪任務細節，應用普通 APS 交接包或 `revise`。若有三位或以上協作者，同一份基準要逐一發給受影響協作者確認；後加入的協作者應先收到最新基準，不應自行重建一份。
 
@@ -136,7 +136,7 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 - 對方在自己電腦上甚麼條件下才可以開工
 - 還有甚麼風險或未決事項
 
-對方那邊不用靠記憶猜。他應先在自己的項目資料夾叫 AI `Check APS`，核對自己是否已收到並確認最新版共同目標與分工，再決定是否讀普通交接。當某件交接被判斷為可開工，才叫 AI `check Drive` 讀交接包正文、真源指標與請他做的事。`Check APS` 的主線在 AI terminal：先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。排錯用的數量、同步、路徑、來源編號和完整追溯資料不會預設丟給用戶；需要深入排錯時才用 `check-aps --full`。HTML dashboard 已退役；日常狀態不再靠 `_context/dashboard.html` 或個人 dashboard。APS Live 已納入 APS 產品標準，定位是按需生成的交接追蹤與即時核對頁；若真實卡點需要即時釐清，`Check APS` 可按需生成 APS Live 交接追蹤頁，但正式狀態仍要回到 terminal，經用戶批准後才寫回 APS 紀錄。這不是通知送達證明，也不是已完成真兩機可靠性證明。
+對方那邊不用靠記憶猜。他應先在自己的項目資料夾叫 AI `Check APS`，核對自己是否已收到並確認最新版共同目標與分工，再決定是否讀普通交接。當某件交接被判斷為可開工，才叫 AI `check Drive` 讀交接包正文、真源指標與請他做的事。`Check APS` 的主線在 AI terminal：先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。排錯用的數量、同步、路徑、來源編號和完整追溯資料不會預設丟給用戶；需要深入排錯時才用 `check-aps --full`。APS Live 已納入 APS 產品標準，定位是按需生成的交接追蹤與即時核對頁；若真實卡點需要即時釐清，`Check APS` 可按需生成 APS Live 交接追蹤頁，但正式狀態仍要回到 terminal，經用戶批准後才寫回 APS 紀錄。這不是通知送達證明，也不是已完成真兩機可靠性證明。
 
 ## 功能一覽
 
@@ -155,8 +155,8 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 
 | 想做的事 | 指令 / 說法 | APS 會做甚麼 |
 |---|---|---|
-| 邀請新協作者 | `peer invite` | 當共同基準已確認但未有協作者時，AI 會主動建議這一步；它產生可交給對方 AI 的加入邀請，不替對方預先指定 APS 名稱 |
-| 指名新增協作者 | `peer add` | 只在已知對方 APS 名稱時使用；若對方已完成加入，會保留 confirmed 狀態，不會降回 provisional |
+| 邀請新協作者 | `peer invite` | 當共同基準已確認但未有協作者時，AI 會主動建議這一步；它產生一次加入邀請碼和可交給對方 AI 的加入邀請，受邀者加入時自行確認 APS 名稱 |
+| 已知 APS 技術名稱時新增協作者 | `peer add` | 只在雙方已明確約定對方 APS 技術名稱時使用；一般邀請新協作者用 `peer invite` |
 | 重發加入教學 | `peer starter` | 重新產生給某位協作者的加入指引 |
 | 查看協作者 | `peers` | 列出已確認和暫定的協作對象 |
 
@@ -186,7 +186,6 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 | 想做的事 | 指令 / 說法 | APS 會做甚麼 |
 |---|---|---|
 | 查看整體狀態 | `check-aps` | 在 AI terminal 先判斷交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼；排錯資料、來源編號和完整追溯資料只在需要時用 `check-aps --full` 展開 |
-| HTML dashboard | `dashboard` | 已退役；不再生成 `_context/dashboard.html` 或個人 dashboard。日常狀態用 `check-aps`，需要即時釐清時用 APS Live |
 | 建立背景索引 | `context` / `context add` / `context html` | 把已讀交接整理成項目背景索引；只作背景，不取代交接包 |
 
 ### APS 不會做的事
@@ -204,7 +203,7 @@ AI 會問你這三件事。不要把任何人電腦上的本機路徑照抄到�
 目前公開版本是：
 
 ```text
-@adamchanadam/aps@0.2.24
+@adamchanadam/aps@0.2.25
 ```
 
 它已經可以安裝，並可用於受控實際試行。它仍是前期測試版，不應承諾為生產級工具。
@@ -231,13 +230,13 @@ npx --yes @adamchanadam/agent-handoff-kit@latest init --dry-run --root "<目前�
 npx --yes @adamchanadam/agent-handoff-kit@latest init --yes --root "<目前項目資料夾>"
 npm install --save-dev @adamchanadam/aps@latest
 npx aps init --dry-run
-npx aps init --hub-root "<Google Drive 本機路徑>" --project <項目代號> --agent-id <自己的_APS_名稱>
+npx aps init --hub-root "<AI 建議並經你確認的 APS 共用資料夾路徑>" --project <項目代號> --agent-id <自己的_APS_名稱> [--invite-code <邀請碼>]
 npx aps doctor
 ```
 
-不要用 `npx aps init --help` 查用法，因為 `init` 可能進入互動邏輯。查用法請用 `npx aps --help`；非互動終端要用 `--dry-run` 預覽，正式設定時傳入 `--hub-root`、`--project`、`--agent-id`。
+不要用 `npx aps init --help` 查用法，因為 `init` 可能進入互動邏輯。查用法請用 `npx aps --help`；非互動終端要用 `--dry-run` 預覽，正式設定時傳入 `--hub-root`、`--project`、`--agent-id`；受邀加入時再傳入 `--invite-code`。
 
-舊項目升級：
+既有項目升級：
 
 ```powershell
 npm install --save-dev @adamchanadam/aps@latest
@@ -245,7 +244,7 @@ npx aps upgrade
 npx aps doctor
 ```
 
-命令只是備用路徑。新手主路徑仍然是請本機 AI 代理讀取 AI 代理安裝指引，再由它帶你一步一步完成。
+命令只是備用路徑。新手主路徑仍然是請本機 AI 代理讀取 AI 代理安裝與升級指引，再由它帶你一步一步完成。
 
 ## 日常怎樣用
 

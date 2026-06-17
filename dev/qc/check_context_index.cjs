@@ -126,50 +126,7 @@ function outputOf(result) {
   return `${result.stdout || ''}${result.stderr || ''}`;
 }
 
-function expectCase(name, args, expectedStatus, requiredText) {
-  const result = runContext(args);
-  const output = outputOf(result);
-  assert(
-    result.status === expectedStatus,
-    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
-    output,
-  );
-  for (const text of requiredText) {
-    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
-  }
-  console.log(`PASS ${name}`);
-}
-
-function expectInboxCase(name, args, expectedStatus, requiredText) {
-  const result = runInbox(args);
-  const output = outputOf(result);
-  assert(
-    result.status === expectedStatus,
-    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
-    output,
-  );
-  for (const text of requiredText) {
-    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
-  }
-  console.log(`PASS ${name}`);
-}
-
-function expectCheckDriveCase(name, args, expectedStatus, requiredText) {
-  const result = runCheckDrive(args);
-  const output = outputOf(result);
-  assert(
-    result.status === expectedStatus,
-    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
-    output,
-  );
-  for (const text of requiredText) {
-    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
-  }
-  console.log(`PASS ${name}`);
-}
-
-function expectCheckApsCase(name, args, expectedStatus, requiredText, forbiddenText = []) {
-  const result = runCheckAps(args);
+function expectOutputCase(name, result, expectedStatus, requiredText, forbiddenText = []) {
   const output = outputOf(result);
   assert(
     result.status === expectedStatus,
@@ -185,32 +142,28 @@ function expectCheckApsCase(name, args, expectedStatus, requiredText, forbiddenT
   console.log(`PASS ${name}`);
 }
 
+function expectCase(name, args, expectedStatus, requiredText) {
+  expectOutputCase(name, runContext(args), expectedStatus, requiredText);
+}
+
+function expectInboxCase(name, args, expectedStatus, requiredText) {
+  expectOutputCase(name, runInbox(args), expectedStatus, requiredText);
+}
+
+function expectCheckDriveCase(name, args, expectedStatus, requiredText, forbiddenText = []) {
+  expectOutputCase(name, runCheckDrive(args), expectedStatus, requiredText, forbiddenText);
+}
+
+function expectCheckApsCase(name, args, expectedStatus, requiredText, forbiddenText = []) {
+  expectOutputCase(name, runCheckAps(args), expectedStatus, requiredText, forbiddenText);
+}
+
 function expectDashboardCase(name, args, expectedStatus, requiredText) {
-  const result = runDashboard(args);
-  const output = outputOf(result);
-  assert(
-    result.status === expectedStatus,
-    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
-    output,
-  );
-  for (const text of requiredText) {
-    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
-  }
-  console.log(`PASS ${name}`);
+  expectOutputCase(name, runDashboard(args), expectedStatus, requiredText);
 }
 
 function expectLiveCase(name, args, expectedStatus, requiredText) {
-  const result = runLive(args);
-  const output = outputOf(result);
-  assert(
-    result.status === expectedStatus,
-    `${name}: expected exit ${expectedStatus}, got ${result.status}`,
-    output,
-  );
-  for (const text of requiredText) {
-    assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
-  }
-  console.log(`PASS ${name}`);
+  expectOutputCase(name, runLive(args), expectedStatus, requiredText);
 }
 
 function expectPublishCase(name, args, expectedStatus, requiredText) {
@@ -240,6 +193,35 @@ function expectRepoFileContains(name, relativePath, requiredText, forbiddenText 
     assert(!content.includes(text), `${name}: ${relativePath} should not include "${text}"`);
   }
   console.log(`PASS ${name}`);
+}
+
+function listFilesRecursive(dirPath, predicate) {
+  const results = [];
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...listFilesRecursive(fullPath, predicate));
+    } else if (!predicate || predicate(fullPath)) {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
+function expectPublicDocsDoNotMentionDashboardHistory() {
+  const files = [
+    path.join(repoRoot, 'README.md'),
+    path.join(repoRoot, 'dev', 'release-notes', 'v0.2.24.md'),
+    ...listFilesRecursive(path.join(repoRoot, 'docs'), (filePath) => filePath.endsWith('.html')),
+  ];
+  const forbidden = ['dashboard', 'Dashboard', 'HTML dashboard', '_context/dashboard', '已退役'];
+  for (const filePath of files) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const text of forbidden) {
+      assert(!content.includes(text), `public docs should not mention dashboard history: ${path.relative(repoRoot, filePath)} includes "${text}"`);
+    }
+  }
+  console.log('PASS public docs do not mention dashboard history');
 }
 
 function inboxPacket(project, fromAgent, toAgent, packetId, topic, version = 1) {
@@ -435,19 +417,23 @@ try {
       'Status: product standard / local-supported APS Live capability in unreleased source',
       'APS Live is part of the APS product standard as a bounded handoff-tracking and exception-coordination layer',
       'This status does not certify reliable cross-machine APS Live',
-      'Cross-machine end-to-end behaviour and true two-peer Trystero message exchange still need two-machine verification before public docs may present it as reliable cross-machine support',
+      'or full first-use product-flow coverage',
+      'S105-style same-machine evidence proves only the exact scripted branch it ran',
+      'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`, unconfirmed shared-goal draft, normal confirmed-baseline handoff, missing-information return, stale generated-page refresh boundary, peer-offline / same-identity UI guard, wrong-project room isolation, Drive-sync-delay identity-risk scan, and active packet consistency across `check-aps`, `check-drive`, and APS Live',
+      'It still must not be generalized to real Trystero peer-offline events, real Drive sync timing, real human comprehension, or real two-device operation',
     ],
   );
 
+  expectPublicDocsDoNotMentionDashboardHistory();
+
   expectRepoFileContains(
-    'public HTML pages expose current APS user route without stale dashboard path',
+    'public pages expose current APS Live route without old status-surface history',
     'README.md',
     [
       'APS Live 交接追蹤頁',
       '正式狀態仍要回到 terminal',
-      'HTML dashboard 已退役',
     ],
-    ['_context/dashboard.html` 或個人 dashboard 作為日常狀態'],
+    ['dashboard', 'Dashboard', 'HTML dashboard', '_context/dashboard', '已退役'],
   );
 
   expectRepoFileContains(
@@ -482,7 +468,7 @@ try {
     'APS Live capability spec requires full operation loop and 3+ group boundary',
     'docs/plans/aps-live-capability-spec.md',
     [
-      'six-stage product-flow verification',
+      'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`, unconfirmed shared-goal draft, normal confirmed-baseline handoff, missing-information return, stale generated-page refresh boundary, peer-offline / same-identity UI guard, wrong-project room isolation, Drive-sync-delay identity-risk scan, and active packet consistency across `check-aps`, `check-drive`, and APS Live',
       'Six-stage Product Flow Definition',
       'APS Live is not considered product-flow complete until this exact six-stage path is proven with two APS identities',
       'Each stage must have evidence of transition, not only a visible label on the page.',
@@ -494,8 +480,9 @@ try {
       '`正式更新`',
       'This six-stage path is the product-flow gate.',
       'None of those can replace a missing six-stage transition.',
-      'APS Live end-to-end operation flow verification',
-      '3+ participant one-to-one-boundary verification',
+      'the case where no `shared_goal_and_roles` baseline exists and `共同基準` must be shown as blocked rather than completed',
+      'APS Live end-to-end operation flow',
+      '3+ participant one-to-one-boundary',
       'The APS Live end-to-end operation flow gate must prove the whole path',
       'The six-stage product-flow gate must pass before the Trystero evidence can be treated as product readiness.',
       'The 3+ participant gate must prove small-group presence without changing the APS formal model',
@@ -579,6 +566,13 @@ try {
   for (const text of ['你收到共同目標與分工，尚未確認', '未確認前不應直接處理普通任務', '先讀共同目標與分工正文']) {
     assert(jayBeforeConfirmOutput.includes(text), `journey jay check-aps before confirm: missing ${text}`, jayBeforeConfirmOutput);
   }
+  const jayBeforeConfirmLivePath = path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html');
+  assert(fs.existsSync(jayBeforeConfirmLivePath), 'journey jay before confirm: check-aps should auto-generate APS Live for unconfirmed shared-goal draft');
+  const jayBeforeConfirmLiveHtml = fs.readFileSync(jayBeforeConfirmLivePath, 'utf8');
+  assert(jayBeforeConfirmLiveHtml.includes('共同目標與分工仍未完全確認'), 'journey jay before confirm live: missing unconfirmed shared-goal blocker', jayBeforeConfirmLiveHtml);
+  assert(jayBeforeConfirmLiveHtml.includes('不可先開普通任務'), 'journey jay before confirm live: missing cannot-start warning', jayBeforeConfirmLiveHtml);
+  assert(/tracking-step active" aria-label="共同基準：進行中"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: common baseline should be in progress, not completed', jayBeforeConfirmLiveHtml);
+  assert(!/tracking-step done" aria-label="共同基準：已完成"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: common baseline must not be marked completed before confirmation', jayBeforeConfirmLiveHtml);
 
   const jayConfirmSharedGoal = runApsProcess(['consume',
     '--hub-root', hubRoot,
@@ -646,11 +640,23 @@ try {
   for (const text of ['[✅ 可開工]', 'homepage copy review', '有 1 件交接等你處理']) {
     assert(jayCheckValidHandoffOutput.includes(text), `journey jay check valid handoff: missing ${text}`, jayCheckValidHandoffOutput);
   }
+  const jayValidHandoffLive = runLive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayValidHandoffLiveOutput = outputOf(jayValidHandoffLive);
+  assert(jayValidHandoffLive.status === 0, `journey jay live valid handoff: expected exit 0, got ${jayValidHandoffLive.status}`, jayValidHandoffLiveOutput);
+  const jayValidHandoffLiveHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html'), 'utf8');
+  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(jayValidHandoffLiveHtml), 'journey jay valid handoff live: confirmed common baseline should be completed', jayValidHandoffLiveHtml);
+  assert(/tracking-step active" aria-label="可開工判斷：進行中"/.test(jayValidHandoffLiveHtml), 'journey jay valid handoff live: can-start judgement should be active for normal pending handoff', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('可按交接內容開工'), 'journey jay valid handoff live: missing can-start label', jayValidHandoffLiveHtml);
+  assert(!jayValidHandoffLiveHtml.includes('未見目前有效共同目標與分工基準'), 'journey jay valid handoff live: should not show no-baseline blocker after confirmation', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes(`"seen_packet": "adam:${validHandoffPacketId}:v1"`), 'journey jay valid handoff live: snapshot should point to the same pending packet as terminal state', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('頁面資料來自生成時的 APS 快照'), 'journey jay valid handoff live: stale-page boundary should be visible', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('重新讀取正式狀態'), 'journey jay valid handoff live: stale-page refresh action should be visible', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('refreshFormalPrompt'), 'journey jay valid handoff live: refresh prompt script should be present', jayValidHandoffLiveHtml);
 
   const jayCheckDriveValid = runCheckDrive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--from', 'adam']);
   const jayCheckDriveValidOutput = outputOf(jayCheckDriveValid);
   assert(jayCheckDriveValid.status === 0, `journey jay check-drive valid handoff: expected exit 0, got ${jayCheckDriveValid.status}`, jayCheckDriveValidOutput);
-  for (const text of ['今日收件報告', 'homepage_copy_review', '對方交了甚麼', '建議下一步']) {
+  for (const text of ['今日收件報告', 'homepage_copy_review', validHandoffPacketId, '對方交了甚麼', '建議下一步']) {
     assert(jayCheckDriveValidOutput.includes(text), `journey jay check-drive valid handoff: missing ${text}`, jayCheckDriveValidOutput);
   }
 
@@ -664,6 +670,12 @@ try {
   ]);
   const jayConsumeValidOutput = outputOf(jayConsumeValid);
   assert(jayConsumeValid.status === 0, `journey jay consume valid handoff: expected exit 0, got ${jayConsumeValid.status}`, jayConsumeValidOutput);
+  const jayAfterConsumeCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayAfterConsumeCheckApsOutput = outputOf(jayAfterConsumeCheckAps);
+  assert(jayAfterConsumeCheckAps.status === 0, `journey jay check-aps after consuming valid handoff: expected exit 0, got ${jayAfterConsumeCheckAps.status}`, jayAfterConsumeCheckApsOutput);
+  assert(jayAfterConsumeCheckApsOutput.includes('目前沒有明確卡點'), 'journey jay check-aps after consume: formal state should move on even if an older Live HTML remains on disk', jayAfterConsumeCheckApsOutput);
+  assert(!jayAfterConsumeCheckApsOutput.includes('有 1 件交接等你處理'), 'journey jay check-aps after consume: stale generated page must not keep old pending terminal state alive', jayAfterConsumeCheckApsOutput);
+  console.log('PASS check-aps, check-drive, and APS Live point to the same active packet and stale generated pages keep a refresh boundary');
 
   writeTempApsConfig(journeyProject, 'adam');
   const badHandoffPublish = runPublish([
@@ -702,6 +714,13 @@ try {
   for (const text of ['[⚠️ 需退回補資料]', 'homepage asset check', '交接資料不足', '請對方修訂原交接']) {
     assert(jayCheckBadHandoffOutput.includes(text), `journey jay check bad handoff: missing ${text}`, jayCheckBadHandoffOutput);
   }
+  const jayBadHandoffLivePath = path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html');
+  assert(fs.existsSync(jayBadHandoffLivePath), 'journey jay bad handoff: check-aps should auto-generate APS Live for missing-information return');
+  const jayBadHandoffLiveHtml = fs.readFileSync(jayBadHandoffLivePath, 'utf8');
+  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(jayBadHandoffLiveHtml), 'journey jay bad handoff live: common baseline should remain completed', jayBadHandoffLiveHtml);
+  assert(/tracking-step blocked" aria-label="可開工判斷：未通過 \/ 需處理"/.test(jayBadHandoffLiveHtml), 'journey jay bad handoff live: can-start judgement should be blocked for missing information', jayBadHandoffLiveHtml);
+  assert(jayBadHandoffLiveHtml.includes('未列明真源指標或來源位置'), 'journey jay bad handoff live: missing information blocker should be visible', jayBadHandoffLiveHtml);
+  assert(jayBadHandoffLiveHtml.includes('請對方補真源、範圍或驗收標準'), 'journey jay bad handoff live: missing formal return action', jayBadHandoffLiveHtml);
 
   const jayDeclineBad = runApsProcess(['decline',
     '--hub-root', hubRoot,
@@ -721,7 +740,7 @@ try {
   for (const text of ['對方退回了', 'Missing receiver-readable source pointer', 'revise']) {
     assert(adamSeesDeclineOutput.includes(text), `journey adam check after decline: missing ${text}`, adamSeesDeclineOutput);
   }
-  console.log('PASS Adam/Jay shared-goal to strict handoff journey is regression-covered');
+  console.log('PASS shared-goal draft, normal handoff, and missing-info return journey variants are regression-covered');
 
   publishReadyProject('strict_publish_incomplete');
   expectPublishCase(
@@ -774,19 +793,31 @@ try {
   assert(inviteResult.status === 0, `peer invite: expected exit 0, got ${inviteResult.status}`, inviteOutput);
   const invitePath = path.join(hubRoot, '_hub', 'open-invite-open_invite_demo.md');
   const invite = fs.readFileSync(invitePath, 'utf8');
+  const inviteCodeMatch = invite.match(/APS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
+  assert(inviteCodeMatch, 'open invite: missing unique invite code', invite);
+  const inviteCode = inviteCodeMatch[0];
+  const inviteRecordPath = path.join(hubRoot, 'open_invite_demo', '_invites', `${inviteCode}.json`);
+  assert(fs.existsSync(inviteRecordPath), 'open invite: missing invite JSON record');
+  const inviteRecord = JSON.parse(fs.readFileSync(inviteRecordPath, 'utf8'));
+  assert(inviteRecord.status === 'open', 'open invite record: expected open status before join', JSON.stringify(inviteRecord, null, 2));
+  assert(inviteRecord.inviter_agent_id === 'adam', 'open invite record: expected inviter adam', JSON.stringify(inviteRecord, null, 2));
   for (const text of [
     '📨 APS 協作邀請：open_invite_demo',
+    '你的加入邀請碼是：',
+    inviteCode,
+    '這個邀請碼只代表「可以加入這個 APS 項目」，不代表你的 APS 名稱',
     '把下面 `---✂️---` 之間的整段直接貼給 AI',
     '---✂️---',
     '請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：',
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html',
     '你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。',
     '若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。',
-    'Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。',
+    'Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並等我確認後才建立。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。',
     '項目代號：\nopen_invite_demo',
+    `邀請碼：\n${inviteCode}`,
     'Google Drive 共用資料夾名稱：',
     '邀請人：\nadam',
-    '通過後，請告訴我以後可以輸入「check Drive」接收 adam 交來的內容。',
+    '通過後，請告訴我以後可以輸入「Check APS」查看整體狀態',
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html',
   ]) {
     assert(invite.includes(text), `open invite: missing ${text}`, invite);
@@ -798,6 +829,56 @@ try {
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_ack', 'user2.ack.json')), 'open invite: must not create invitee ack');
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_peers', 'agents', 'user2.json')), 'open invite: must not create invitee peer card');
   console.log('PASS peer invite is copy-paste ready without preassigning identity');
+
+  const inviteJoin = runApsProcess(
+    ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', 'open_invite_demo', '--agent-id', 'mira', '--invite-code', inviteCode],
+    makeHandoffProject('open-invite-joiner-project'),
+  );
+  const inviteJoinOutput = outputOf(inviteJoin);
+  assert(inviteJoin.status === 0, `invite-code join init: expected exit 0, got ${inviteJoin.status}`, inviteJoinOutput);
+  const acceptedInviteRecord = JSON.parse(fs.readFileSync(inviteRecordPath, 'utf8'));
+  assert(acceptedInviteRecord.status === 'accepted', 'open invite record: expected accepted status after join', JSON.stringify(acceptedInviteRecord, null, 2));
+  assert(acceptedInviteRecord.accepted_by === 'mira', 'open invite record: expected accepted_by mira', JSON.stringify(acceptedInviteRecord, null, 2));
+  assert(fs.existsSync(path.join(hubRoot, 'open_invite_demo', 'from_mira', 'outbox.log.md')), 'invite-code join: missing mira lane');
+  assert(fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_ack', 'mira.ack.json')), 'invite-code join: missing mira ack');
+  assert(fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_peers', 'agents', 'mira.json')), 'invite-code join: missing mira peer card');
+  const inviteReuse = runApsProcess(
+    ['init', '--target', 'codex', '--dry-run', '--hub-root', hubRoot, '--project', 'open_invite_demo', '--agent-id', 'noah', '--invite-code', inviteCode],
+    makeHandoffProject('open-invite-reuse-project'),
+  );
+  const inviteReuseOutput = outputOf(inviteReuse);
+  assert(inviteReuse.status === 1, `invite-code reuse: expected exit 1, got ${inviteReuse.status}`, inviteReuseOutput);
+  assert(inviteReuseOutput.includes('is accepted'), 'invite-code reuse: missing accepted-code warning', inviteReuseOutput);
+  console.log('PASS peer invite code records acceptance and blocks reuse');
+
+  writeTempApsConfig('open_invite_demo', 'adam');
+  const secondInvite = runApsProcess(['peer', 'invite']);
+  const secondInviteOutput = outputOf(secondInvite);
+  assert(secondInvite.status === 0, `second peer invite: expected exit 0, got ${secondInvite.status}`, secondInviteOutput);
+  const secondInviteText = fs.readFileSync(invitePath, 'utf8');
+  const secondInviteCodeMatch = secondInviteText.match(/APS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
+  assert(secondInviteCodeMatch, 'second invite: missing invite code', secondInviteText);
+  const secondInviteCode = secondInviteCodeMatch[0];
+  const secondJoin = runApsProcess(
+    ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', 'open_invite_demo', '--agent-id', 'noah', '--invite-code', secondInviteCode],
+    makeHandoffProject('open-invite-second-joiner-project'),
+  );
+  const secondJoinOutput = outputOf(secondJoin);
+  assert(secondJoin.status === 0, `second invite-code join: expected exit 0, got ${secondJoin.status}`, secondJoinOutput);
+  const projectPeers = fs.readdirSync(path.join(hubRoot, 'open_invite_demo', '_peers', 'agents'))
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.replace(/\.json$/, ''))
+    .sort();
+  assert(projectPeers.includes('adam') && projectPeers.includes('mira') && projectPeers.includes('noah'), `multi-peer project: expected adam/mira/noah, got ${projectPeers.join(', ')}`);
+  writeFile(path.join(hubRoot, 'open_invite_demo', 'from_adam', 'outbox.log.md'), '');
+  const oneToOnePublish = runApsProcess(['publish', '--to', 'mira', '--topic', 'one_to_one_check', '--body', 'one-to-one packet for Mira only']);
+  const oneToOneOutput = outputOf(oneToOnePublish);
+  assert(oneToOnePublish.status === 0, `one-to-one publish: expected exit 0, got ${oneToOnePublish.status}`, oneToOneOutput);
+  const oneToOnePacketId = extractPublishedPacketId(oneToOneOutput, 'one-to-one publish');
+  const packetText = fs.readFileSync(path.join(hubRoot, 'open_invite_demo', 'from_adam', 'packets', `${oneToOnePacketId}__v1`, 'packet.md'), 'utf8');
+  assert(packetText.includes('\nto: mira\n'), 'one-to-one packet: expected to mira', packetText);
+  assert(!packetText.includes('\nto: noah\n'), 'one-to-one packet: must not target noah', packetText);
+  console.log('PASS one project supports multiple confirmed peers while each packet stays one-to-one');
 
   writeFile(
     path.join(hubRoot, 'duplicate_join', '_peers', 'agents', 'alex.json'),
@@ -1171,10 +1252,11 @@ try {
     'casey.json 內的 project 是 wrong_project',
     'dana.json 內的 lane 是 from_different_dana',
     'bob 有 peer card,但缺少 lane 缺少 ack',
+    '正式交接前先等對方完成 APS 設定並重跑 doctor',
   ]) {
     assert(identityCheckApsFullOutput.includes(text), `identity check-aps --full: missing ${text}`, identityCheckApsFullOutput);
   }
-  console.log('PASS identity conflict scan catches ack, lane, peer-card, and incomplete identity issues');
+  console.log('PASS identity conflict and Drive sync delay scan catches ack, lane, peer-card, wrong-project, and incomplete peer artifacts');
 
   publishReadyProject('strict_publish_complete');
   expectPublishCase(
@@ -1691,6 +1773,22 @@ try {
     workstream: 'new-user daily flow',
     current_focus: 'make check Drive readable',
   });
+  writeFile(
+    path.join(hubRoot, 'shared_goal_inbox', 'from_adam', 'outbox.log.md'),
+    '2026-06-16T14:32:11Z | publish | 20260616T143211Z__shared_goal_and_roles v1 | to:jay | items:1\n',
+  );
+  writeFile(
+    path.join(hubRoot, 'shared_goal_inbox', 'from_adam', 'packets', '20260616T143211Z__shared_goal_and_roles__v1', 'packet.md'),
+    `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## Common Goal\n用 APS 建立 Jay 首輪共同基準，確保接收方先確認分工再處理普通交接。\n\n## Participants\nadam 負責發出基準；jay 負責確認、部分同意或提出異議。\n\n## First Round Scope\nadam 只發一對一共同目標確認包；jay 不應把它當成普通工作包。\n\n## Acceptance Criteria\nJay 的 check Drive 清楚顯示共同目標、分工、驗收標準與可選確認動作。\n\n## Open Items\nJay 仍未 consume 或 decline 這一版共同目標。\n`,
+  );
+  writeFile(
+    path.join(hubRoot, 'shared_goal_inbox_insufficient', 'from_adam', 'outbox.log.md'),
+    '2026-06-16T14:32:11Z | publish | 20260616T143211Z__shared_goal_and_roles v1 | to:jay | items:1\n',
+  );
+  writeFile(
+    path.join(hubRoot, 'shared_goal_inbox_insufficient', 'from_adam', 'packets', '20260616T143211Z__shared_goal_and_roles__v1', 'packet.md'),
+    `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox_insufficient\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\nProject: aps_jay\n`,
+  );
   inboxPacket('context_add', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary');
   inboxPacket('context_add_exact', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary', 1);
   inboxPacket('context_add_exact', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary', 11);
@@ -1954,8 +2052,19 @@ try {
       '[🔎 先建立基準]',
       '不要先發普通任務包',
       '下一句可對 AI 說',
+      'APS Live 即時協作',
+      '頁面已由 Check APS 自動生成 / 更新',
     ],
   );
+  const noBaselineLivePath = path.join(hubRoot, 'dashboard_no_baseline', '_context', 'aps-live_adam.html');
+  assert(fs.existsSync(noBaselineLivePath), 'check-aps should auto-generate no-baseline first-use APS Live page');
+  const noBaselineLiveHtml = fs.readFileSync(noBaselineLivePath, 'utf8');
+  assert(noBaselineLiveHtml.includes('需先建立共同目標與分工'), 'aps live no-baseline: missing first-use baseline title', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('未見目前有效共同目標與分工基準'), 'aps live no-baseline: missing explicit baseline blocker', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('請用 APS 建立共同目標與分工草稿'), 'aps live no-baseline: missing terminal return action', noBaselineLiveHtml);
+  assert(/tracking-step blocked" aria-label="共同基準：未通過 \/ 需處理"/.test(noBaselineLiveHtml), 'aps live no-baseline: common baseline step should be blocked', noBaselineLiveHtml);
+  assert(!/tracking-step done" aria-label="共同基準：已完成"/.test(noBaselineLiveHtml), 'aps live no-baseline: common baseline step must not be marked done', noBaselineLiveHtml);
+  console.log('PASS check-aps auto-generates no-baseline APS Live with blocked common baseline');
   expectCheckApsCase(
     'check-aps demo preview shows terminal-first flow without real Drive writes',
     ['--demo-preview'],
@@ -2122,6 +2231,9 @@ try {
     '可交給本機 AI 整理正式下一步',
     '這是給對方看的訊息草稿',
     '連接 APS Live',
+    '重新讀取正式狀態',
+    '頁面打開後會自動連接',
+    '頁面資料來自生成時的 APS 快照',
     '發送核對訊息',
     'id="discussionStatus"',
     'id="forwardToAgentAfterDiscussion"',
@@ -2164,6 +2276,8 @@ try {
     '這不是協作者，不能當成',
     '正在確認是否真的是協作者',
     '協作者已確認身份',
+    'autoConnectLive',
+    'refreshFormalPrompt',
     '已載入本次頁面 session 記錄',
     'aps-live-session-v1:',
     '✅ 已交給本機 AI 整理下一步',
@@ -2205,6 +2319,7 @@ try {
     '即時群聊訊息',
     '發送群聊訊息',
     '已發送群聊訊息',
+    'placeholder="例：Jay',
     '項目共識群聊內容',
     '你來到這頁，通常是因為本機 AI 判斷',
     '如果你不知要寫甚麼，先選一個情景',
@@ -2257,6 +2372,8 @@ try {
   }
   const connectButtonCount = (liveDemoHtml.match(/id="connectLive"/g) || []).length;
   assert(connectButtonCount === 1, `aps live demo html: expected one connect button, got ${connectButtonCount}`, liveDemoHtml);
+  assert(/tracking-step active" aria-label="共同基準：進行中"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft should keep 共同基準 in progress', liveDemoHtml);
+  assert(!/tracking-step done" aria-label="共同基準：已完成"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft must not mark 共同基準 as completed', liveDemoHtml);
   assert(liveDemoHtml.indexOf('id="connectLive"') < liveDemoHtml.indexOf('完成協商後交給本機 AI'), 'aps live demo html: local AI handoff should appear after live coordination controls', liveDemoHtml);
   assert(liveDemoHtml.indexOf('id="messages"') < liveDemoHtml.indexOf('id="forwardToAgentAfterDiscussion"'), 'aps live demo html: local AI handoff button should be after discussion history', liveDemoHtml);
   assert(liveDemoHtml.indexOf('💬 異常協調') < liveDemoHtml.indexOf('id="messages"'), 'aps live demo html: message history should live inside discussion flow', liveDemoHtml);
@@ -2376,6 +2493,17 @@ try {
     '交給本機 AI 草擬下一步',
     'id="forwardToAgentAfterDiscussion"',
     '本機 AI 佇列未連接',
+    '重新讀取正式狀態',
+    '頁面打開後會自動連接',
+    '頁面資料來自生成時的 APS 快照',
+    'autoConnectLive',
+    'refreshFormalPrompt',
+    'function remotePeerCount()',
+    '等待對方進入後才能發送核對訊息',
+    '偵測到同一 APS 身份的另一個視窗',
+    '這不代表協作者已進入',
+    '協作者離開',
+    '對方暫時離開 APS Live；你仍可先整理訊息。',
   ]) {
     assert(liveProjectHtml.includes(text), `aps live project html: missing ${text}`, liveProjectHtml);
   }
@@ -2399,9 +2527,12 @@ try {
     'forwardToAgentInline',
     'id="forwardToAgentTop"',
     '交給本機 AI 判斷下一步',
+    'placeholder="例：Jay',
   ]) {
     assert(!liveProjectHtml.includes(text), `aps live project html: should keep ${text} out of user UI`, liveProjectHtml);
   }
+  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(liveProjectHtml), 'aps live project html: shared-goal baseline should mark 共同基準 as completed when a baseline packet exists', liveProjectHtml);
+  assert(/<button id="sendProjectMessageInline" type="button" disabled>等待對方進入後才能發送核對訊息<\/button>/.test(liveProjectHtml), 'aps live project html: send button should start disabled until a real peer is present', liveProjectHtml);
   const liveBridgeTokenPath = path.join(hubRoot, 'dashboard_daily', '_context', 'live_bridge_token.json');
   assert(fs.existsSync(liveBridgeTokenPath), 'aps live project should create local bridge token');
   const liveBridgeToken = JSON.parse(fs.readFileSync(liveBridgeTokenPath, 'utf8'));
@@ -2521,8 +2652,33 @@ try {
     for (const expectedPeer of ['mary', 'tom', 'fanny']) {
       assert(html.includes(`"${expectedPeer}"`), `dynamic aps live ${peerId}: missing live participant ${expectedPeer}`, html);
     }
+    for (const staleName of ['Jay', 'Adam']) {
+      assert(!html.includes(staleName), `dynamic aps live ${peerId}: leaked non-current placeholder or identity ${staleName}`, html);
+    }
   }
   assert(new Set(dynamicLiveRooms).size === 1, `dynamic aps live: 3+ project pages should share one Trystero room, got ${dynamicLiveRooms.join(', ')}`);
+  writeTempApsConfig('dashboard_dynamic_names_other', 'mary');
+  for (const peerId of ['mary', 'tom', 'fanny']) {
+    writeFile(path.join(hubRoot, 'dashboard_dynamic_names_other', `from_${peerId}`, 'outbox.log.md'), '');
+    writeFile(
+      path.join(hubRoot, 'dashboard_dynamic_names_other', '_peers', 'agents', `${peerId}.json`),
+      `${JSON.stringify({
+        project: 'dashboard_dynamic_names_other',
+        agent_id: peerId,
+        display_name: `${peerId.toUpperCase()} OTHER`,
+        lane: `from_${peerId}`,
+        status: 'active',
+        peer_state: 'confirmed',
+      }, null, 2)}\n`,
+    );
+  }
+  const otherProjectLive = runLive(['--hub-root', hubRoot, '--project', 'dashboard_dynamic_names_other', '--agent-id', 'mary']);
+  const otherProjectLiveText = outputOf(otherProjectLive);
+  assert(otherProjectLive.status === 0, `dynamic aps live wrong project isolation: expected exit 0, got ${otherProjectLive.status}`, otherProjectLiveText);
+  const otherProjectLiveHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_dynamic_names_other', '_context', 'aps-live_mary.html'), 'utf8');
+  const otherProjectRoom = otherProjectLiveHtml.match(/const roomId = "([^"]+)"/);
+  assert(otherProjectRoom, 'dynamic aps live wrong project isolation: missing room id', otherProjectLiveHtml);
+  assert(!dynamicLiveRooms.includes(otherProjectRoom[1]), `dynamic aps live wrong project isolation: different project reused room id ${otherProjectRoom[1]}`);
   console.log('PASS dashboard and check-aps are driven by arbitrary APS names');
   expectInboxCase(
     'inbox daily brief includes context as background',
@@ -2548,6 +2704,40 @@ try {
       '收到 1 個新交接',
       '對方交了甚麼',
       '排錯時才需要的細節',
+    ],
+  );
+  expectCheckDriveCase(
+    'check-drive renders shared goal and roles confirmation as dedicated inbox item',
+    ['--hub-root', hubRoot, '--project', 'shared_goal_inbox', '--agent-id', 'jay', '--from', 'adam'],
+    0,
+    [
+      '共同目標與分工確認',
+      '這不是普通任務',
+      '用 APS 建立 Jay 首輪共同基準',
+      'adam 負責發出基準；jay 負責確認、部分同意或提出異議。',
+      'Jay 的 check Drive 清楚顯示共同目標、分工、驗收標準與可選確認動作。',
+      'Jay 確認共同目標與分工',
+      '同意:',
+      '部分同意，需要修改',
+      '有異議',
+      '稍後處理',
+      '不要把它標成普通 done',
+    ],
+  );
+  expectCheckDriveCase(
+    'check-drive warns when shared goal summary extraction is insufficient',
+    ['--hub-root', hubRoot, '--project', 'shared_goal_inbox_insufficient', '--agent-id', 'jay', '--from', 'adam'],
+    0,
+    [
+      '共同目標與分工確認',
+      '收到共同目標與分工包，但摘要生成不足，請讀完整 packet 後再決定。',
+      '未在基準包內摘出共同目標',
+      'Jay 確認共同目標與分工',
+      '不要把它標成普通 done',
+    ],
+    [
+      '對方交了甚麼',
+      'Project: aps_jay',
     ],
   );
 

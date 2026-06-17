@@ -5,7 +5,7 @@ description: Sets up and runs cross-machine collaboration between AI agents on t
 
 # Agent Public Squares — 跨機合作 skill
 
-> **狀態:** npm package `@adamchanadam/aps` 屬前期測試版,確切版本以 `npx aps --help` 或 `npx aps doctor` 實測為準。套件提供 `bridge-pack`、互動式 `init` 技能安裝、既有項目 `upgrade`、初始共用 Drive 資料夾 skeleton、Bridge Pack、starter pack、最小 `publish` / `inbox` / `consume` / `decline` / `close` 指令,以及 `revise`、`withdraw`、只讀 `doctor`、`context` / `context add` / `context html`、`check-drive`、`check-aps`、`config`、`.aps/config.json` 專案本地設定、`publish --body-file`、`revise --body-file` 與短命令日用流程。HTML dashboard 已退役;`dashboard` 指令只保留退役提示,不再生成 `_context/dashboard.html` 或個人 dashboard。APS Live 是 APS 產品標準內的交接追蹤與例外協調層,但不是正式記錄寫入面、通知送達證明、AI 自動喚醒機制或真兩機可靠性證明。Project Peers + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 project 可有多位 peers、每次仍是一對一 packet。設置完成後日常命令可省略共用 Drive 資料夾 / project / agent 長參數。專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。此檔是可隨 npm package 發出的 skill runtime 規格草稿。設置對話 wording 的精簡隨包版本見 `references/setup-dialogue.md`;repo 內長版維護稿見 `docs/plans/2026-05-23-aps-skill-dialogue-script.md`。
+> **狀態:** npm package `@adamchanadam/aps` 屬前期測試版,確切版本以 `npx aps --help` 或 `npx aps doctor` 實測為準。套件提供 `bridge-pack`、互動式 `init` 技能安裝、既有項目 `upgrade`、初始共用 Drive 資料夾 skeleton、Bridge Pack、starter pack、最小 `publish` / `inbox` / `consume` / `decline` / `close` 指令,以及 `revise`、`withdraw`、只讀 `doctor`、`context` / `context add` / `context html`、`check-drive`、`check-aps`、`config`、`.aps/config.json` 專案本地設定、`publish --body-file`、`revise --body-file` 與短命令日用流程。`dashboard` 指令只保留提示,不再生成狀態頁;日常狀態用 `Check APS`,即時釐清用 APS Live。APS Live 是 APS 產品標準內的交接追蹤與例外協調層,但不是正式記錄寫入面、通知送達證明、AI 自動喚醒機制或真兩機可靠性證明。Project Peers + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 project 可有多位 peers、每次仍是一對一 packet。設置完成後日常命令可省略共用 Drive 資料夾 / project / agent 長參數。專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。此檔是可隨 npm package 發出的 skill runtime 規格草稿。設置對話 wording 的精簡隨包版本見 `references/setup-dialogue.md`;repo 內長版維護稿見 `docs/plans/2026-05-23-aps-skill-dialogue-script.md`。
 
 ## 1. 此 skill 的職責
 
@@ -36,8 +36,8 @@ description: Sets up and runs cross-machine collaboration between AI agents on t
 - **主動推進硬規則**:APS 不是命令清單,也不是用戶任務世界的唯一工具。AI 必須先理解用戶正在做的 project 與工作意圖,再判斷是否需要 APS。面向人類新手、公開 HTML 或教學中心時,要教用戶用穩定觸發語:「請用 APS 把這段工作交接給 <協作者>,先整理草稿,等我確認後才寫入共用 Drive。」不得提示用戶「不需要說 APS」或把純自然語句包裝成最穩主路徑。若用戶實際對話中只說「這部分交 Jay 跟進」「我做到這裏,讓 Jay 接手」「幫我整理給 Jay」等自然語句,AI 可把它視為潛在 APS 交接意圖,但要先確認是否使用 APS,避免被普通任務或其他 skill 誤導。AI 的責任是根據目前狀態預判下一步,幫用戶有系統地完成交接:缺共同基準就先建立;有基準但未保存就先落地;有基準但未有協作者就主動引導生成 `peer invite`;已有 confirmed peer 就引導讓對方確認共同基準或建立第一輪交接;有 pending packet 就判斷可開工、需退回、需澄清或等待修訂。不要等用戶知道 APS 內部下一條命令才行動,也不得把系統產物如「一對一交接包」包裝成用戶應輸入的指令。
 - **無狀態接收方硬規則**:每次交接都預設接收方 AI 沒有讀過發送方對話、發送方本機檔案、發送方 Google Drive 本機路徑或發送方已讀範圍。AI 不可只寫任務要求就 publish;必須先整理「交接確認卡」,確認卡最少包含:共同目標、接收方要做甚麼、發送方已做甚麼、不應做的事、真源指標清單、未決事項、接收方開工條件。真源指標不是把另一份 SSOT 複製到 APS,而是讓對方可找回來源的指標,例如共用 Drive 內文件 / 資料夾、Google Docs 連結、檔名、版本、頁碼、段落、表格、日期或 APS packet 位置。若只找到發送方本機路徑、只寫「本次對話」或來源未共享,必須截停正常交接,改為補資料流程;不得讓接收方硬做或憑空補腦。缺資料時每次最多問三題:「Jay 要做甚麼?」「必須依據哪份來源?」「Jay 交回甚麼才算完成?」
 - **新手旅程驗收硬規則**:任何面向人類新手的 APS 教學、HTML、引導文或 onboarding 說明,改完後必須用兩條問題驗收:一,新手是否對 APS 的運作流程有概念;二,讀完後是否具體知道怎樣叫 AI 用 APS 幫自己完成 group project 交接。若答案不是清楚的「是」,不可只補命令或術語,必須回到用戶任務語境重寫。核心心聲是:用 APS 不是用戶目標,它只是 group project 的交接工具;若不方便、不理解,用戶會放棄。
-- **agent_id 一致性硬規則**:`agent_id` 是整個共用 Drive 資料夾共用的身份名稱,不是每部電腦各自重新命名的暱稱。三問安裝時,每一方只設定自己的名稱;普通邀請只交代 project 與加入方法,不替對方預先取名或建 lane。受邀者完成自己電腦上的 `init` 後,其自選名稱才成為技術身份。文內 `adam`、`jay`、`fanny`、`jackie` 等只作示範,不得當作產品預設、固定角色或 hard-coded 流程。若兩邊名稱不一致,AI 必須先提醒會讀錯 `from_<agent>` 通道,導致 inbox 看不到交接包或共用 Drive 資料夾內出現多套 lane,再協助用戶用 `npx aps config` 或 `npx aps upgrade` 對齊。
-- **Project Peers 硬規則**:一個 APS project 可以有多位 peers,但每個 packet 仍只可發給一個 peer。`otherAgentId` 是舊二人相容預設,不是整個 project 永久只能合作一人的限制。用戶說「邀請協作者加入這個 APS project」時,普通主路徑是 `npx aps peer invite`:生成可轉發邀請,讓對方在自己的電腦選定 APS 名稱並完成設定;此命令不得預先建立對方 lane、ack 或 peer card。只有雙方已明確約定對方技術身份時,才用 `npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>` 建立 provisional peer 與 starter pack;若對方已在自己的電腦完成加入並留下 confirmed peer card,`peer add` 不得把對方降回 provisional。用戶說「把這部分交給某位協作者」時,先用 `npx aps peers` 確認該 peer 是否已 confirmed;若 confirmed,才用 `npx aps publish --to <對方_agent_id> ...`;若 provisional 或未出現,先輸出邀請 / starter pack 通知。不得建立多收件人 packet、群組 lane 或自動通知對方 AI。
+- **agent_id 一致性硬規則**:`agent_id` 是整個共用 Drive 資料夾共用的身份名稱,不是每部電腦各自重新命名的暱稱。三問安裝時,每一方只設定自己的名稱;一次加入邀請只交代 project、邀請碼與加入方法。受邀者完成自己電腦上的 `init` 後,其自選名稱才成為技術身份。文內 `adam`、`jay`、`fanny`、`jackie` 等只作示範,不得當作產品預設、固定角色或 hard-coded 流程。若兩邊名稱不一致,AI 必須先提醒會讀錯 `from_<agent>` 通道,導致 inbox 看不到交接包或共用 Drive 資料夾內出現多套 lane,再協助用戶用 `npx aps config` 或 `npx aps upgrade` 對齊。
+- **Project Peers 硬規則**:一個 APS project 可以有多位 peers,但每個 packet 仍只可發給一個 peer。`otherAgentId` 是舊二人相容預設,不是整個 project 永久只能合作一人的限制。用戶說「邀請協作者加入這個 APS project」時,公眾主路徑是 `npx aps peer invite`:生成一次加入邀請碼與可轉發邀請,讓對方在自己的電腦選定 APS 名稱並完成設定;邀請碼只代表可加入項目,不代表受邀者名稱。lane、ack 與 peer card 由受邀者完成設定時建立。`npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>` 只在雙方已明確約定對方技術身份時使用;若對方已在自己的電腦完成加入並留下 confirmed peer card,`peer add` 不得把對方降回 provisional。用戶說「把這部分交給某位協作者」時,先用 `npx aps peers` 確認該 peer 是否已 confirmed;若 confirmed,才用 `npx aps publish --to <對方_agent_id> ...`;若 provisional 或未出現,先輸出邀請碼邀請通知。不得建立多收件人 packet、群組 lane 或自動通知對方 AI。
 - **項目開局對齊硬規則**:第一位用戶新安裝完成後,或任何用戶第一次說「教我用 APS / 下一步 / 怎樣開始」而項目尚未有清楚共同口徑時,AI 必須先帶用戶建立「夠安全開始」的共同目標與分工,再邀請 peer、發測試包或發第一輪正式交接。共同目標與分工是 project-level shared baseline:同一個 APS project 只可有一份「目前有效」基準;它可有版本和修訂,但不可由不同 peer 各自建立平行版本。起步基準必須先有五項:共同目標、參與者與自己的 agent id、第一個可做小步、明顯不可做事項、最小驗收方式。每人長期角色、完整第一輪分工、第一個邀請對象、第一輪交接對象、詳細驗收標準等可先標為「未定」或「待確認」,但不得假裝已定。八項仍是 AI 的檢查框架,不是新手一開始必填表。AI 可按項目增加截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制等欄位,但不得刪除會影響共同口徑的核心欄位。AI 可從對話和檔案可靠整理草稿,不足才問最多三個關鍵問題。未經用戶確認起步基準前,不得把模糊分工寫入 APS packet,不得把邀請對象當成已定任務收件人,也不得聲稱團隊口徑已一致。用戶確認後,AI 必須主動問是否落地:本機保存、讓 confirmed peer 確認共同基準,或在對方未加入時先邀請並於 confirmed 後再請對方確認共同基準;不得只把基準留在對話中而不標示未落地。若項目已有基準,後加入 peer 必須先取得或確認最新基準,不可自行重建另一份。若有三位或以上 confirmed peers,同一基準要逐一發給受影響 peer 確認;APS 沒有群發確認。
 
 ## 3. 起手 routing
@@ -65,7 +65,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 - **項目開局對齊**:用戶語句出現「建立共同目標與分工」「建立共同簡報」「項目共同目標」「先定分工」「開局對齊」「kickoff」「alignment」「project brief」「第一輪分工」「多人項目點開始」等,或安裝完成後 AI 發現尚未有明確共同目標 / 分工 / 驗收標準 → 進入「項目開局對齊子流程」(第 4.2 節)。「共同簡報」只視為舊稱或觸發別名;主流程名稱使用「共同目標與分工」。
 - **一語交接 / 發佈**:用戶語句出現「幫我將當前任務交接給 B」「把目前任務整理成 APS 交接包給對方」「我有嘢俾 X」「post to X」「交份嘢」「publish」「我做完份嘢,要俾 [對方]」等,或語意指向「將當前任務、目前上下文或已完成工作交給對方」的同類語句 → 進入「發佈子流程」(第 6 節)。
 - **邀請 peer / peer 狀態**:用戶語句出現「邀請指定協作者加入 APS」「新增協作對象」「生成給指定協作者的 starter pack」「對方收到未」「看看對方有沒有處理」等,或語意指向「管理 project peer 或查發送狀態」的同類語句 → 進入「Project Peers 子流程」(第 5.1 節)。
-- **APS 整體狀態**:用戶語句明確出現「Check APS」「check-aps」「檢查 APS 狀態」「APS 狀態」等,代表要看整體 APS 狀態。預設輸出必須先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼,並把可複製下一句放在 terminal 底部。排錯用的數量、同步、路徑、來源編號、peer 詳情、完整追溯資料和長邊界說明只供 AI 判斷或 `check-aps --full` 深入排錯使用,不可預設丟給新手用戶校對。本機共用 Drive 路徑只作本機打開資料夾 / 排錯用途,不要放在首屏搶過工作判斷。HTML dashboard 已退役,不得叫用戶打開 `_context/dashboard.html` 或個人 dashboard。先進入「首次使用子流程」(第 5 節),並使用 `npx aps check-aps`。不要把泛稱「狀態」「check」「下一步」單獨當作 APS 觸發。
+- **APS 整體狀態**:用戶語句明確出現「Check APS」「check-aps」「檢查 APS 狀態」「APS 狀態」等,代表要看整體 APS 狀態。預設輸出必須先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼,並把可複製下一句放在 terminal 底部。排錯用的數量、同步、路徑、來源編號、peer 詳情、完整追溯資料和長邊界說明只供 AI 判斷或 `check-aps --full` 深入排錯使用,不可預設丟給新手用戶校對。本機共用 Drive 路徑只作本機打開資料夾 / 排錯用途,不要放在首屏搶過工作判斷。日常狀態不使用 dashboard 頁;需要即時釐清時才使用 APS Live。先進入「首次使用子流程」(第 5 節),並使用 `npx aps check-aps`。不要把泛稱「狀態」「check」「下一步」單獨當作 APS 觸發。
 - **收件**:用戶語句出現「check Drive」「check Hub」「Hub 有新嘢」「X 嗰邊有冇新嘢」「check inbox」「未消化」「[對方] 整咗咩」等,或語意指向「查看對方有甚麼新東西交過來」的同類語句 → 進入「收件子流程」(第 7 節)。
 - **共識確認**:用戶語句出現「理解不一致」「不是做同一任務」「brief 不一致」「要求不同」「先確認共識」「不要先做」「alignment」「clarification」等,或 AI 讀取交接包後發現共同目標、任務範圍、檔案版本、交付要求與本方已知狀態不一致 → 進入「共識確認子流程」(第 8 節)。
 - **出錯 / 補救**:用戶語句出現「Drive 同步唔到」「X 話收唔到」「sync stuck」「conflict」「出錯」「Claude Code 唔識個 skill」「Agent Handoff Kit 未 init」「對方未 share」等,或語意指向「跨機合作流程中的某環節出錯需要補救」的同類語句 → 進入「補救子流程」(第 9 節)。
@@ -76,7 +76,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 
 觸發來源:第 3 節「初次設置」路由命中。先讀 bundled reference `references/setup-dialogue.md`,再按下列順序執行。若此 skill 是從 npm package 安裝,不要依賴 repo 內 `docs/plans/` 檔案,因為它們不在 npm tarball 內。
 
-1. **打招呼 + 意圖確認**:確認兩件事 — 雲端硬碟是否已裝、用哪一個雲端硬碟。三問安裝只設定用戶自己這一邊,毋須現在就有對方;APS 是邊做邊加,協作對象可在設定好之後隨時用邀請流程(第 5.1 節 `peer invite`)加入。若用戶已心中有合作對象,記下名稱留待設定完成後邀請即可,不必在安裝時填寫。
+1. **打招呼 + 意圖確認**:確認兩件事 — 雲端硬碟是否已裝、用哪一個雲端硬碟。若用戶只知道 Google Drive 本機根目錄,AI 應建議在其中建立 `Agent_Public_Squares` 作 APS 共用位置,再按項目名稱建議 project slug;取得用戶確認後才建立資料夾。三問安裝只設定用戶自己這一邊,毋須現在就有對方;APS 是邊做邊加,協作對象可在設定好之後隨時用邀請流程(第 5.1 節 `peer invite`)加入。若用戶已心中有合作對象,記下人類稱呼留待設定完成後邀請即可,不必在安裝時填寫對方 APS 名稱。
 2. **先決條件 interactive 檢查**:
    - Claude Code:skill 被觸發即代表已在線,毋須額外 check。
    - Agent Handoff Kit:用 Read tool 檢查 `AGENTS.md` 是否存在 + 開頭是否屬 kit-managed core。分支 [A] 已 init → 繼續;分支 [B] 未 init → 提供安裝命令,等用戶完成之後再繼續。
@@ -88,12 +88,12 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 5. **執行 CLI 設置**— 優先使用 CLI 的非互動參數,不要手寫 Hub skeleton、Bridge Pack 或 starter pack:
    - 先確認目前工作目錄已執行 `npm install --save-dev @adamchanadam/aps@latest`。
    - 非互動終端不要直接跑 `npx aps init`,也不要用 `npx aps init --help` 查用法;查用法用 `npx aps --help`。先執行 `npx aps init --dry-run` 預演,把即將寫入的位置覆述給用戶。
-   - 用戶確認後,用已確認三項資料執行 `npx aps init --hub-root "<Google Drive 本機路徑>" --project <project_slug> --agent-id <own_agent_id>`。**不會問對方 agent_id,也不會問角色 A / B**。
+   - 用戶確認後,用已確認三項資料執行 `npx aps init --hub-root "<Google Drive 本機路徑或 AI 建議的 Agent_Public_Squares 路徑>" --project <project_slug> --agent-id <own_agent_id>`。若這是受邀加入且邀請訊息提供邀請碼,加上 `--invite-code <invite_code>`。**不會問對方 agent_id,也不會問角色 A / B**。
    - 成功後驗證 `dev/rules/aps-bridge.md`、`.aps/config.json`、共用 Drive 資料夾的 `_hub/PROTOCOL.md`、自己的 `from_<own_agent_id>/outbox.log.md` 與 `_ack/<own_agent_id>.ack.json` 均存在。**三問安裝只設定用戶自己這一邊:不會建立對方通道,也不會生成 starter pack —— 那些在邀請對方時(第 6 步 / 第 5.1 節)才產生。**
    - 若需要 AI 或腳本代為執行非互動流程,不得使用含尖括號 `<>` 或 `...` 的 placeholder;必須把用戶確認過的真實本機路徑、project slug 和 own agent id 寫入命令。
 6. **邀請對方**:
-   - 三問安裝**不會**生成 starter pack。當用戶想邀請新協作者時(可以即時,亦可以日後),普通主路徑用 `npx aps peer invite` 生成開放邀請。這只寫入 `_hub/open-invite-<項目>.md`,不建立對方 lane、ack 或 peer card;對方會在自己的電腦選定 APS 名稱。
-   - 若雙方已約定對方的 APS 技術名稱,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 與 starter pack;若對方已完成加入並留下 confirmed peer card,不得把它降級。
+   - 三問安裝**不會**生成 starter pack。當用戶想邀請新協作者時(可以即時,亦可以日後),公眾主路徑用 `npx aps peer invite` 生成一次加入邀請碼與可轉發邀請。這會寫入唯一 invite 記錄和最新邀請訊息,不建立對方 lane、ack 或 peer card;對方會在自己的電腦選定 APS 名稱。
+   - 若雙方已約定對方的 APS 技術名稱,才用維護路徑 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 與 starter pack;若對方已完成加入並留下 confirmed peer card,不得把它降級。一般新協作者不得走這條路。
    - 邀請後,讀取 invite 或 starter pack,輸出到 chat 顯示給用戶 copy(skill 不直接寫入 clipboard — OS clipboard API 非 Claude Code 標準 tool;改為明確 surface「以下短訊請 copy 傳給對方」+ blockquote 包圍)。對方完成自己那邊的三問安裝後才成為 confirmed peer。
 7. **設置完成後的下一步**:
    - 三問安裝完成後,項目只有用戶自己一邊,**未有對方可發測試交接**。主路徑不是立即邀請或發包,而是先進入第 4.2 節「項目開局對齊子流程」,建立並確認「共同目標與分工」。共同目標與分工確認後,才建議邀請第一位協作對象(轉第 5.1 節 `peer invite`)或建立第一輪交接。
@@ -163,7 +163,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 12. **部分同意**:peer 回覆若是部分同意、要求修改或提出異議,不要 consume 成普通 `done`。把狀態整理為「已同意 / 需修改 / 未決」,並用 `shared_goal_and_roles_clarification` 或修訂包處理。只有沒有未決衝突時,才可把該 peer 視為已確認。
 13. **不一致處理**:若收到另一位 peer 發來不同版本的共同目標與分工,不要把它當成第二份並行基準。先停下進入第 8 節共識確認子流程;topic 用 `shared_goal_and_roles_clarification`,要求對方確認、修訂或撤回。只有所有受影響 peer 確認同一份目前有效基準後,才可發第一輪工作 packet。
 14. **確認後的下一步**:
-   - 若第一個邀請對象未加入,AI 要主動轉第 5.1 節,帶用戶用 `peer invite` 建立開放邀請。邀請通知可附上共同目標與分工摘要,但不得包含發送方本機 Drive 路徑;對方 APS 名稱由對方自己在本機設定時決定。
+   - 若第一個邀請對象未加入,AI 要主動轉第 5.1 節,帶用戶用 `peer invite` 建立一次加入邀請。邀請通知可附上共同目標與分工摘要,但不得包含發送方本機 Drive 路徑;對方 APS 名稱由對方自己在本機設定時決定。
    - 若對方已是 confirmed peer,轉第 6 節,用共同目標與分工加上該 peer 的第一輪任務建立正式交接草稿,再按發送前預檢與確認閘處理。
    - 若只是向 peer 確認基準而不是派工,用 `shared_goal_and_roles` 作 topic,items 應明示「確認這份共同目標與分工、指出不一致或提出修訂」。
 
@@ -195,11 +195,11 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    npx aps check-aps
    ```
    它輸出對話可讀的 APS 整體狀態摘要,不再生成 dashboard HTML。操作主線在 AI terminal;用戶不用打開 HTML 也可以繼續。狀態摘要預設只顯示交接包是否如期、自己有甚麼要跟進、真正需要用戶注意的風險,以及底部可直接複製給 AI 的下一句。若有 confirmed peer 但未見 `shared_goal_and_roles` 基準,下一步是先建立或補發共同目標與分工,不是發普通測試包。若有 pending 交接,必須逐件判斷「可開工 / 需退回補資料 / 先確認共同目標 / 等待對方修訂」,不可把 pending 一律寫成「你要處理」。本機共用 Drive 路徑、來源編號、packet / outbox / ack、數量、同步與完整追溯資料應由 AI 自己用來判斷;只有需要深入排錯時才執行或展示 `npx aps check-aps --full`。這只是唯讀整理,不是自動派工,也不是背景自動監察;只有用戶明確要求 `Check APS` 或 AI 在 APS 流程內需要刷新狀態時才執行。若真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。
-   HTML dashboard 已退役:
+   dashboard 指令只保留提示:
    ```text
    npx aps dashboard
    ```
-   這個指令只輸出退役提示,不再生成 `_context/dashboard.html` 或 `_context/dashboard_<APS名稱>.html`。不要主動建議用戶開 dashboard;日常狀態用 `Check APS`,即時釐清用 APS Live,正式寫入仍回 terminal。
+   這個指令只輸出提示,不再生成狀態頁。不要主動建議用戶開 dashboard;日常狀態用 `Check APS`,即時釐清用 APS Live,正式寫入仍回 terminal。
 5. **順手看收件箱**:
    ```text
    npx aps check-drive
@@ -207,7 +207,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    `check-drive` 與 `inbox --all` 同底層;日常優先用 `check-drive`,排錯時才講 `inbox`。若沒有待處理項,說「目前沒有 peer 交來的新內容」。若有待處理項,不要立即 consume;轉入收件子流程,先用總覽表與摘要展示。
 6. **給三個自然下一步**:
    - 「先建立 / 確認共同目標與分工」:若共同目標、參與者、角色、第一輪分工、不可做事項或驗收標準未確認,這是首選;轉入第 4.2 節。若已有草稿但未落地,先問是否本機保存或發給 confirmed peer 確認。
-   - 「邀請新 peer 加入這個 project」:若共同目標與分工已確認但未有 confirmed peer,AI 應主動推薦這一步,並用白話說成「我可以替你生成一段邀請短訊,讓對方在自己的電腦加入」;內部主路徑用 `peer invite` 生成開放邀請。只有對方 APS 技術名稱已約定時才用 `peer add` 生成 provisional peer 與 starter pack。若用戶明確只做技術邀請,也可直接轉入 Project Peers 子流程,但仍要提醒正式交接前需要共同基準。
+   - 「邀請新 peer 加入這個 project」:若共同目標與分工已確認但未有 confirmed peer,AI 應主動推薦這一步,並用白話說成「我可以替你生成一段含一次加入邀請碼的邀請短訊,讓對方在自己的電腦加入」;內部主路徑用 `peer invite` 生成一次加入邀請。只有對方 APS 技術名稱已約定時才用 `peer add` 生成 provisional peer 與 starter pack。若用戶明確只做技術邀請,也可直接轉入 Project Peers 子流程,但仍要提醒正式交接前需要共同基準。
    - 「把目前任務整理成 APS 交接包」:需先確認收件 peer 與共同口徑;轉入一語交接 / 發佈子流程,先做交接摘要與完整性預檢,經用戶確認後才 publish。
 7. **不要要求用戶記命令**:命令可放在括號或補充句,但主要表達應是「我可以替你檢查 / 發測試包 / 生成給對方的短訊」。若用戶不是在排錯,不要把 `npx aps publish`、`npx aps inbox`、`npx aps consume` 當成主操作指引。
 
@@ -220,16 +220,16 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
    npx aps peers
    ```
    若只看到 `.aps/config.json compatibility`,向用戶說明這是舊二人相容視圖,不代表 project 永久只能有一位對方。
-2. **邀請新 peer**:用戶說「邀請某位協作者」時,或狀態顯示共同目標與分工已確認但尚未有第一位 confirmed peer 時,AI 要主動引導用戶生成邀請,不要等用戶懂得說 `peer invite`。對用戶的主說法是「我替你生成一段可轉發給對方 AI 的加入邀請」;內部普通主路徑是:
+2. **邀請新 peer**:用戶說「邀請某位協作者」時,或狀態顯示共同目標與分工已確認但尚未有第一位 confirmed peer 時,AI 要主動引導用戶生成邀請,不要等用戶懂得說 `peer invite`。對用戶的主說法是「我替你生成一段含一次加入邀請碼、可轉發給對方 AI 的加入邀請」;內部公眾主路徑是:
    ```text
    npx aps peer invite
    ```
-   讀取 `_hub/open-invite-<項目>.md`,整理成可貼到 Telegram、WhatsApp 或 Email 的短訊。短訊要包含 `---✂️---` 可直接貼給對方 AI 的區塊;對方 APS 名稱由對方自己在本機設定時決定。
-   只有當用戶明確表示雙方已約定對方 APS 技術名稱,例如 `reviewer`,才執行:
+   讀取 `_hub/open-invite-<項目>.md`,整理成可貼到 Telegram、WhatsApp 或 Email 的短訊。短訊要包含邀請碼和 `---✂️---` 可直接貼給對方 AI 的區塊;對方 APS 名稱由對方自己在本機設定時決定。
+   只有當用戶明確表示雙方已約定對方 APS 技術名稱,而且需要維護 starter pack 時,才執行:
    ```text
    npx aps peer add --agent-id <對方_agent_id> --display-name <對方顯示名稱>
    ```
-   回覆時說明這只代表候選 peer 與 starter pack 已建立;對方必須在自己的電腦先完成 Agent Handoff Kit init,再完成 APS 設置後,才可作為 confirmed peer 接正式交接。
+   回覆時說明這不是一次加入邀請主流程,只代表候選 peer 與 starter pack 已建立;對方必須在自己的電腦先完成 Agent Handoff Kit init,再完成 APS 設置後,才可作為 confirmed peer 接正式交接。
 3. **重新產生 starter pack**:若用戶只要教學或短訊,執行:
    ```text
    npx aps peer starter --agent-id <對方_agent_id>

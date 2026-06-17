@@ -109,7 +109,7 @@
 
 <section>
   <h2>任務定位</h2>
-  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝或升級 Agent Public Squares。第一步永遠是只讀檢查目前資料夾是否已有 <code>.aps/config.json</code>：已有者代表這是既有 APS 項目，應走升級路徑；沒有者才走新安裝路徑。用戶會提供或確認 Google Drive 本機路徑與項目代號；自己的 APS 名稱由用戶本人決定。普通邀請不會替受邀者預先取名，你不可猜測這些資料。</p>
+  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝或升級 Agent Public Squares。第一步永遠是只讀檢查目前資料夾是否已有 <code>.aps/config.json</code>：已有者代表這是既有 APS 項目，應走升級路徑；沒有者才走新安裝路徑。用戶可只提供 Google Drive 本機根目錄；你應建議 APS 共用位置，例如 <code>Agent_Public_Squares</code>，並在用戶確認後建立。自己的 APS 名稱由用戶本人決定。邀請碼只代表可加入項目，不代表受邀者名稱，你不可替受邀者命名。</p>
   <div class="callout warn">
     <strong>安全邊界：</strong>任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼、影響哪些路徑，並取得用戶確認。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
   </div>
@@ -132,8 +132,8 @@
     <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
     <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化；已存在時，不要重複初始化，先跑健康檢查，必要時才建議升級。</li>
     <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
-    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機路徑、項目代號、自己的 APS 名稱。Google Drive 本機路徑要由用戶在 Windows 檔案總管打開目標共用資料夾，點地址列後複製完整本機路徑；不要用瀏覽器網址，不要照抄別人電腦上的 <code>G:\...</code> 或 <code>C:\...</code>。如果你看不到該路徑或不能確認它存在，停下來請用戶先處理同步。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer。</li>
-    <li><strong>確認 Google Drive 目標資料夾可離線使用。</strong>請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
+    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機位置或你建議的 APS 共用資料夾路徑、項目代號、自己的 APS 名稱。若用戶只提供 Google Drive 根目錄，先建議 <code>&lt;Google Drive 根目錄&gt;\Agent_Public_Squares</code>；若項目代號未定，根據本機項目資料夾名稱建議一個小寫代號。不要用瀏覽器網址，不要照抄別人電腦上的 <code>G:\...</code> 或 <code>C:\...</code>。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer，並在安裝命令加入邀請碼。</li>
+    <li><strong>建立後再確認離線可用。</strong>執行前先列出會建立或使用的 APS 共用資料夾。用戶確認後，才建立資料夾與設定。完成後請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
   </ol>
   <figure>
     <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
@@ -164,7 +164,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
     <li>執行 APS 初始化。非互動終端不要直接跑 <code>npx aps init</code>，也不要用 <code>npx aps init --help</code> 查用法；查用法請用 <code>npx aps --help</code>。先預覽：
       <pre>npx aps init --dry-run</pre>
       確認後，用三項已確認資料執行非互動設定：
-      <pre>npx aps init --hub-root "&lt;Google Drive 本機路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 APS 名稱&gt;</pre>
+      <pre>npx aps init --hub-root "&lt;AI 建議並經用戶確認的 APS 共用資料夾路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 APS 名稱&gt; [--invite-code &lt;邀請碼&gt;]</pre>
     </li>
     <li>完成後跑健康檢查：
       <pre>npx aps doctor</pre>
@@ -185,7 +185,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
       <pre>npx aps upgrade</pre>
     </li>
     <li>跑 <code>npx aps doctor</code>，把結果翻譯成普通用戶看得懂的狀態。</li>
-    <li>升級完成後，提醒用戶重新開啟本機 AI 工具或重新載入 skill，避免舊 skill 還停留在升級前版本。</li>
+    <li>升級完成後，提醒用戶重新開啟本機 AI 工具或重新載入 skill，避免 AI 還使用升級前的 skill。</li>
   </ol>
 </section>
 
@@ -200,8 +200,8 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
       <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 APS 名稱。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
       <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。排錯用的數量、同步、路徑、來源編號和完整追溯資料由 AI 自己使用，不預設丟給用戶；只有需要深入排錯時才用 <code>check-aps --full</code> 展開。它不是自動派工，也不是背景自動監察。</td></tr>
-      <tr><td>HTML dashboard</td><td>HTML dashboard 已退役；<code>check-aps</code> 不再生成個人 dashboard 或 <code>_context/dashboard.html</code>。真正操作主線在 AI terminal；若有真實卡點需要即時釐清，<code>Check APS</code> 可按需生成 APS Live 交接追蹤頁。正式寫入仍回到 terminal，經用戶確認後才寫入 APS 紀錄。</td></tr>
-      <tr><td>下一步</td><td>先帶用戶建立「夠安全開始」的共同目標與分工，確認共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項與最小驗收方式；其他分工或邀請細節可先標為未定。確認後，必須按狀態推進：未落地就問本機保存；已有已確認協作者就請對方確認共同基準或整理第一輪交接草稿；未有協作者就主動生成可轉發邀請，對方在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑加入，APS 名稱由對方自己確認。示範人名不得當作固定預設。</td></tr>
+      <tr><td>狀態入口</td><td>真正操作主線在 AI terminal；用戶說 <code>Check APS</code> 時，AI 先整理交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。若有真實卡點需要即時釐清，<code>Check APS</code> 可按需生成 APS Live 交接追蹤頁。正式寫入仍回到 terminal，經用戶確認後才寫入 APS 紀錄。</td></tr>
+      <tr><td>下一步</td><td>先帶用戶建立「夠安全開始」的共同目標與分工，確認共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項與最小驗收方式；其他分工或邀請細節可先標為未定。確認後，必須按狀態推進：未落地就問本機保存；已有已確認協作者就請對方確認共同基準或整理第一輪交接草稿；未有協作者就主動生成含一次加入邀請碼的可轉發邀請，對方在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑加入，APS 名稱由對方自己確認。示範人名不得當作固定預設。</td></tr>
     </tbody>
   </table>
 </section>
@@ -218,7 +218,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
     <li><strong>可以加欄。</strong>八項是 AI 的檢查框架，不是新手一開始必填表；若項目需要截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以加入，但不要刪除共同目標、邊界和最小驗收方式。</li>
     <li><strong>先讓用戶確認。</strong>確認這份基準是否夠安全開始、未定項是否如實標出、以及可否作為這個 project 的目前有效基準。</li>
     <li><strong>確認後必須問落地。</strong>不要只把內容留在對話。問用戶要本機保存、讓已確認協作者確認共同基準，或先邀請對方加入；若用戶暫不落地，明確標示內容尚未寫入本機檔案或共用 Drive。</li>
-    <li><strong>未有協作者時主動邀請。</strong>若基準已確認但沒有 confirmed peer，AI 應主動說「我可以替你生成一段可轉發給對方 AI 的加入邀請」，然後使用 <code>peer invite</code>。不要等用戶知道這條命令。</li>
+    <li><strong>未有協作者時主動邀請。</strong>若基準已確認但沒有 confirmed peer，AI 應主動說「我可以替你生成一段含一次加入邀請碼、可轉發給對方 AI 的加入邀請」，然後使用 <code>peer invite</code>。不要等用戶知道這條命令。</li>
     <li><strong>避免平行版本。</strong>一個 APS project 只應有一份目前有效的共同目標與分工；可以修訂出新版本，不應由各 peer 各自建立互相打架的版本。</li>
     <li><strong>對方要透過 APS 收到。</strong>不要說放入 <code>_hub</code> 根目錄後 peer 就會自動收到。要讓對方 <code>check Drive</code> 時看到，應用 topic <code>shared_goal_and_roles</code> 一對一發給 confirmed peer。</li>
     <li><strong>多人逐一確認。</strong>APS 沒有群發確認。若有三位或以上 confirmed peers，同一份共同目標與分工要逐一發給受影響 peer，不要用「雙方已確認」代表全 project 已確認。</li>
@@ -252,7 +252,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
 </section>
 
 <footer>
-  Agent Public Squares · AI 代理安裝指引 · 最新更新 2026-06-14
+  Agent Public Squares · AI 代理安裝與升級指引 · 最新更新 2026-06-14
 </footer>
 
 </main>

@@ -790,7 +790,7 @@ async function runInteractiveInit() {
         if (someoneElseActive) inferredRole = 'B';
       }
     } catch (err) { /* detection is best-effort; it never blocks setup */ }
-    const values = { hubRoot, projectSlug, agentId, otherAgentId: null, role: inferredRole };
+    const values = { hubRoot, projectSlug, agentId, otherAgentId: null, role: inferredRole, inviteCode: null };
     const setupHint = inferredRole === 'B'
       ? '偵測:此項目在共用資料夾已存在,而且已有其他成員先完成設定。你似乎是加入者。若你確實是第一個設定的人,可忽略此提示。'
       : null;
@@ -1020,6 +1020,14 @@ function peerCardPath(hubRoot, projectSlug, agentId) {
   return path.join(peerAgentsDir(hubRoot, projectSlug), `${agentId}.json`);
 }
 
+function inviteDir(hubRoot, projectSlug) {
+  return path.join(projectDir(hubRoot, projectSlug), '_invites');
+}
+
+function inviteRecordPath(hubRoot, projectSlug, inviteCode) {
+  return path.join(inviteDir(hubRoot, projectSlug), `${inviteCode}.json`);
+}
+
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -1032,6 +1040,70 @@ function writeJson(filePath, value) {
 function appendLine(filePath, line) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.appendFileSync(filePath, `${line}\n`, 'utf8');
+}
+
+function generateInviteCode(projectSlug) {
+  const projectToken = String(projectSlug || 'APS')
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(0, 4)
+    .toUpperCase()
+    .padEnd(4, 'X');
+  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `APS-${projectToken}-${random.slice(0, 4)}-${random.slice(4, 8)}`;
+}
+
+function validateInviteCode(inviteCode) {
+  if (!inviteCode) return null;
+  return /^APS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(String(inviteCode).trim())
+    ? null
+    : `--invite-code must look like APS-ABCD-1234-5678. Got '${inviteCode}'.`;
+}
+
+function createInviteRecord({ hubRoot, projectSlug, inviterAgentId, dryRun }) {
+  let inviteCode = generateInviteCode(projectSlug);
+  let recordPath = inviteRecordPath(hubRoot, projectSlug, inviteCode);
+  for (let attempt = 0; fs.existsSync(recordPath) && attempt < 5; attempt += 1) {
+    inviteCode = generateInviteCode(projectSlug);
+    recordPath = inviteRecordPath(hubRoot, projectSlug, inviteCode);
+  }
+  if (fs.existsSync(recordPath)) throw new Error('Could not generate a unique invite code. Please retry.');
+  const record = {
+    invite_code: inviteCode,
+    project: projectSlug,
+    inviter_agent_id: inviterAgentId,
+    status: 'open',
+    created_at: isoNow(),
+    accepted_by: null,
+    accepted_at: null,
+  };
+  if (!dryRun) writeJson(recordPath, record);
+  return { record, recordPath };
+}
+
+function acceptInviteCode({ hubRoot, projectSlug, inviteCode, agentId, dryRun }) {
+  const recordPath = inviteRecordPath(hubRoot, projectSlug, inviteCode);
+  if (!fs.existsSync(recordPath)) {
+    throw new Error(`Invite code ${inviteCode} was not found for project ${projectSlug}. Ask the inviter to generate a fresh \`npx aps peer invite\`.`);
+  }
+  const record = readJson(recordPath);
+  if (record.project !== projectSlug) {
+    throw new Error(`Invite code ${inviteCode} belongs to project ${record.project}, not ${projectSlug}.`);
+  }
+  if (record.status !== 'open') {
+    throw new Error(`Invite code ${inviteCode} is ${record.status}; ask the inviter for a fresh invite.`);
+  }
+  const next = {
+    ...record,
+    status: 'accepted',
+    accepted_by: agentId,
+    accepted_at: isoNow(),
+  };
+  if (!dryRun) writeJson(recordPath, next);
+  return {
+    ok: true,
+    path: recordPath,
+    message: dryRun ? `would mark invite ${inviteCode} accepted by ${agentId}` : `marked invite ${inviteCode} accepted by ${agentId}`,
+  };
 }
 
 function peerCardRecord({ projectSlug, agentId, displayName, status = 'active', peerState = 'provisional' }) {
@@ -1425,6 +1497,23 @@ function inboxAttentionText(item) {
   return noticeAttentionFromBody(item.body);
 }
 
+function isSharedGoalInboxItem(item) {
+  return sharedGoalTopicFrom({ packetId: item.packetId, summary: item }) === 'shared_goal_and_roles';
+}
+
+function sharedGoalInboxDetails(item) {
+  const summary = sharedGoalSummaryFromBody(item.body);
+  const openItems = firstLineAfterHeading(item.body, /(風險\s*\/\s*未決事項|風險|未決|open items|risks and open items)/i)
+    || '未在基準包內摘出未決事項';
+  const requested = item.items && item.items.length > 0
+    ? item.items.join('；')
+    : firstLineAfterHeading(item.body, /(請對方做的事|請.*做|requested action|action requested)/i)
+      || '確認這一版共同目標與分工；如不同意，提出修訂或異議。';
+  const extracted = [summary.goal, summary.roles, summary.firstRound, summary.acceptance, openItems];
+  const insufficient = extracted.some((value) => /^未在基準包內摘出/.test(String(value || '')));
+  return { summary, openItems, requested, insufficient };
+}
+
 function packetHasAnyHeading(body, patterns) {
   return patterns.some((pattern) => firstLineAfterHeading(body, pattern));
 }
@@ -1565,6 +1654,7 @@ function renderInboxDailyBrief({ agentId, total, groups, contextReport }) {
 }
 
 function renderHumanInboxItem(item, sourceId, index, total) {
+  if (isSharedGoalInboxItem(item)) return renderSharedGoalInboxItem(item, sourceId, index, total);
   const heading = total > 1 ? `📦 新交接 ${index}/${total}` : '📦 新交接';
   return [
     heading,
@@ -1592,6 +1682,48 @@ function renderHumanInboxItem(item, sourceId, index, total) {
     `packet id: ${item.packetId}`,
     `交接包: ${item.packetPath}`,
   ].join('\n');
+}
+
+function renderSharedGoalInboxItem(item, sourceId, index, total) {
+  const heading = total > 1 ? `📦 新交接 ${index}/${total}` : '📦 新交接';
+  const details = sharedGoalInboxDetails(item);
+  const topic = packetTopic(item.packetId);
+  const receiverLabel = item.to || '本方';
+  const lines = [
+    heading,
+    '',
+    '🔎 類型',
+    '共同目標與分工確認。這不是普通任務，不應直接當成工作包處理。',
+    '',
+    '📌 共同目標摘要',
+  ];
+  if (details.insufficient) {
+    lines.push('收到共同目標與分工包，但摘要生成不足，請讀完整 packet 後再決定。');
+  }
+  lines.push(
+    `- 共同目標: ${details.summary.goal}`,
+    `- 參與者 / 角色: ${details.summary.roles}`,
+    `- 第一輪範圍: ${details.summary.firstRound}`,
+    `- 驗收標準: ${details.summary.acceptance}`,
+    `- 未決事項: ${details.openItems}`,
+    '',
+    `✅ 需要 ${receiverLabel} 確認`,
+    `- ${compactNoticeText(details.requested, details.requested, 260)}`,
+    '',
+    '🚀 可選動作',
+    `- 同意: 讓 AI 寫入確認，result 必須寫清楚同意 ${topic} v${item.version}。`,
+    '- 部分同意，需要修改: 不要標記普通完成，請對方修訂或發 shared_goal_and_roles_clarification。',
+    '- 有異議: 退回或要求釐清，並寫清楚不同意哪一項。',
+    '- 稍後處理: 不寫 ack；下次 check Drive 仍會看到這個共同目標包。',
+    '',
+    '📄 排錯時才需要的細節',
+    `來源: ${sourceId}`,
+    `主題: ${topic}`,
+    `版本: v${item.version}`,
+    `packet id: ${item.packetId}`,
+    `交接包: ${item.packetPath}`,
+  );
+  return lines.join('\n');
 }
 
 function parsePacketHeader(packetPath) {
@@ -2312,7 +2444,7 @@ function scanSharedGoalPackets({ hubRoot, projectSlug }) {
 function sharedGoalSummaryFromBody(body) {
   return {
     goal: firstLineAfterHeading(body, /(共同目標|common goal|目標)/i) || '未在基準包內摘出共同目標',
-    roles: firstLineAfterHeading(body, /(每人角色|角色|參與者|participants|roles)/i) || '未在基準包內摘出角色分工',
+    roles: firstLineAfterHeading(body, /(每人角色|角色|參與者|participants|^#+\s+roles\b)/i) || '未在基準包內摘出角色分工',
     firstRound: firstLineAfterHeading(body, /(第一輪分工|first.*split|first round)/i) || '未在基準包內摘出第一輪分工',
     acceptance: firstLineAfterHeading(body, /(驗收標準|acceptance)/i) || '未在基準包內摘出驗收標準',
   };
@@ -2965,7 +3097,7 @@ function checkApsPacketStatusLines({ pendingItems, outgoingPackets, riskRecords 
   return lines;
 }
 
-function checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords }) {
+function checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], agentId = '' }) {
   const pendingByState = pendingItems.reduce((map, item) => {
     const state = item.actionability ? item.actionability.state : 'actionable';
     map[state] = (map[state] || 0) + 1;
@@ -2974,15 +3106,23 @@ function checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords }
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
   const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
   const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
+  const confirmedPeerCount = peers.filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive').length;
+  const sharedGoalNeedsLive = sharedGoal && (
+    sharedGoal.state === 'incoming_pending'
+    || sharedGoal.state === 'partial'
+    || sharedGoal.state === 'declined'
+    || (sharedGoal.state === 'missing' && confirmedPeerCount > 0)
+  );
   return pendingByState.return > 0
     || pendingByState.clarify_goal > 0
     || waitingOutgoing.length > 0
     || declinedOutgoing.length > 0
+    || sharedGoalNeedsLive
     || blockers.length > 0;
 }
 
-function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, hubRoot, projectSlug, agentId, livePath: generatedLivePath = null, liveGenerated = false, demoPreview = false }) {
-  const hasLiveCandidate = checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords });
+function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], hubRoot, projectSlug, agentId, livePath: generatedLivePath = null, liveGenerated = false, demoPreview = false }) {
+  const hasLiveCandidate = checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId });
   if (!hasLiveCandidate) return [];
   const livePath = path.join(contextDir(hubRoot, projectSlug), apsLiveFileNameForAgent(agentId));
   const lines = [
@@ -3021,6 +3161,8 @@ function renderProjectDashboardSummary(dashboard, options = {}) {
     pendingItems,
     outgoingPackets,
     riskRecords,
+    sharedGoal,
+    peers,
     hubRoot,
     projectSlug,
     agentId,
@@ -3282,7 +3424,19 @@ function safeLiveDiagnosticText(value, fallback = 'unknown') {
     .slice(0, 240);
 }
 
-function liveTrackingState({ isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker }) {
+function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker }) {
+  if (isMissingSharedGoalFlow) {
+    return {
+      station: '需先建立共同目標',
+      canStart: '不可先開普通任務',
+      waitingFor: agentId,
+      nextAction: '先回本機 AI 建立共同目標與分工草稿，再發給協作者確認',
+      blocker: blocker || '未見目前有效共同目標與分工基準',
+      chatMode: '暫不需要',
+      impact: '阻塞第一輪交接',
+      dependency: '先建立共同目標與分工',
+    };
+  }
   if (isSharedGoalFlow) {
     return {
       station: '共同目標確認',
@@ -3356,9 +3510,60 @@ function liveTrackingState({ isSharedGoalFlow, firstPending, firstWaiting, targe
   };
 }
 
-function liveTrackingSteps(tracking) {
+function liveTrackingSteps(tracking, context = {}) {
   const station = String(tracking && tracking.station || '');
+  const sharedGoal = context.sharedGoal || null;
   const blocked = /需補資料|不可|釐清|共同目標/.test(`${station} ${tracking && tracking.canStart || ''}`);
+  const hasSharedGoalPacket = Boolean(sharedGoal && sharedGoal.latest);
+  if (station.includes('共同目標')) {
+    const sharedGoalState = sharedGoal && sharedGoal.state ? sharedGoal.state : 'missing';
+    if (!hasSharedGoalPacket || sharedGoalState === 'missing') {
+      return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+        const state = index === 0 ? 'blocked' : 'todo';
+        const meta = liveStepStatusMeta(state);
+        return {
+          label,
+          state,
+          icon: meta.icon,
+          status_label: meta.label,
+        };
+      });
+    }
+    if (sharedGoalState === 'confirmed') {
+      return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+        const state = index < 3 ? 'done' : index === 3 ? 'active' : 'todo';
+        const meta = liveStepStatusMeta(state);
+        return {
+          label,
+          state,
+          icon: meta.icon,
+          status_label: meta.label,
+        };
+      });
+    }
+    if (sharedGoalState === 'declined') {
+      return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+        const state = index === 1 ? 'done' : index === 0 ? 'blocked' : 'todo';
+        const meta = liveStepStatusMeta(state);
+        return {
+          label,
+          state,
+          icon: meta.icon,
+          status_label: meta.label,
+        };
+      });
+    }
+    return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+      const state = index === 1 ? 'done' : index === 0 ? 'active' : 'todo';
+      const meta = liveStepStatusMeta(state);
+      return {
+        label,
+        state,
+        icon: meta.icon,
+        status_label: meta.label,
+      };
+    });
+  }
   const activeIndex = station.includes('共同目標') ? 0
     : station.includes('已發出') ? 1
       : station.includes('可開工') || station.includes('需補') || station.includes('釐清') ? 3
@@ -3436,6 +3641,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
   const targetPeer = firstPending
     ? firstPending.from
     : firstWaitingPeer || (firstPeer && firstPeer.agent_id) || '協作者';
+  const isMissingSharedGoalFlow = Boolean(sharedGoal && sharedGoal.state === 'missing');
   const isSharedGoalFlow = sharedGoal && (
     sharedGoal.state === 'partial'
     || sharedGoal.state === 'incoming_pending'
@@ -3448,7 +3654,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
       : 'none';
   const blocker = firstPending && firstPending.actionability
     ? firstPending.actionability.reason || firstPending.actionability.next
-    : isSharedGoalFlow
+    : isMissingSharedGoalFlow
+      ? '未見目前有效共同目標與分工基準；普通任務交接必須先有共同目標、角色分工與驗收標準。'
+      : isSharedGoalFlow
       ? '共同目標與分工仍在確認中；需要對方回饋同意、補充、修正或提出異議，才適合寫成正式基準。'
       : waitingOutgoing.length > 0
       ? '有交接等待對方處理；Live 用來即時核對雙方看到的狀態、回饋和分歧，不代表對方已正式確認。'
@@ -3459,37 +3667,47 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     : firstWaiting
       ? packetTopic(firstWaiting.packetId)
       : 'project_consensus';
-  const caseTitle = isSharedGoalFlow
+  const caseTitle = isMissingSharedGoalFlow
+    ? '需先建立共同目標與分工'
+    : isSharedGoalFlow
     ? `等待 ${targetPeer} 確認共同目標與分工`
     : firstPending
       ? `${targetPeer} 交來 ${humanizeTopicForUser(firstTopic)}，需要先判斷能否開工`
       : firstWaiting
         ? `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} 正在等待回覆`
         : '交接狀態核對';
-  const caseSummary = isSharedGoalFlow
+  const caseSummary = isMissingSharedGoalFlow
+    ? '本機 AI 未見目前有效共同目標與分工基準。第一輪普通任務不得先開始，需先建立共同目標、角色分工、第一輪範圍與驗收標準。'
+    : isSharedGoalFlow
     ? `本機 AI 看到共同目標與分工仍未完全確認：${sharedGoalProgressText(sharedGoal)}。這頁要讓協作者確認、補充或提出異議。`
     : firstPending
       ? `本機 AI 看到 ${targetPeer} 有一件待處理交接：${humanizeTopicForUser(firstTopic)} v${firstPending.version}。目前判斷是：${safeLiveDiagnosticText(blocker)}`
       : firstWaiting
         ? `本機 AI 看到你已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給 ${targetPeer}，但仍在等待對方處理或回覆。`
         : '目前沒有明確阻塞交接；這頁可用來把會影響 APS 交接的共識、分歧和待決定事項留下來。';
-  const currentQuestion = isSharedGoalFlow
+  const currentQuestion = isMissingSharedGoalFlow
+    ? '目前尚未有共同目標與分工基準。是否要先請本機 AI 起草共同目標、角色分工、第一輪範圍與驗收標準？'
+    : isSharedGoalFlow
     ? `${targetPeer} 是否同意目前共同目標、角色、第一輪分工和驗收標準？如不同意，需要改哪裏？`
     : firstPending
       ? `這件交接是否資料足夠？若不足，${targetPeer} 要補充哪些檔案位置、範圍或驗收標準？`
       : firstWaiting
         ? `${targetPeer} 那邊是否已同步到同一件交接包？目前是未讀、處理中、需要補資料，還是已完成？`
         : '這段討論是否會影響共同目標、分工、交接範圍、驗收標準或下一個正式 APS 動作？';
-  const suggestedMessage = isSharedGoalFlow
+  const suggestedMessage = isMissingSharedGoalFlow
+    ? '請先回本機 AI：請幫我建立 APS 共同目標與角色分工草稿，列出共同目標、參與者、第一輪範圍、驗收標準與待確認項，再逐一發給協作者確認。'
+    : isSharedGoalFlow
     ? `${targetPeer}，本機 AI 帶我來 APS Live，是想確認共同目標與分工是否一致。我看到：${sharedGoalProgressText(sharedGoal)}。請你確認三件事：一、共同目標是否正確；二、你的角色與第一輪分工是否正確；三、驗收標準有沒有需要補充或反對的地方。`
     : firstPending
       ? `${targetPeer}，我這邊收到你交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。本機 AI 判斷目前可能未足夠直接開工，原因是：${safeLiveDiagnosticText(blocker)}。請你補充要處理的具體位置、依據檔案或版本，以及怎樣才算完成。`
       : firstWaiting
         ? `${targetPeer}，我已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給你，但仍在等回覆。請你確認是否看到同一件交接包，以及現在是未讀、處理中、需要補資料，還是已完成。`
         : `${targetPeer}，我想把這段項目討論留在 APS Live，避免之後交接時目標或分工漂移。請你補充目前已同意甚麼、仍有甚麼分歧、下一步誰要做甚麼，以及哪些內容不應寫入正式 APS 紀錄。`;
-  const trackingState = liveTrackingState({ isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker });
-  const trackingSteps = liveTrackingSteps(trackingState);
-  const chainTitle = isSharedGoalFlow
+  const trackingState = liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker });
+  const trackingSteps = liveTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, isMissingSharedGoalFlow, isSharedGoalFlow });
+  const chainTitle = isMissingSharedGoalFlow
+    ? '共同目標與分工未建立'
+    : isSharedGoalFlow
     ? '共同目標與分工確認'
     : humanizeTopicForUser(firstTopic);
   const activeChain = {
@@ -3534,7 +3752,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     project: safeLiveDiagnosticText(options.project || projectSlug),
     agent_id: safeLiveDiagnosticText(options.agentId || agentId),
     live_participants: liveParticipants.map((value) => safeLiveDiagnosticText(value)),
-    live_focus: isSharedGoalFlow ? '共同目標與分工確認' : '任務交接狀態核對',
+    live_focus: isMissingSharedGoalFlow || isSharedGoalFlow ? '共同目標與分工確認' : '任務交接狀態核對',
     target_peer: safeLiveDiagnosticText(targetPeer, '協作者'),
     current_case_title: safeLiveDiagnosticText(caseTitle),
     current_case_summary: safeLiveDiagnosticText(caseSummary, caseTitle),
@@ -3565,14 +3783,18 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     shared_goal_acceptance: safeLiveDiagnosticText(sharedGoalSummary.acceptance || '未見驗收標準摘要'),
     seen_packet: safeLiveDiagnosticText(seenPacket, 'none'),
     seen_ack: firstWaiting && firstWaiting.state ? safeLiveDiagnosticText(firstWaiting.state) : 'none',
-    feedback_status: isSharedGoalFlow
+    feedback_status: isMissingSharedGoalFlow
+      ? '目前沒有可供協作者確認的共同目標與分工草稿。'
+      : isSharedGoalFlow
       ? safeLiveDiagnosticText((sharedGoal.confirmations || []).map((item) => `${item.peerId}: ${item.label}`).join('；') || sharedGoalProgressText(sharedGoal))
       : firstPending
         ? '等待本機判斷是否可處理、需補資料或退回。'
         : waitingOutgoing.length > 0
           ? '等待對方 check Drive、標記處理或另發回覆。'
           : '目前沒有明確待回饋事項。',
-    pending_decision: isSharedGoalFlow
+    pending_decision: isMissingSharedGoalFlow
+      ? '先建立共同目標與分工草稿；在協作者確認前，不應把普通任務視為可開工。'
+      : isSharedGoalFlow
       ? '整理對方回饋後，決定同意原草稿、修訂共同目標與分工、補發給其他協作者，或暫停第一輪任務交接。'
       : firstPending
         ? '判斷要等待同步、要求補資料、退回不能處理，還是繼續交接。'
@@ -3581,7 +3803,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
       ? 'demo preview：本機假資料，不代表 Google Drive 同步。'
       : '本頁按開啟時本機已同步資料生成；不是背景監察，也不代表對方已同步。',
     blocker: safeLiveDiagnosticText(blocker, 'unknown'),
-    proposed_terminal_action: isSharedGoalFlow
+    proposed_terminal_action: isMissingSharedGoalFlow
+      ? '請回到本機 AI：請用 APS 建立共同目標與分工草稿，確認後才發普通任務包。'
+      : isSharedGoalFlow
       ? '請回到本機 AI：請用 APS 根據對方對共同目標與分工的回饋，整理共識、分歧與下一步。'
       : firstPending
         ? '請回到本機 AI：請用 APS 根據雙方核對結果，判斷要等待同步、請對方補資料、退回不能處理，還是繼續交接。'
@@ -3642,7 +3866,7 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
   const taskText = snapshot.current_question || snapshot.current_case_summary || snapshot.current_case_title;
   const startConditionText = `${snapshot.can_start_label || '未確認'}；${snapshot.next_formal_action || snapshot.proposed_terminal_action || '等待本機 AI 判斷下一步'}`;
   const stageActionMap = new Map([
-    ['共同基準', ['本機 AI / Terminal', '請用 APS 確認共同目標、角色、第一輪分工與驗收標準；可回覆同意、部分同意、有異議或稍後。']],
+    ['共同基準', ['本機 AI / Terminal', '已見共同目標與分工包時，此步代表基準包存在；若仍未確認，下一步是請接收方明確同意、部分同意、有異議或稍後。']],
     ['已發出', ['本機 AI / Terminal', '請用 APS 檢查這張交接單是否已正式發出；如內容錯誤，先草擬修訂或撤回。']],
     ['對方查看', ['對方本機 AI / Terminal', '請對方執行 Check APS 或 check Drive；若看不到同一張單，在 Live 留言說明版本或同步差異。']],
     ['可開工判斷', ['APS Live + 本機 AI', '若同意就回「已收到」；若資料不足就回「需補資料」；若不同意就回「不同意」。']],
@@ -3687,6 +3911,8 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
             <strong>${htmlEscape(label)}</strong>
             <span>${htmlEscape(line)}</span>
           </div>`).join('');
+  const messagePlaceholder = `${targetPeerText}，請核對這一版 ${snapshot.live_focus || '交接狀態'}：你是否看到同一版？如同意，請補一句驗收標準或下一步。`;
+  const refreshFormalPrompt = '請用 APS 執行 Check APS，重新讀取 Drive 最新狀態，並刷新 APS Live 交接追蹤頁。';
   return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -3912,11 +4138,12 @@ ${trackingLegendHtml}
         </div>
         <div class="action-panel">
           <button id="connectLive" class="secondary" type="button">連接 APS Live</button>
+          <button id="refreshFormalState" class="secondary" type="button">重新讀取正式狀態</button>
           <div class="compact-status">
             <span><span id="liveDot" class="status-dot"></span> <strong id="liveState">⏳ 未連接</strong></span>
           </div>
           <div id="onlinePeers" class="status-row">目前在線：等待對方進入</div>
-          <p class="hint">先連接、核對、等對方回應；完成協商後再把內容交給本機 AI 草擬正式下一步。</p>
+          <p class="hint">頁面打開後會自動連接；完成協商後再把內容交給本機 AI 草擬正式下一步。頁面資料來自生成時的 APS 快照，如對方剛確認或 Drive 剛同步，請重新讀取正式狀態。</p>
         </div>
       </div>
     </section>
@@ -3956,7 +4183,7 @@ ${stageGuideRowsHtml}
           <button class="reply-button danger" data-live-reply="disagree" type="button" disabled><strong>❌ 不同意</strong><span>共同目標、角色或分工需要先修正。</span></button>
         </div>
         <p class="muted">這是給對方看的訊息草稿，可以直接發，也可以先修改。</p>
-        <textarea id="projectMessage" placeholder="例：Jay，共同目標 v1 仍未確認；你是否看到同一版？如果你同意，請補一句驗收標準。">${htmlEscape(snapshot.suggested_message || '')}</textarea>
+        <textarea id="projectMessage" placeholder="${htmlEscape(messagePlaceholder)}">${htmlEscape(snapshot.suggested_message || '')}</textarea>
         <div class="toolbar">
           <button id="sendProjectMessageInline" type="button" disabled>等待對方進入後才能發送核對訊息</button>
           <button id="clearMessages" class="secondary" type="button">清空紀錄</button>
@@ -3993,8 +4220,10 @@ ${terminalActionsHtml}
     const snapshot = ${safeSnapshotJson};
     const bridge = ${safeBridgeJson};
     const roomId = ${JSON.stringify(roomId)};
+    const refreshFormalPrompt = ${JSON.stringify(refreshFormalPrompt)};
     const liveAppId = 'agent-public-squares-live';
     let room = null;
+    let connectingLive = false;
     let sendStatus = null;
     let sendProjectMessageAction = null;
     let sendFeedback = null;
@@ -4012,6 +4241,7 @@ ${terminalActionsHtml}
     const messages = document.getElementById('messages');
     const liveDot = document.getElementById('liveDot');
     const liveState = document.getElementById('liveState');
+    const connectLiveButton = document.getElementById('connectLive');
     const discussionStatus = document.getElementById('discussionStatus');
     const sendProjectMessageButton = document.getElementById('sendProjectMessageInline');
     const quickReplyButtons = Array.from(document.querySelectorAll('[data-live-reply]'));
@@ -4299,7 +4529,12 @@ ${terminalActionsHtml}
       updateSendButtonState();
     }
     async function connectLive() {
-      if (room) return;
+      if (room || connectingLive) return;
+      connectingLive = true;
+      if (connectLiveButton) {
+        connectLiveButton.disabled = true;
+        connectLiveButton.textContent = '正在連接 APS Live';
+      }
       setLiveState('⏳ 正在連接 APS Live', 'warn');
       try {
         const { joinRoom, selfId } = await import('https://esm.run/trystero');
@@ -4356,15 +4591,37 @@ ${terminalActionsHtml}
         });
         setLiveState('✅ 已連接 APS Live', 'online');
         setDiscussionStatus('✅ 已連接 APS Live，正在等待對方進入。');
+        if (connectLiveButton) connectLiveButton.textContent = '已連接 APS Live';
         updateSendButtonState();
         markJourney('journeyConnect');
         await sendStatus(livePayload('status'));
       } catch (error) {
         setLiveState('⚠️ 暫時未連上對方', 'warn');
         setDiscussionStatus('⚠️ 暫時未連上對方。可先保留草稿，連接後再發送。');
+        if (connectLiveButton) {
+          connectLiveButton.disabled = false;
+          connectLiveButton.textContent = '重新連接 APS Live';
+        }
         updateSendButtonState();
         addMessage('⚠️ Live 連接未完成', { fallback: '暫時未連上對方。你仍可先寫好訊息，或回到本機 AI 對話請它整理下一步。' });
+      } finally {
+        connectingLive = false;
       }
+    }
+    async function requestFormalRefresh() {
+      try {
+        await navigator.clipboard.writeText(refreshFormalPrompt);
+        setDiscussionStatus('🔎 已複製重新讀取正式狀態的句子。請回到本機 AI 對話貼上，讓它重新 Check APS 並刷新這頁。');
+        addMessage('🔎 重新讀取正式狀態', { next_step: refreshFormalPrompt });
+      } catch (error) {
+        setDiscussionStatus('🔎 請回到本機 AI 對話說：「' + refreshFormalPrompt + '」');
+        addMessage('🔎 重新讀取正式狀態', { next_step: refreshFormalPrompt });
+      }
+    }
+    function autoConnectLive() {
+      window.setTimeout(() => {
+        if (!room && !connectingLive) connectLive();
+      }, 250);
     }
     async function sendProjectMessage() {
       const payload = projectMessagePayload();
@@ -4465,6 +4722,7 @@ ${terminalActionsHtml}
       if (node) node.addEventListener('click', handler);
     }
     bindClick('connectLive', connectLive);
+    bindClick('refreshFormalState', requestFormalRefresh);
     bindClick('sendProjectMessage', sendProjectMessage);
     bindClick('sendProjectMessageInline', sendProjectMessage);
     for (const button of quickReplyButtons) {
@@ -4480,6 +4738,7 @@ ${terminalActionsHtml}
     });
     restoreMessages();
     updateSendButtonState();
+    autoConnectLive();
   </script>
 </body>
 </html>
@@ -4982,7 +5241,7 @@ function bridgePackContent(role, values) {
   content = content.replace(/`<your_shared_drive_folder_absolute_path>`/g, `\`${values.hubRoot}\``);
   const counterpartLabel = values.otherAgentId
     ? `\`${values.otherAgentId}\``
-    : '(尚未邀請;普通邀請用 `npx aps peer invite`)';
+    : '(尚未邀請;新協作者邀請用 `npx aps peer invite`)';
   content = content.replace(/`<counterpart_agent_id>`/g, counterpartLabel);
   return content;
 }
@@ -5058,12 +5317,13 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.
 `;
 }
 
-function openInviteContent(values) {
+function openInviteContent(values, inviteRecord = null) {
   const folderName = path.basename(values.hubRoot || '') || 'Agent_Public_Squares';
   const senderName = values.agentId || '發出邀請的人';
-  return `# APS 開放協作邀請 — ${values.projectSlug}
+  const inviteCode = inviteRecord && inviteRecord.invite_code ? inviteRecord.invite_code : 'APS-XXXX-XXXX-XXXX';
+  return `# APS 一次加入邀請 — ${values.projectSlug}
 
-（這是給新協作者的開放加入邀請。把下面整段訊息傳給對方即可；對方的 APS 名稱由對方自己在本機設定時決定。）
+（這是給新協作者的一次加入邀請。把下面整段訊息傳給對方即可；對方的 APS 名稱由對方自己在本機設定時決定。）
 
 ---
 
@@ -5072,6 +5332,11 @@ function openInviteContent(values) {
 ${senderName} 想邀請你一同用 Agent Public Squares（APS）做 AI 跨機協作。
 
 APS 的做法是：大家共用同一個 Google Drive 資料夾，各自用自己電腦上的 AI 工具，把進度交接到同一個項目裏。你不用預先接受 ${senderName} 替你取的 APS 名稱。
+
+你的加入邀請碼是：
+${inviteCode}
+
+這個邀請碼只代表「可以加入這個 APS 項目」，不代表你的 APS 名稱。你的 APS 名稱仍由你自己決定，AI 會先檢查是否重名。
 
 請先做一件事：
 
@@ -5085,12 +5350,15 @@ APS 的做法是：大家共用同一個 Google Drive 資料夾，各自用自�
 請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並等我確認後才建立。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
 
 邀請資訊如下：
 
 項目代號：
 ${values.projectSlug}
+
+邀請碼：
+${inviteCode}
 
 Google Drive 共用資料夾名稱：
 ${folderName}
@@ -5098,7 +5366,7 @@ ${folderName}
 邀請人：
 ${senderName}
 
-設定完成後，請執行 APS doctor 檢查，確認結果通過。通過後，請告訴我以後可以輸入「check Drive」接收 ${senderName} 交來的內容。
+設定完成後，請執行 APS doctor 檢查，確認結果通過。通過後，請告訴我以後可以輸入「Check APS」查看整體狀態，或輸入「check Drive」接收 ${senderName} 交來的內容。
 
 ---✂️---
 
@@ -5125,6 +5393,15 @@ function setupHub(values, dryRun) {
   // pass an otherAgentId, so their counterpart lane / ack / provisional card stay built here.
   const hasCounterpart = Boolean(values.otherAgentId);
   const steps = [];
+  if (values.inviteCode) {
+    acceptInviteCode({
+      hubRoot: values.hubRoot,
+      projectSlug: values.projectSlug,
+      inviteCode: values.inviteCode,
+      agentId: values.agentId,
+      dryRun: true,
+    });
+  }
 
   const dirs = [
     path.join(values.hubRoot, '_hub'),
@@ -5161,6 +5438,15 @@ function setupHub(values, dryRun) {
     displayName: values.agentId,
     peerState: 'confirmed',
   }), dryRun));
+  if (values.inviteCode) {
+    steps.push(acceptInviteCode({
+      hubRoot: values.hubRoot,
+      projectSlug: values.projectSlug,
+      inviteCode: values.inviteCode,
+      agentId: values.agentId,
+      dryRun,
+    }));
+  }
   if (hasCounterpart) {
     steps.push(writeFileIfMissing(path.join(projectDir, `from_${values.otherAgentId}`, 'outbox.log.md'), outboxTemplate, dryRun));
     steps.push(writeFileIfMissing(path.join(projectDir, `from_${values.otherAgentId}`, 'packets', 'README.md'), packetsReadme(values.otherAgentId), dryRun));
@@ -5207,7 +5493,7 @@ function registerHandoffKitIntegration(values, dryRun) {
 | Local config | \`.aps/config.json\` |
 | 共用 Drive 項目 | \`${values.projectSlug}\` |
 | Local agent | \`${values.agentId}\` |
-| Partner agent | ${values.otherAgentId ? `\`${values.otherAgentId}\`` : '(尚未邀請;普通邀請用 `npx aps peer invite`)'} |
+| Partner agent | ${values.otherAgentId ? `\`${values.otherAgentId}\`` : '(尚未邀請;新協作者邀請用 `npx aps peer invite`)'} |
 | Trigger route | Registered in \`dev/RULE_PACKS.md\`; when the user mentions APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / check Drive / check Hub / Hub 有新嘢 / Drive sync / conflict, read \`dev/rules/aps-bridge.md\` and \`.aps/config.json\` before answering. |
 | Last verified | ${today} |`;
   steps.push(upsertManagedBlock(
@@ -5231,7 +5517,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps init --target claude    只安裝 Claude Code 的 APS skill
   npx aps init --target codex     只安裝 Codex 的 APS skill
   npx aps init --refresh-skill    先備份既有 APS skill,再刷新安裝
-  npx aps init --hub-root <path> --project <slug> --agent-id <id> [--other-agent-id <id>] [--role A|B]
+  npx aps init --hub-root <path> --project <slug> --agent-id <id> [--invite-code APS-....] [--other-agent-id <id>] [--role A|B]
                                   進階非互動設定 (對方與起手方向可選;只設自己也可)
   npx aps init --dry-run          只顯示會寫入的位置,不真正改檔
   npx aps upgrade                 npm 更新後刷新既有 APS 項目
@@ -5239,7 +5525,7 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps config --hub-root <path> --project <slug> --agent-id <id> [--other-agent-id <id>] [--role A|B]
                                   只保存或更新本機 APS 設定 (對方與起手方向可選)
   npx aps peers                   顯示本項目的 peers
-  npx aps peer invite             生成開放邀請:對方自行選 APS 名稱,不預先建立 peer
+  npx aps peer invite             生成一次加入邀請碼:對方自行選 APS 名稱,不預先建立 peer
   npx aps peer add --agent-id <id> [--display-name <name>]
                                   已知對方 APS 技術名稱時:新增 peer、lane、ack 與 starter pack
   npx aps peer starter --agent-id <id>
@@ -5339,12 +5625,13 @@ if (subcommand === 'init' && args.length === 0) {
     projectSlug: getRequiredFlagValue('--project'),
     agentId: getRequiredFlagValue('--agent-id'),
     otherAgentId: getRequiredFlagValue('--other-agent-id'),
+    inviteCode: getRequiredFlagValue('--invite-code'),
     role: (getFlagValue('--role', 'A') || 'A').toUpperCase(),
   };
   // Non-interactive setup needs the three self-side core values; --other-agent-id and --role
   // are optional (solo install). If a counterpart is given, the old two-person path still runs.
   const coreFlagCount = [setupValues.hubRoot, setupValues.projectSlug, setupValues.agentId].filter(Boolean).length;
-  const anySetupFlag = Boolean(setupValues.hubRoot || setupValues.projectSlug || setupValues.agentId || setupValues.otherAgentId || getRequiredFlagValue('--role'));
+  const anySetupFlag = Boolean(setupValues.hubRoot || setupValues.projectSlug || setupValues.agentId || setupValues.otherAgentId || setupValues.inviteCode || getRequiredFlagValue('--role'));
   const doSetup = coreFlagCount === 3;
   if (!validTargets.includes(target)) {
     console.error(`Invalid --target value: must be claude, codex, or both (got '${target}').`);
@@ -5361,6 +5648,7 @@ if (subcommand === 'init' && args.length === 0) {
       validateSnakeCase('--agent-id', setupValues.agentId),
       setupValues.otherAgentId ? validateSnakeCase('--other-agent-id', setupValues.otherAgentId) : null,
       setupValues.otherAgentId ? validateDistinctAgents(setupValues.agentId, setupValues.otherAgentId) : null,
+      setupValues.inviteCode ? validateInviteCode(setupValues.inviteCode) : null,
       setupValues.role === 'A' || setupValues.role === 'B' ? null : `--role must be A or B (got '${setupValues.role}').`,
     ].filter(Boolean);
     if (errors.length > 0) {
@@ -5631,7 +5919,7 @@ if (subcommand === 'config') {
     console.log(`☁️ 共用 Drive 資料夾 root: ${config.hubRoot || '(缺少)'}`);
     console.log(`📁 項目代號: ${config.projectSlug || '(缺少)'}`);
     console.log(`👤 本機 agent: ${config.agentId || '(缺少)'}`);
-    console.log(`🤝 對方 agent: ${config.otherAgentId || '尚未設定 (普通邀請用 `npx aps peer invite`,或在 AI 工具講「邀請新協作者加入呢個項目」)'}`);
+    console.log(`🤝 對方 agent: ${config.otherAgentId || '尚未設定 (新協作者邀請用 `npx aps peer invite`,或在 AI 工具講「邀請新協作者加入呢個項目」)'}`);
     console.log(`🧭 設定起手方向: ${config.role === 'A' ? '發起人(建立共用 Drive 資料夾)' : config.role === 'B' ? '加入者' : config.role || '(未記錄)'}`);
     console.log('   起手方向只影響設定時的預設,不影響日後誰可發送 / 接收(收發由 agent 身份與 packet 收件人決定)。');
     process.exit(0);
@@ -5687,7 +5975,7 @@ if (subcommand === 'peer') {
   const action = args[0];
   if (action !== 'invite' && action !== 'add' && action !== 'starter') {
     console.error('❌ peer 子命令只支援 `invite`、`add` 或 `starter`。');
-    console.error('💡 普通邀請: npx aps peer invite');
+    console.error('💡 新協作者邀請: npx aps peer invite');
     console.error('💡 已知對方 APS 技術名稱: npx aps peer add --agent-id fanny --display-name "Fanny"');
     process.exit(1);
   }
@@ -5708,16 +5996,35 @@ if (subcommand === 'peer') {
     }
     try {
       const inviteValues = { ...config, hubRoot, projectSlug, agentId: localAgentId, otherAgentId: null };
+      const { record: inviteRecord, recordPath } = createInviteRecord({
+        hubRoot,
+        projectSlug,
+        inviterAgentId: localAgentId,
+        dryRun,
+      });
       const inviteTarget = path.join(hubRoot, '_hub', `open-invite-${projectSlug}.md`);
+      const uniqueInviteTarget = path.join(inviteDir(hubRoot, projectSlug), `${inviteRecord.invite_code}.md`);
       const steps = [
         ensureDirectory(path.join(hubRoot, '_hub'), dryRun),
-        writeFileOrUpdate(inviteTarget, openInviteContent(inviteValues), dryRun),
+        writeFileOrUpdate(peerCardPath(hubRoot, projectSlug, localAgentId), peerCardJson({
+          projectSlug,
+          agentId: localAgentId,
+          displayName: localAgentId,
+          peerState: 'confirmed',
+        }), dryRun),
+        dryRun
+          ? { ok: true, path: recordPath, message: `would write invite record ${recordPath}` }
+          : { ok: true, path: recordPath, message: `wrote invite record ${recordPath}` },
+        writeFileOrUpdate(uniqueInviteTarget, openInviteContent(inviteValues, inviteRecord), dryRun),
+        writeFileOrUpdate(inviteTarget, openInviteContent(inviteValues, inviteRecord), dryRun),
       ];
       console.log(`📨 APS peer invite: ${projectSlug}`);
       for (const result of steps) console.log(formatSetupResult(result));
       console.log('');
+      console.log(`🔑 invite code: ${inviteRecord.invite_code}`);
       console.log(`📄 invite: ${inviteTarget}`);
-      console.log('ℹ️ 這是開放邀請,不會預先建立對方的 lane、ack 或 peer card。對方會在自己的電腦選定 APS 名稱並完成設定。');
+      console.log(`📄 invite record: ${recordPath}`);
+      console.log('ℹ️ 這是一次加入邀請,不會預先建立對方的 lane、ack 或 peer card。對方會在自己的電腦選定 APS 名稱並完成設定。');
       console.log('🚀 下一步:把 invite 內容傳給對方;對方完成後,你可用 `npx aps peers` 或「Check APS」查看新 peer。');
       process.exit(0);
     } catch (err) {
@@ -6019,7 +6326,13 @@ if (subcommand === 'inbox') {
           index += 1;
         }
       }
-      console.log('✅ 通過檢查後,可以叫 AI 標記已處理。排錯時才需要用命令:npx aps consume --packet-id <id> --version <n> --result "<具體處理結果>"');
+      const hasSharedGoalPending = groups.some((group) => group.pending.some((item) => isSharedGoalInboxItem(item)));
+      if (hasSharedGoalPending) {
+        console.log('✅ 若是共同目標與分工確認,先決定同意、部分同意需修改、有異議或稍後處理；不要把它標成普通 done。');
+        console.log('排錯時才需要用命令:npx aps consume --packet-id <id> --version <n> --result "<同意哪一版共同目標與分工>"');
+      } else {
+        console.log('✅ 通過檢查後,可以叫 AI 標記已處理。排錯時才需要用命令:npx aps consume --packet-id <id> --version <n> --result "<具體處理結果>"');
+      }
     }
   } catch (err) {
     console.error(`❌ 收件檢查失敗:${err.message}`);
@@ -6128,7 +6441,14 @@ if (subcommand === 'check-aps') {
       identityIssues: dashboard.identityIssues,
       sharedGoal: dashboard.sharedGoal,
     });
-    const shouldGenerateLive = checkApsHasLiveCandidate({ pendingItems, outgoingPackets: dashboard.outgoingPackets, riskRecords });
+    const shouldGenerateLive = checkApsHasLiveCandidate({
+      pendingItems,
+      outgoingPackets: dashboard.outgoingPackets,
+      riskRecords,
+      sharedGoal: dashboard.sharedGoal,
+      peers: dashboard.peers,
+      agentId,
+    });
     const liveResult = shouldGenerateLive
       ? writeApsLiveHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig, dashboard })
       : null;

@@ -57,7 +57,7 @@ A. 先建立 / 確認共同目標與分工
    先建立夠安全開始的共同基準:共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項、最小驗收方式;其他分工或邀請細節可先標為未定。確認後再決定本機保存、發給 confirmed peer 確認,或先邀請對方。
 
 B. 我替你邀請協作對象加入這個 project
-   工具會生成開放邀請,不預先建立對方 lane、ack 或 peer card;對方在自己電腦選定 APS 名稱並完成設定後,才可正式收交接。
+   工具會生成一次加入邀請碼與可轉發邀請;對方在自己電腦選定 APS 名稱並完成設定後,才建立本人身份並正式收交接。
 
 C. 我把目前任務整理成 APS 交接包給指定 peer
    適合已有 confirmed peer,而且共同目標與分工已確認並落地的情況。
@@ -72,9 +72,9 @@ C. 我把目前任務整理成 APS 交接包給指定 peer
 > 一、你的雲端硬碟桌面版是否已安裝,而且可以在本機檔案總管打開檔案?
 > 二、你想用哪一個 Google Drive 本機同步資料夾作為共用位置?目前已驗證主路徑是 Google Drive;其他同步資料夾只可作未正式驗證的實驗路徑。
 
-當用戶日後想邀請新協作者時,普通主路徑是 `peer invite`,可提供以下短訊讓用戶傳給對方:
+當用戶日後想邀請新協作者時,標準主路徑是 `peer invite`,可提供以下短訊讓用戶傳給對方:
 
-> 我想用 Agent Public Squares 建立一個跨機 AI 協作流程。我已經在我這邊設置好,會傳你一段可直接貼給 AI 的加入邀請。你在自己電腦照做即可,APS 名稱由你自己決定。
+> 我想用 Agent Public Squares 建立一個跨機 AI 協作流程。我已經在我這邊設置好,會傳你一段含一次加入邀請碼、可直接貼給 AI 的加入邀請。你在自己電腦照做即可,APS 名稱由你自己決定。
 
 ## 2. 先決條件檢查
 
@@ -101,7 +101,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest init
 
 第一項:
 
-> 你電腦上那個共用雲端資料夾的完整路徑是甚麼?請在檔案總管打開你與對方共用的 Agent_Public_Squares 資料夾,複製地址列的完整路徑,例如 `G:\我的雲端硬碟\Agent_Public_Squares`。這必須是你自己電腦上的真實路徑。
+> 你電腦上 Google Drive 同步出來的位置在哪裏?如果你只知道 Google Drive 根目錄,我會建議在下面建立 `Agent_Public_Squares` 作 APS 共用位置,再由你確認。若你是受邀加入,請使用自己電腦看到的同一個共用資料夾路徑,不要照抄邀請人的本機路徑。
 
 第二項:
 
@@ -133,7 +133,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest init
 正在記錄本項目的 APS 本地設定位置。
 ```
 
-前期測試版已隨包提供 `resources/protocol/PROTOCOL.md`、`resources/protocol/templates/`,並由互動式 `npx aps init` 在三問安裝時寫入用戶自己這一邊的共用 Drive 資料夾 skeleton、Bridge Pack 與 `.aps/config.json`(普通邀請不在安裝時生成,改由邀請對方時 `npx aps peer invite` 產生;只有已約定對方技術身份時才用 `npx aps peer add` 產生指定 starter pack),令後續日常命令毋須重複輸入共用 Drive 資料夾 / project / agent 長參數。互動式 CLI 應以繁體中文解釋每個設定值用途,每一題要有清楚分隔線、題號、標題、短說明與例子,避免一段過輸出;自己的 APS 名稱必須由用戶輸入,不得用維護者名稱或本機使用者名稱作公開預設。尤其要說明共用 Drive 資料夾路徑是使用者電腦上 Google Drive 同步出來的 `Agent_Public_Squares` 資料夾完整路徑。若 CLI 回報找不到 PROTOCOL source,不要假裝已複製。使用以下阻擋句:
+前期測試版已隨包提供 `resources/protocol/PROTOCOL.md`、`resources/protocol/templates/`,並由互動式 `npx aps init` 在三問安裝時寫入用戶自己這一邊的共用 Drive 資料夾 skeleton、Bridge Pack 與 `.aps/config.json`。一次加入邀請由邀請對方時的 `npx aps peer invite` 產生;只有雙方已約定對方技術身份且需要 starter pack 時才用 `npx aps peer add`。這令後續日常命令毋須重複輸入共用 Drive 資料夾 / project / agent 長參數。互動式 CLI 應以繁體中文解釋每個設定值用途,每一題要有清楚分隔線、題號、標題、短說明與例子,避免一段過輸出;自己的 APS 名稱必須由用戶輸入,不得用維護者名稱或本機使用者名稱作公開預設。尤其要說明共用 Drive 資料夾路徑可以由 AI 從使用者提供的 Google Drive 根目錄建議為 `Agent_Public_Squares`,並在用戶確認後建立;若 CLI 回報找不到 PROTOCOL source,不要假裝已複製。使用以下阻擋句:
 
 > 目前執行環境找不到 PROTOCOL source 檔案。這一步不能假裝完成。需要先確認 package 是否完整安裝,或由已驗證的 Hub template source 讀取。
 
@@ -190,7 +190,7 @@ B. 發給 confirmed peer 確認
 用 APS 一對一發出 topic `shared_goal_and_roles`,讓對方 `check Drive` 時收到並確認 / 退回 / 要求修訂。
 
 C. 先邀請對方
-我會替你生成一段可轉發的加入邀請。對方在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑完成加入,APS 名稱由對方自己確認;待對方成為 confirmed peer 後,再發 `shared_goal_and_roles` 確認包。內部主路徑是 `peer invite`。
+我會替你生成一段含一次加入邀請碼、可轉發的加入邀請。對方在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑完成加入,APS 名稱由對方自己確認;待對方成為 confirmed peer 後,再發 `shared_goal_and_roles` 確認包。內部主路徑是 `peer invite`。
 
 若你選擇暫不落地,我會明確標示:目前仍未寫入本機檔案或共用 Drive,換 session 可能失去口徑。
 ```
@@ -201,25 +201,27 @@ C. 先邀請對方
 
 若共同目標與分工要修訂,先分清楚:共同目標、長期角色、驗收標準、禁區或影響多個交接包的分工邊界改了,才修訂基準;普通任務、bugfix、補資料、審閱、單次交付或某一輪交接細節,只發普通 APS packet 或 revise。修訂版至少寫明版本、變更原因、改了哪些欄位、需要誰重新確認、何時生效、舊版本是否退役。
 
-## 7. 邀請對方時的開放邀請
+## 7. 邀請對方時的一次加入邀請
 
-當用戶想邀請新協作對象時(不是安裝時),或 AI 判斷已有共同基準但未有 confirmed peer 時,AI 要主動引導用戶生成邀請。對用戶先說「我替你生成一段可轉發給對方 AI 的加入邀請」,內部普通主路徑用:
+當用戶想邀請新協作對象時(不是安裝時),或 AI 判斷已有共同基準但未有 confirmed peer 時,AI 要主動引導用戶生成邀請。對用戶先說「我替你生成一段可轉發給對方 AI 的加入邀請」,內部標準主路徑用:
 
 ```text
 npx aps peer invite
 ```
 
-CLI 會把開放邀請寫入:
+CLI 會產生唯一邀請碼,並把最新可轉發邀請寫入:
 
 ```text
 <hub_root>/_hub/open-invite-<項目>.md
 ```
 
-開放邀請本身就是一段可直接轉發的訊息:開首要用發出者名稱或 agent id,例如「adam 想邀請你...」,避免轉發後仍寫「我想邀請你」。訊息再用清楚分段列出幾個關鍵步驟(在 Google Drive 收下並同步共用資料夾、在自己本機的 AI Project 目錄如常打開 AI 工具、把 `---✂️---` 之間整段貼給對方的 AI、項目代號照抄、Google Drive 本機路徑由對方自己提供、APS 名稱由對方自己決定並檢查重名),最後連去人類可讀的逐步詳解頁 `docs/guides/aps-join-invite.html`(內含實際安裝命令與排錯)。逐條 terminal 命令與細節都放在教學頁,不塞進訊息。邀請訊息不可一段過,每個行動點必須獨立分行,讓 Telegram / WhatsApp / Email 轉發後仍可讀。工作資料夾說明必須簡單:受邀者在自己本機的 AI Project 目錄如常打開 AI 工具;Google Drive 共用資料夾只是 APS 用來同步交接資料。不要寫成要對方重新 mount Google Drive、另開無關資料夾,或把共用資料夾當工作目錄。
+一次加入邀請本身就是一段可直接轉發的訊息:開首要用發出者名稱或 agent id,例如「adam 想邀請你...」,避免轉發後仍寫「我想邀請你」。訊息必須列出邀請碼,並說明邀請碼只代表可加入項目,不代表受邀者 APS 名稱。訊息再用清楚分段列出幾個關鍵步驟(在 Google Drive 收下並同步共用資料夾、在自己本機的 AI Project 目錄如常打開 AI 工具、把 `---✂️---` 之間整段貼給對方的 AI、項目代號照抄、邀請碼照抄、Google Drive 本機路徑由對方自己提供、APS 名稱由對方自己決定並檢查重名),最後連去人類可讀的逐步詳解頁 `docs/guides/aps-join-invite.html`(內含實際安裝命令與排錯)。逐條 terminal 命令與細節都放在教學頁,不塞進訊息。邀請訊息不可一段過,每個行動點必須獨立分行,讓 Telegram / WhatsApp / Email 轉發後仍可讀。工作資料夾說明必須簡單:受邀者在自己本機的 AI Project 目錄如常打開 AI 工具;Google Drive 共用資料夾只是 APS 用來同步交接資料。不要寫成要對方重新 mount Google Drive、另開無關資料夾,或把共用資料夾當工作目錄。
 
 AI 應讀取該 open invite,把當中的邀請訊息原樣呈現給用戶,讓用戶經 Telegram / WhatsApp / Email 轉發給對方。不要叫對方「打開 Drive 裏的檔案照做」——對方未取得分享前根本看不到那個檔;要把訊息與教學頁連結直接交到對方手上。訊息不可包含發送方本機 Google Drive 路徑。
 
-只有雙方已約定對方的 APS 技術名稱時,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 並把指定 starter pack 寫入;若對方已完成加入並留下 confirmed peer card,這一步只補 starter pack,不得降級對方身份:
+受邀者在自己的電腦完成非互動設定時,邀請碼會放入 `--invite-code <邀請碼>`;APS 名稱仍由受邀者本人確認。
+
+只有雙方已約定對方的 APS 技術名稱且需要維護指定 starter pack 時,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>` 建立 provisional peer 並把指定 starter pack 寫入;若對方已完成加入並留下 confirmed peer card,這一步只補 starter pack,不得降級對方身份:
 
 ```text
 <hub_root>/_hub/starter-pack-<項目>-<對方>.md
@@ -245,7 +247,7 @@ npx aps publish --to <peer_agent_id> --topic setup_test --body "APS setup test f
 
 > 設置完成。這個工作目錄已有 APS 本地設定。我會先替你做三件事:一,檢查共用 Drive 資料夾與本機設定是否完整;二,讀取 project peers;三,查看所有 peer 是否有新內容。若各項正常,第一步應先建立夠安全開始的共同目標與分工:先確認共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項和最小驗收方式;其他角色、邀請對象或第一輪交接對象可以先標為未定。共同目標與分工確認後,我會按狀態推進:未有協作者就替你生成可轉發邀請;已有 confirmed peer 就問你是否本機保存、發給對方確認,或整理第一輪交接包。你不需要記住命令;之後只要直接說「教我用 APS」「教我用 Agent Public Squares」「Check APS」「建立共同目標與分工」「建立共同簡報」「邀請指定協作者加入這個 APS project」「把這部分交給指定協作者」「對方收到未」「check Drive」「check Hub」或「Drive 同步不到」即可。
 
-`Check APS` 是整體狀態入口:AI 會讀本機 APS 設定,查看收件、發件、peer 狀態、下一步與風險,並直接在 terminal 給出可行動摘要。HTML dashboard 已退役,不再作日常狀態入口。若有真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。`check Drive` 則偏向查看共用 Drive 有沒有對方交來的新內容。兩者都不是自動派工,不是背景自動監察,也不代表對方已收到人手通知。
+`Check APS` 是整體狀態入口:AI 會讀本機 APS 設定,查看收件、發件、peer 狀態、下一步與風險,並直接在 terminal 給出可行動摘要。日常狀態不使用 dashboard 頁;若有真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。`check Drive` 則偏向查看共用 Drive 有沒有對方交來的新內容。兩者都不是自動派工,不是背景自動監察,也不代表對方已收到人手通知。
 
 日常一語交接可用以下 wording:
 

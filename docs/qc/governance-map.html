@@ -341,7 +341,7 @@
     <article class="tier amber">
       <h3>🟡 外發前檢</h3>
       <p><strong>別名</strong>：<code>跑外發前檢</code> / <code>release-check</code> / <code>handover-verify</code></p>
-      <p><strong>時機</strong>:物件離開本工作目錄之前(推送遠端 / 分享教學或維護者頁 / 傳開放邀請、指定 starter pack 或設置指引予協作夥伴)。</p>
+      <p><strong>時機</strong>:物件離開本工作目錄之前(推送遠端 / 分享教學或維護者頁 / 傳一次加入邀請、指定 starter pack 或設置指引予協作夥伴)。</p>
       <p><strong>覆蓋</strong>：快檢全部 + 外發前檢區塊：</p>
       <ul>
         <li>跨工作目錄佔位符審核</li>
@@ -391,7 +391,7 @@
       </tr>
       <tr>
         <td>發佈前可信度</td>
-        <td>任何會離開本工作目錄的內容,包括 README、GitHub Pages、npm package、Bridge Pack、開放邀請、指定 starter pack、walkthrough、QC 卡片、維護者頁,皆須讓外部讀者理解並按當前狀態操作。</td>
+        <td>任何會離開本工作目錄的內容,包括 README、GitHub Pages、npm package、Bridge Pack、一次加入邀請、指定 starter pack、walkthrough、QC 卡片、維護者頁,皆須讓外部讀者理解並按當前狀態操作。</td>
         <td>外人可能照文件操作卻撞上未核實、未發佈或不完整流程。</td>
       </tr>
       <tr>
@@ -429,7 +429,7 @@
       </tr>
       <tr>
         <td>Project Peers 逐一交接隔離</td>
-        <td>涉及 project-level peers 時,全面檢不可只跑二人往返。須至少驗證 A → B 單收件交接與 A → C 單收件交接各自 consume 或 decline；<code>inbox --all</code> / <code>inbox --from</code> 不可顯示不屬於自己的 packet；錯收件人 <code>consume</code> 必須被拒絕；<code>status --packet-id</code> 只查本機 agent 自己發出的 packet。普通邀請須用 <code>peer invite</code> 生成開放邀請,受邀者 APS 名稱由本人決定;身份結構須由 <code>doctor</code> / <code>Check APS</code> 揭示 lane、ack、peer card 的 agent / project / lane 錯配。</td>
+        <td>涉及 project-level peers 時,全面檢不可只跑二人往返。須至少驗證 A → B 單收件交接與 A → C 單收件交接各自 consume 或 decline；<code>inbox --all</code> / <code>inbox --from</code> 不可顯示不屬於自己的 packet；錯收件人 <code>consume</code> 必須被拒絕；<code>status --packet-id</code> 只查本機 agent 自己發出的 packet。新協作者邀請須用 <code>peer invite</code> 生成一次加入邀請碼,受邀者 APS 名稱由本人決定;身份結構須由 <code>doctor</code> / <code>Check APS</code> 揭示 lane、ack、peer card 的 agent / project / lane 錯配。</td>
       </tr>
       <tr>
         <td>補交與共識確認</td>
@@ -441,7 +441,7 @@
       </tr>
       <tr>
         <td>可行動狀態面</td>
-        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、下一步與風險。HTML dashboard 已退役,不可再作日常狀態入口或驗收替代物。它只整理本機已同步資料中可追溯的行動線索,不是自動派工;不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。若對方已 <code>decline</code>,發件方狀態面須顯示退回原因與 revise / withdraw / close 下一步。</td>
+        <td><code>Check APS</code> / <code>check-aps</code> 只可作 APS 整體狀態入口,顯示收件、發件、協作對象、下一步與風險。它只整理本機已同步資料中可追溯的行動線索,不是自動派工;不得改 packet / outbox / ack 狀態,不得取代 <code>check Drive</code> 收件入口,不得把一般「狀態」「check」「交接包」「收工」當成 APS 觸發,亦不得推斷對方已收到通知。若對方已 <code>decline</code>,發件方狀態面須顯示退回原因與 revise / withdraw / close 下一步。</td>
       </tr>
       <tr>
         <td>新安裝與版本升級落地</td>
@@ -525,14 +525,14 @@
       <tr>
         <td>開局對齊</td>
         <td><code>Check APS</code> 未見共同目標與分工時，須提示先建立或補發 <code>shared_goal_and_roles</code>，不要先發普通任務包。</td>
-        <td>HTML dashboard 已退役；<code>Check APS</code> terminal 狀態須顯示共同目標與分工狀態、下一步與逐人確認情況，不可把未確認基準寫成可開工。</td>
+        <td><code>Check APS</code> terminal 狀態須顯示共同目標與分工狀態、下一步與逐人確認情況，不可把未確認基準寫成可開工。</td>
         <td><code>shared_goal_and_roles</code> 是 project 基準確認包；可修訂成新版本，不可平行存在兩套互相打架的基準。</td>
       </tr>
       <tr>
         <td>邀請加入</td>
-        <td><code>peer invite</code> 生成開放邀請；受邀者自行確認 APS 名稱。<code>peer add</code> 只用於已約定技術身份。</td>
+        <td><code>peer invite</code> 生成一次加入邀請碼；受邀者自行確認 APS 名稱。<code>peer add</code> 只用於已約定技術身份。S127 已把本機可覆蓋矩陣列為 covered，外部 gate 另列。</td>
         <td>加入邀請頁須分清人類稱呼、project 代號與 APS 名稱；加入後先 <code>Check APS</code> 核對基準。</td>
-        <td>普通邀請不得預建對方 lane / ack / peer card；重名或 project 不一致必須阻擋。</td>
+        <td>一次加入邀請不得預建對方 lane / ack / peer card；重名、邀請碼已使用或 project 不一致必須阻擋。</td>
       </tr>
       <tr>
         <td>首次交接</td>
@@ -543,7 +543,7 @@
       <tr>
         <td>日常推進</td>
         <td><code>Check APS</code> 看整體可行動狀態與共同基準；<code>check Drive</code> 讀具體收件。兩者不得混用。</td>
-        <td><code>Check APS</code> terminal 狀態顯示待我處理、我交出去的事、等待對方、風險與同步資料；不得再生成或要求打開個人 dashboard / 共用 dashboard 入口。</td>
+        <td><code>Check APS</code> terminal 狀態顯示待我處理、我交出去的事、等待對方、風險與同步資料；需要即時釐清時才引導 APS Live，正式寫入仍回到 terminal。</td>
         <td>pending 計算須以 packet / outbox / ack 為準；context 只可作背景，不可覆蓋正式交接。</td>
       </tr>
       <tr>
@@ -555,7 +555,7 @@
       <tr>
         <td>多人分工</td>
         <td>同一 project 可有多位 peers，但每次 <code>publish --to</code> 仍須指定一位收件人；<code>inbox --all</code> 不可越權顯示別人的 packet。</td>
-        <td><code>Check APS</code> 可顯示多位 peer 的確認狀態；不得生成個人 dashboard 或讓使用者照別人的個人頁處理待辦。</td>
+        <td><code>Check APS</code> 可顯示多位 peer 的確認狀態；每位用戶只能按自己身份看到的收件與發件狀態推進，不可照別人的狀態處理待辦。</td>
         <td>A → B 與 A → C 須分別驗證 consume 或 decline；錯收件人 consume 必須被拒絕。</td>
       </tr>
       <tr>
@@ -573,7 +573,7 @@
       <tr>
         <td>APS Live 產品標準驗收</td>
         <td><code>Check APS</code>、<code>check Drive</code> 或 <code>decline</code> 只可在真實卡點提示「可開 APS Live 釐清」；驗收須先逐項走通 <code>共同基準</code> → <code>已發出</code> → <code>對方查看</code> → <code>可開工判斷</code> → <code>處理 / 補資料</code> → <code>正式更新</code>，再驗 Trystero 通訊。</td>
-        <td>APS Live 不可先做成 dashboard 區塊、空白聊天室或訊息牆；HTML dashboard 已退役，不可作為 Live 或狀態面替代品。合格入口須先有六階段產品流程證據、可驗證通道、接收介面、狀態寫入邊界與確認閘；頁面只顯示階段名稱、同機截圖、local queue 或 console clean 都不可代替流程走通。</td>
+        <td>APS Live 不可做成空白聊天室、訊息牆或泛用狀態牆。合格入口須先有六階段產品流程證據、可驗證通道、接收介面、狀態寫入邊界與確認閘；頁面只顯示階段名稱、同機截圖、local queue 或 console clean 都不可代替流程走通。</td>
         <td>Live 訊息只可生成待確認草稿；正式狀態仍須回到 terminal，由用戶批准後經 <code>publish</code>、<code>revise</code>、<code>decline</code>、<code>consume</code> 或 <code>close</code> 落帳。</td>
       </tr>
     </tbody>
@@ -611,7 +611,7 @@
   <h2>典型用法</h2>
   <ul>
     <li><strong>🟢 快檢</strong>:commit 前 spot-check;五區段執行完之後之 baseline 驗證;改完 doc 試 anchor 不斷</li>
-    <li><strong>🟡 外發前檢</strong>:push remote 之前;傳開放邀請 / 指定 starter pack / 設置指引予協作夥伴之前;新教學頁或維護者頁分享予外人之前</li>
+    <li><strong>🟡 外發前檢</strong>:push remote 之前;傳一次加入邀請 / 指定 starter pack / 設置指引予協作夥伴之前;新教學頁或維護者頁分享予外人之前</li>
     <li><strong>🔴 全面檢</strong>：跨機往返落地之前；協定升版之前；引入新 AI 程式之前；連續多輪工作後重置基線</li>
   </ul>
 </section>

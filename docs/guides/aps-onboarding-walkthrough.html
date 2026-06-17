@@ -77,7 +77,7 @@
   <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
   <a class="site-nav__link" href="../index.html">入口</a>
   <a class="site-nav__link" href="index.html">教學中心</a>
-  <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝</a>
+  <a class="site-nav__link" href="aps-ai-agent-install.html">AI 代理安裝 / 升級</a>
   <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
   <span class="site-nav__spacer"></span>
   <span class="site-nav__hint">2026-06-14</span>
@@ -103,9 +103,9 @@
 </section>
 
 <section>
-  <h2>📂 第三步：把 Google Drive 共用資料夾設為可離線使用</h2>
-  <p>APS 會把交接包寫入 Google Drive 同步到本機的共用資料夾。為了減少同步延遲和「看得到資料夾但檔案未落地」的問題，請先把這個共用資料夾設為可離線使用。</p>
-  <p>在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選 <strong>顯示其他選項</strong>，再選 <strong>離線存取</strong>，最後選 <strong>可離線使用</strong>。</p>
+  <h2>📂 第三步：確認 Google Drive 位置</h2>
+  <p>APS 會把交接包寫入 Google Drive 同步到本機的共用資料夾。你可以只告訴 AI 你的 Google Drive 本機根目錄；AI 應建議在下面建立 <code>Agent_Public_Squares</code> 作 APS 共用位置，並在你確認後才建立。</p>
+  <p>AI 建立或確認 APS 共用資料夾後，才請你把該資料夾設為「可離線使用」。在 Windows 下，到 Google Drive 的目標資料夾，按右鍵，選 <strong>顯示其他選項</strong>，再選 <strong>離線存取</strong>，最後選 <strong>可離線使用</strong>。</p>
   <figure>
     <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
     <figcaption>參考畫面：在 Google Drive 目標資料夾按右鍵，進入「離線存取」，選擇「可離線使用」。</figcaption>
@@ -114,23 +114,23 @@
 
 <section>
   <h2>📋 第四步：貼上這段話</h2>
-  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
+  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝、加入或升級 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機路徑、項目代號、我的 APS 名稱由我提供或確認；如果我是受邀加入，項目代號以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。</pre>
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝、加入或升級。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑；這代表既有 APS 項目，應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor。不要重跑 aps init、不要重建共用 Drive 資料夾、不要覆寫既有交接、ack、peer 或共同目標與分工。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並等我確認後才建立。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。</pre>
 </section>
 
 <section>
-  <h2>📌 你要準備的三項資料</h2>
+  <h2>📌 你要確認的三項資料</h2>
   <p class="lede">AI 代理會問你，不用現在填在網頁上。</p>
   <table>
     <thead>
       <tr><th>資料</th><th>意思</th><th>例子</th></tr>
     </thead>
     <tbody>
-      <tr><td>Google Drive 本機路徑</td><td>你電腦上同步出來的 APS 共用資料夾完整路徑。</td><td><code>G:\我的雲端硬碟\Agent_Public_Squares</code></td></tr>
+      <tr><td>Google Drive 本機位置</td><td>你電腦上同步出來的位置；若只知道根目錄，AI 應建議 <code>Agent_Public_Squares</code> 作 APS 共用資料夾。</td><td><code>G:\我的雲端硬碟\Agent_Public_Squares</code></td></tr>
       <tr><td>項目代號</td><td>這次合作項目的短名。雙方要一樣。</td><td><code>branding_2026</code></td></tr>
-      <tr><td>你的 APS 名稱</td><td>你自己在這個共用資料夾裏的身份。每個人填自己；普通邀請不會替你預先取名，例子不可當作固定預設。</td><td><code>adam</code>、<code>jay</code></td></tr>
+      <tr><td>你的 APS 名稱</td><td>你自己在這個共用資料夾裏的身份。每個人填自己；邀請碼代表加入資格，例子不可當作固定預設。</td><td><code>adam</code>、<code>jay</code></td></tr>
     </tbody>
   </table>
   <div class="callout">
@@ -163,7 +163,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
           <path d="M0,0 L10,4 L0,8 Z" fill="#2f5d7c"></path>
         </marker>
       </defs>
-      <text class="flow-title" x="36" y="44">安裝成功後，不用背內部命令；要交接時，明確說用 APS。</text>
+      <text class="flow-title" x="36" y="44">安裝成功後，不用背命令；要交接時，明確說用 APS。</text>
 
       <rect class="flow-box flow-box-main" x="36" y="78" width="220" height="92"></rect>
       <text class="flow-label" x="58" y="112">1. 建立共同目標與分工</text>
@@ -229,7 +229,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
     <strong>📌 不用一次填完整計劃。</strong>共同目標與分工不是大表格。起步時先有共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項和最小驗收方式；其他角色、第一輪分工、邀請對象或詳細驗收，可以先寫「未定」。
   </div>
 
-  <p>你實際要做的是推進自己的項目，不是學 APS。要交給協作者時，最穩定的說法是直接提 APS：<code>請用 APS 把這段工作交接給 Jay，先整理草稿，等我確認後才寫入共用 Drive。</code> 這不是要你學內部命令，而是避免 AI 被普通聊天或其他 skill 誤導成一般工作安排。AI 會整理交接草稿並等你確認後寫入 APS。日常備用入口是：要看整體狀態，說 <code>Check APS</code>；要看對方有沒有新交接，說 <code>check Drive</code>。APS 只整理已同步資料和下一步風險，不會自動通知對方，也不會自動打開對方的 AI。</p>
+  <p>你實際要做的是推進自己的項目，不是學 APS。要交給協作者時，最穩定的說法是直接提 APS：<code>請用 APS 把這段工作交接給 Jay，先整理草稿，等我確認後才寫入共用 Drive。</code> 這樣說，是為了讓 AI 走 APS 交接流程，而不是一般聊天式工作安排。AI 會整理交接草稿並等你確認後寫入 APS。日常備用入口是：要看整體狀態，說 <code>Check APS</code>；要看對方有沒有新交接，說 <code>check Drive</code>。APS 只整理已同步資料和下一步風險，不會自動通知對方，也不會自動打開對方的 AI。</p>
 </section>
 
 <section>
@@ -239,9 +239,9 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 npx --yes @adamchanadam/agent-handoff-kit@latest init --yes --root "&lt;目前項目資料夾&gt;"
 npm install --save-dev @adamchanadam/aps@latest
 npx aps init --dry-run
-npx aps init --hub-root "&lt;Google Drive 本機路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的_APS_名稱&gt;
+npx aps init --hub-root "&lt;AI 建議並經你確認的 APS 共用資料夾路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的_APS_名稱&gt; [--invite-code &lt;邀請碼&gt;]
 npx aps doctor</pre>
-  <p>不要用 <code>npx aps init --help</code> 查用法；查用法請用 <code>npx aps --help</code>。非互動終端先用 <code>--dry-run</code> 預覽，正式設定時帶齊 <code>--hub-root</code>、<code>--project</code>、<code>--agent-id</code>。</p>
+  <p>不要用 <code>npx aps init --help</code> 查用法；查用法請用 <code>npx aps --help</code>。非互動終端先用 <code>--dry-run</code> 預覽，正式設定時帶齊 <code>--hub-root</code>、<code>--project</code>、<code>--agent-id</code>；受邀加入時再帶 <code>--invite-code</code>。</p>
 </section>
 
 <footer>
