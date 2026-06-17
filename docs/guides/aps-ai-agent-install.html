@@ -96,7 +96,7 @@
   <ul>
     <li>目前工作目錄應是用戶自己的 AI Project 目錄。</li>
     <li>不要在 Google Drive 共用資料夾內安裝 APS；它只作 APS 交接同步區。</li>
-    <li>AI 先做只讀檢查，再列出寫入計劃，等用戶確認後才執行。</li>
+    <li>AI 先做只讀檢查，再列出一次性安裝或升級計劃；用戶確認一次後，按該範圍連續完成，不要每個命令重複打斷。</li>
     <li>非互動終端不要直接跑會等待鍵盤輸入的裸命令；先用 <code>--dry-run</code> 預覽，正式執行時用工具自己的 <code>--yes</code>。</li>
     <li>本頁同時適用於新安裝與既有 APS 項目升級。先檢查 <code>.aps/config.json</code>；有就升級，沒有才新安裝。</li>
     <li>新安裝路徑是 Agent Handoff Kit → npm install → APS init → APS doctor。</li>
@@ -111,7 +111,7 @@
   <h2>任務定位</h2>
   <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝或升級 Agent Public Squares。第一步永遠是只讀檢查目前資料夾是否已有 <code>.aps/config.json</code>：已有者代表這是既有 APS 項目，應走升級路徑；沒有者才走新安裝路徑。用戶可只提供 Google Drive 本機根目錄；你應建議 APS 共用位置，例如 <code>Agent_Public_Squares</code>，並在用戶確認後建立。自己的 APS 名稱由用戶本人決定。邀請碼只代表可加入項目，不代表受邀者名稱，你不可替受邀者命名。</p>
   <div class="callout warn">
-    <strong>安全邊界：</strong>任何會安裝套件、寫入檔案、修改設定、寫入共用 Drive 資料夾、提交、推送或發佈的動作，必須先列出將會做甚麼、影響哪些路徑，並取得用戶確認。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
+    <strong>安全邊界：</strong>安裝或升級前，必須先列出判斷結果、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑、以及不會做的事。用戶確認一次後，該確認覆蓋計劃內的 npm install、init 或 upgrade、設定寫入與 doctor；不要每個命令重複打斷。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
   </div>
 </section>
 
@@ -119,7 +119,7 @@
   <h2>非互動終端防卡住規則</h2>
   <p class="lede">很多本機 AI 代理的終端機是非互動模式。不要直接執行會停下等鍵盤輸入的命令。</p>
   <ul>
-    <li><strong>Agent Handoff Kit：</strong><code>npx --yes</code> 只避免 npm 自己的安裝提示；<code>init --yes</code> 才避免工具自己的確認提示。正式初始化前先跑 <code>--dry-run</code>，向用戶轉述會新建或修改的檔案，確認後才正式執行。</li>
+    <li><strong>Agent Handoff Kit：</strong><code>npx --yes</code> 只避免 npm 自己的安裝提示；<code>init --yes</code> 才避免工具自己的確認提示。正式初始化前先跑 <code>--dry-run</code>，向用戶轉述會新建或修改的檔案；用戶確認整體計劃後，才正式執行。</li>
     <li><strong>APS：</strong>不要用 <code>npx aps init --help</code> 查用法，因為它會進入 init 邏輯。查用法請用 <code>npx aps --help</code>；只預覽請用 <code>npx aps init --dry-run</code>；非互動設定請傳入 <code>--hub-root</code>、<code>--project</code>、<code>--agent-id</code>。</li>
     <li><strong>npm cache 被鎖：</strong>如果出現 <code>EPERM</code>、<code>_cacache</code> 或 npm cache tmp 不能寫入，不要提權，不要清 cache；改用項目外的隔離 cache 重試，例如 <code>npx --cache C:\tmp\npx-aps-install --yes ...</code>。</li>
   </ul>
@@ -133,7 +133,7 @@
     <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化；已存在時，不要重複初始化，先跑健康檢查，必要時才建議升級。</li>
     <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
     <li><strong>向用戶收集三項資料。</strong>Google Drive 本機位置或你建議的 APS 共用資料夾路徑、項目代號、自己的 APS 名稱。若用戶只提供 Google Drive 根目錄，先建議 <code>&lt;Google Drive 根目錄&gt;\Agent_Public_Squares</code>；若項目代號未定，根據本機項目資料夾名稱建議一個小寫代號。不要用瀏覽器網址，不要照抄別人電腦上的 <code>G:\...</code> 或 <code>C:\...</code>。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer，並在安裝命令加入邀請碼。</li>
-    <li><strong>建立後再確認離線可用。</strong>執行前先列出會建立或使用的 APS 共用資料夾。用戶確認後，才建立資料夾與設定。完成後請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
+    <li><strong>建立後再確認離線可用。</strong>執行前先列出會建立或使用的 APS 共用資料夾，並納入同一次安裝計劃確認。完成後請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
   </ol>
   <figure>
     <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
@@ -145,25 +145,25 @@
   <h2>新安裝路徑</h2>
   <p class="lede">只有在目前項目沒有 <code>.aps/config.json</code> 時使用。這條路仍要先分清楚 Agent Handoff Kit 是否已存在。</p>
   <ol class="steps">
-    <li>列出安裝計劃：會檢查 Agent Handoff Kit、安裝 npm 套件、執行 APS init、寫入本機設定與共用 Drive 資料夾骨架。若 Agent Handoff Kit 已存在，計劃中要寫明不會重複初始化。</li>
+    <li>列出一次性安裝計劃：會檢查 Agent Handoff Kit、安裝 npm 套件、執行 APS init、寫入本機設定與共用 Drive 資料夾骨架、最後跑 doctor。若 Agent Handoff Kit 已存在，計劃中要寫明不會重複初始化。用戶確認這份計劃後，在計劃範圍內連續完成，不要每個命令再問一次。</li>
     <li>如果缺少 Agent Handoff Kit，先只做預演。把預演結果轉述給用戶確認，不要直接執行裸 <code>init</code>。命令如下：
       <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init --dry-run --root "&lt;目前項目資料夾&gt;"</pre>
     </li>
-    <li>用戶確認後，才正式初始化。注意這裡同時需要 <code>npx --yes</code> 和 <code>init --yes</code>；前者避免 npm 安裝提示，後者避免 Agent Handoff Kit 自己的互動確認卡住。命令如下：
+    <li>同一次安裝計劃確認後，才正式初始化。注意這裡同時需要 <code>npx --yes</code> 和 <code>init --yes</code>；前者避免 npm 安裝提示，後者避免 Agent Handoff Kit 自己的互動確認卡住。命令如下：
       <pre>npx --yes @adamchanadam/agent-handoff-kit@latest init --yes --root "&lt;目前項目資料夾&gt;"</pre>
     </li>
-    <li>如果已有 Agent Handoff Kit，先做健康檢查；如檢查顯示需要升級，先列出會改動的治理檔，取得用戶確認後才執行升級。命令如下：
+    <li>如果已有 Agent Handoff Kit，先做健康檢查；如檢查顯示需要升級，先把會改動的治理檔納入同一次安裝計劃，取得用戶確認後才執行升級。命令如下：
       <pre>npx --yes @adamchanadam/agent-handoff-kit@latest doctor --root &lt;目前項目資料夾&gt;
 npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --dry-run --root "&lt;目前項目資料夾&gt;"
 npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目前項目資料夾&gt;"</pre>
-      只在用戶確認預演結果後執行最後一行。
+      只在用戶確認整體計劃後執行最後一行。
     </li>
-    <li>取得用戶確認後，安裝 APS 套件。命令如下：
+    <li>同一次安裝計劃確認後，安裝 APS 套件。命令如下：
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
     </li>
     <li>執行 APS 初始化。非互動終端不要直接跑 <code>npx aps init</code>，也不要用 <code>npx aps init --help</code> 查用法；查用法請用 <code>npx aps --help</code>。先預覽：
       <pre>npx aps init --dry-run</pre>
-      確認後，用三項已確認資料執行非互動設定：
+      同一次安裝計劃確認後，用三項已確認資料執行非互動設定：
       <pre>npx aps init --hub-root "&lt;AI 建議並經用戶確認的 APS 共用資料夾路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 APS 名稱&gt; [--invite-code &lt;邀請碼&gt;]</pre>
     </li>
     <li>完成後跑健康檢查：
@@ -178,10 +178,10 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
   <ol class="steps">
     <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前項目、共用 Drive 資料夾、自己的 APS 名稱。</li>
     <li>向用戶說明這次只會更新本地 npm 套件、刷新 APS 橋接與技能，並做健康檢查；不會改 Google Drive 權限，不會刪除或重建既有交接資料。</li>
-    <li>取得確認後，更新 npm 套件：
+    <li>同一次升級計劃確認後，更新 npm 套件：
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
     </li>
-    <li>取得確認後，刷新 APS 橋接與技能：
+    <li>同一次升級計劃確認後，刷新 APS 橋接與技能：
       <pre>npx aps upgrade</pre>
     </li>
     <li>跑 <code>npx aps doctor</code>，把結果翻譯成普通用戶看得懂的狀態。</li>

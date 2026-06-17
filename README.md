@@ -20,8 +20,8 @@ APS 仍是前期測試版，但不是概念稿。這個 repo 目前已提供可�
 
 | 項目 | 目前狀態 |
 |---|---|
-| 公開版本 | `@adamchanadam/aps@0.2.25` |
-| 最新 GitHub release | `v0.2.25` |
+| 公開版本 | `@adamchanadam/aps@0.2.26` |
+| 最新 GitHub release | `v0.2.26` |
 | 授權 | Apache License 2.0 |
 | 支援環境 | Node.js 18 或以上 |
 | 建議用途 | 受控實際試行、雙方 AI 交接測試、日常協作流程打磨 |
@@ -74,7 +74,7 @@ APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤
 
 ### APS 目前是否生產級？
 
-不是。`@adamchanadam/aps@0.2.25` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
+不是。`@adamchanadam/aps@0.2.26` 是可用於受控實際試行的前期測試版，不應承諾為不可中斷、不可出錯的生產級工具。
 
 ## 文件與支援入口
 
@@ -91,7 +91,7 @@ APS 適合使用 Codex、Claude Code 或同等本機代理型 AI 的用戶，尤
 請在目前本機項目資料夾，按這頁指引帶我安裝、加入或升級 Agent Public Squares（APS）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝、加入或升級。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑；這代表既有 APS 項目，應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor。不要重跑 aps init、不要重建共用 Drive 資料夾、不要覆寫既有交接、ack、peer 或共同目標與分工。任何會安裝套件、寫入檔案、修改設定或寫入共用 Drive 資料夾的步驟，先列出將會做甚麼，等我確認後才執行。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並等我確認後才建立。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝、加入或升級。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑；這代表既有 APS 項目，應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor。不要重跑 aps init、不要重建共用 Drive 資料夾、不要覆寫既有交接、ack、peer 或共同目標與分工。請先用一段話列出判斷結果、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑、以及不會做的事；我確認一次後，請按這個範圍連續完成安裝或升級與 doctor，不要每個命令重複問我。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並納入同一次計劃確認。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
 ```
 
 你仍然要確認三件資料；若你只知道 Google Drive 本機根目錄，AI 應建議預設位置，例如 `Agent_Public_Squares`，並在你確認後建立：
@@ -203,7 +203,7 @@ AI 建立或確認 APS 共用資料夾後，請把該資料夾設為「可離線
 目前公開版本是：
 
 ```text
-@adamchanadam/aps@0.2.25
+@adamchanadam/aps@0.2.26
 ```
 
 它已經可以安裝，並可用於受控實際試行。它仍是前期測試版，不應承諾為生產級工具。
