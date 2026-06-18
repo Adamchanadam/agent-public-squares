@@ -23,7 +23,7 @@
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "description": "Agent Public Squares helps people working on the same project hand tasks between their local AI agents through a shared Google Drive folder, with one-to-one packets, check Drive, and Check APS status.",
-  "softwareVersion": "0.2.26",
+  "softwareVersion": "0.2.27",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "url": "https://adamchanadam.github.io/agent-public-squares/docs/index.html",
   "codeRepository": "https://github.com/Adamchanadam/agent-public-squares",
@@ -137,13 +137,22 @@
 
 <section>
   <h2>📋 第一次使用：先讓 AI 接好工具</h2>
-  <p class="lede">如果這個項目還未接好 APS，或已接好但要更新到新版，在你的本機項目資料夾打開 Codex 或 Claude Code，貼上整段：</p>
-  <pre>請在目前本機項目資料夾，按這頁指引帶我安裝、加入或升級 Agent Public Squares（APS）：
+  <p class="lede">如果這個項目還未接好 APS，或已接好但要更新到新版，在你的本機工作目錄打開 Codex 或 Claude Code，貼上整段：</p>
+  <pre>請在目前本機工作目錄，按這頁指引帶我安裝、加入或升級 Agent Public Squares（APS）。下面網址是給本機 AI 代理讀的安裝／加入／升級依據，不是叫我自己研究命令：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝、加入或升級。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑；這代表既有 APS 項目，應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor。不要重跑 aps init、不要重建共用 Drive 資料夾、不要覆寫既有交接、ack、peer 或共同目標與分工。請先用一段話列出判斷結果、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑、以及不會做的事；我確認一次後，請按這個範圍連續完成安裝或升級與 doctor，不要每個命令重複問我。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並納入同一次計劃確認。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。</pre>
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝、加入或升級。
+
+如果我是受邀加入，第一屏請用以下方向簡短回覆：
+我已收到邀請人發來的 APS 協作邀請。這份邀請是要把我加入同一個 APS 合作目錄；正常情況下不會影響既有人，也不需要邀請人先知道或替我設定用戶名稱。
+請我提供兩件事：一，我自己電腦上看到的 Google Drive 共用資料夾完整本機路徑；二，我想在這個 APS 合作目錄使用的用戶名稱。
+你會先只讀檢查目前資料夾是否已有 APS 設定；若沒有衝突，直接帶我加入，不要求我自己輸入命令。
+
+正常第一屏只需講邀請內容、建議做法、需要我提供的資料；不需要先解釋底層風險或列 A / B 選項。請先做只讀檢查，再給最佳建議。只有在目前工作目錄已有 .aps/config.json 且指向不同 APS 交換區或 APS 合作目錄時，才顯示衝突說明：目前接着的是甚麼、邀請指定的是甚麼、建議是否改接；改接前先列出會寫入的設定並等我確認一次。若發現雙方互相發出邀請，請直接建議使用已有共同資料、共同目標或最先約定的 APS 合作目錄；若沒有共同資料，就建議使用這份邀請指定的 APS 合作目錄，另一個邀請碼先不要用。
+
+既有同一 APS 合作目錄應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor。不要重跑 aps init、不要重建 APS 交換區、不要覆寫既有交接、ack、peer 或共同目標與分工。請先用一段話列出判斷結果、建議做法、需要我提供的資料、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑；我確認一次後，請按這個範圍連續完成安裝或升級與 doctor，不要每個命令重複問我。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。Google Drive 本機位置、APS 合作目錄名稱、我的用戶名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 交換區並納入同一次計劃確認。如果我是受邀加入，APS 合作目錄名稱與邀請碼以邀請訊息為準，用戶名稱仍由我自己決定，請先檢查是否重名。</pre>
   <div class="callout">
-    <strong>📌 你要確認三件資料：</strong>Google Drive 同步到本機的位置或 AI 建議的 APS 共用資料夾、這個合作項目的項目代號、你自己的 APS 名稱。若你收到邀請，還要照抄一次加入邀請碼。AI 會問你，不需要你事前填表。
+    <strong>📌 你要確認三件資料：</strong>Google Drive 同步到本機的位置或 AI 建議的 APS 交換區、這個合作項目的 APS 合作目錄名稱、你自己的用戶名稱。若你收到邀請，還要照抄一次加入邀請碼。AI 會問你，不需要你事前填表。
   </div>
 </section>
 
@@ -153,7 +162,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
   <div class="flow-wrap" aria-label="Agent Public Squares 宏觀操作流程圖">
     <svg class="flow-svg" viewBox="0 0 420 620" role="img" aria-labelledby="flow-title flow-desc">
       <title id="flow-title">Agent Public Squares 宏觀操作流程</title>
-      <desc id="flow-desc">五階段大局流程圖：以 Adam 邀請 Jay 作示範。Adam 先開局，AI 建立共同基準；Adam 確認後才用一次加入邀請碼邀請 Jay；Jay 收到邀請後，在自己的電腦和自己的項目資料夾安裝、加入或升級 APS，並由 Jay 自己確認 APS 名稱；雙方先用 Check APS 對齊共同基準；最後 Adam 明確要求用 APS 向 Jay 做任務交接，AI 整理交接草稿並等 Adam 確認後發出；Jay 再用 check Drive 讀取。</desc>
+      <desc id="flow-desc">五階段大局流程圖：以 Adam 邀請 Jay 作示範。Adam 先開局，AI 建立共同基準；Adam 確認後才用一次加入邀請碼邀請 Jay；Jay 收到邀請後，在自己的電腦和自己的項目資料夾安裝、加入或升級 APS，並由 Jay 自己確認 用戶名稱；雙方先用 Check APS 對齊共同基準；最後 Adam 明確要求用 APS 向 Jay 做任務交接，AI 整理交接草稿並等 Adam 確認後發出；Jay 再用 check Drive 讀取。</desc>
       <defs>
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
           <path d="M0,0 L0,6 L9,3 z" fill="#2f5d7c"></path>
@@ -182,7 +191,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
       <text class="flow-step" x="56" y="266">03</text>
       <text class="flow-label" x="210" y="274" text-anchor="middle">Jay 安裝／加入 APS</text>
       <text class="flow-small" x="210" y="296" text-anchor="middle">在自己的電腦、自己的項目資料夾完成</text>
-      <text class="flow-small" x="210" y="312" text-anchor="middle">邀請碼照抄，APS 名稱由 Jay 自己確認</text>
+      <text class="flow-small" x="210" y="312" text-anchor="middle">邀請碼照抄，用戶名稱由 Jay 自己確認</text>
 
       <path class="flow-arrow" d="M210 324 V346"></path>
 
@@ -208,7 +217,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
     </svg>
   </div>
   <div class="callout">
-    <strong>🔎 這張圖只講大局。</strong>這裏用 Adam 邀請 Jay 作示範，方便分清兩邊；正式邀請會產生一次加入邀請碼，Jay 用自己的電腦加入，APS 名稱由本人確認。交接時，Adam 不應只說一般工作安排，而應明確說「用 APS 把這段工作交接給 Jay」。AI 會整理交接草稿，Adam 確認後才寫入 APS，Adam 再人手通知 Jay。Jay 的 AI 讀到交接後，會判斷可開工、要澄清，還是要退回補資料。
+    <strong>🔎 這張圖只講大局。</strong>這裏用 Adam 邀請 Jay 作示範，方便分清兩邊；正式邀請會產生一次加入邀請碼，Jay 用自己的電腦加入，用戶名稱由本人確認。交接時，Adam 不應只說一般工作安排，而應明確說「用 APS 把這段工作交接給 Jay」。AI 會整理交接草稿，Adam 確認後才寫入 APS，Adam 再人手通知 Jay。Jay 的 AI 讀到交接後，會判斷可開工、要澄清，還是要退回補資料。
   </div>
 </section>
 
@@ -221,7 +230,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
     </div>
     <div class="tile">
       <h3>不適合</h3>
-      <p>普通網頁聊天 AI，若不能操作你的本機資料夾，就不能直接替你安裝。它最多只能解釋步驟。</p>
+      <p>普通網頁聊天 AI，若不能操作你的本機工作目錄，就不能直接替你安裝。它最多只能解釋步驟。</p>
     </div>
   </div>
   <div class="callout warn">
@@ -235,7 +244,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
   <ul>
     <li>同一個項目可以有多位協作對象。</li>
     <li>每一次交接仍是一對一，不是群發。</li>
-    <li>第一位用戶安裝後，AI 應主動建立「共同目標與分工」，先做到夠安全開始：共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項和最小驗收方式先清楚；其他角色、第一輪分工、邀請對象或詳細驗收可以先標為「未定」。</li>
+    <li>第一位用戶安裝後，AI 應主動建立「共同目標與分工」，先做到夠安全開始：共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項和最小驗收方式先清楚；其他角色、第一輪分工、邀請對象或詳細驗收可以先標為「未定」。</li>
     <li>APS 不會自動通知對方，也不會自動打開對方的 AI。</li>
     <li>AI 會生成可複製的通知文字，由你貼到 WhatsApp、Email 或平常使用的通訊工具。</li>
   </ul>
@@ -244,7 +253,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 <section>
   <h2>📌 目前狀態</h2>
   <p><span class="badge ok">公眾可用</span><span class="badge warn">前期測試版</span></p>
-  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.26</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，AI 應先帶用戶建立夠安全開始的共同目標與分工；示範人名不可當作固定預設，實際參與者和 APS 名稱由用戶確認。共同目標與分工確認後，再按狀態保存、邀請協作者、讓已加入的協作者確認，或整理第一輪交接草稿。</p>
+  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.27</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，AI 應先帶用戶建立夠安全開始的共同目標與分工；示範人名不可當作固定預設，實際參與者和用戶名稱由用戶確認。共同目標與分工確認後，再按狀態保存、邀請協作者、讓已加入的協作者確認，或整理第一輪交接草稿。</p>
 </section>
 
 <section>

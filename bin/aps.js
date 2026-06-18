@@ -46,13 +46,13 @@ function localAgentOverrideCheck({ config, requestedAgentId, commandName }) {
   if (hasFlag('--allow-agent-override')) {
     return {
       ok: true,
-      warn: `⚠️ 高風險: ${commandName} 正在用 APS 名稱 ${requestedAgentId},但本機設定是 ${configuredAgentId}。請只在維護者修復或人工審計時使用 --allow-agent-override。`,
+      warn: `⚠️ 高風險: ${commandName} 正在使用用戶名稱 ${requestedAgentId},但本機設定是 ${configuredAgentId}。請只在維護者修復或人工審計時使用 --allow-agent-override。`,
     };
   }
   return {
     ok: false,
     warn: null,
-    reason: `${commandName} 已阻擋:本機 APS 名稱是 ${configuredAgentId},但指令要求使用 ${requestedAgentId}。日常命令不可冒用其他 APS 名稱;請回到 ${configuredAgentId} 的本機項目資料夾執行。若這是維護者修復或人工審計,請明確加 --allow-agent-override。`,
+    reason: `${commandName} 已阻擋:本機用戶名稱是 ${configuredAgentId},但指令要求使用 ${requestedAgentId}。日常命令不可冒用其他用戶名稱;請回到 ${configuredAgentId} 的本機工作目錄執行。若這是維護者修復或人工審計,請明確加 --allow-agent-override。`,
   };
 }
 
@@ -728,7 +728,7 @@ async function runInteractiveInit() {
   printBrandCard();
   console.log('');
   printDivider('APS 初次設定');
-  console.log('👋 這一步只設定你自己這一邊,把本項目接到共用 Drive 資料夾。');
+  console.log('👋 這一步只設定你自己這一邊,把本機工作目錄接到 APS 交換區與 APS 合作目錄。');
   console.log('🧭 只問三件事;最後會先列出寫入計劃,你輸入 yes 才會寫入。');
   console.log('🤝 協作對象可在設定完成後再邀請,毋須現在決定。');
 
@@ -736,7 +736,7 @@ async function runInteractiveInit() {
   try {
     printPromptBlock({
       step: '1/3',
-      title: 'Google Drive 共用資料夾',
+      title: 'APS 交換區',
       body: [
         '☁️  請貼上你電腦上 Google Drive 同步資料夾的完整路徑。',
         '第一次建立可新增 Agent_Public_Squares;受邀加入則貼上對方分享給你的資料夾路徑。',
@@ -746,34 +746,35 @@ async function runInteractiveInit() {
     });
     const hubRoot = await askWithDefault(
       rl,
-      '請輸入 Google Drive 共用資料夾完整路徑',
+      '請輸入 APS 交換區完整路徑',
       '',
       (value) => localizeValidation(validateNoPlaceholder('--hub-root', value)) || (path.isAbsolute(value) ? null : '請貼上完整路徑,例如 G:\\我的雲端硬碟\\Agent_Public_Squares 或 C:\\Users\\你\\Google Drive\\Agent_Public_Squares。')
     );
-    const defaultProject = toSnakeCase(path.basename(process.cwd()), 'aps_uat');
+    const defaultProject = 'shared_project';
     printPromptBlock({
       step: '2/3',
-      title: '項目代號',
+      title: 'APS 合作目錄名稱',
       body: [
-        '📌 用來在共用 Drive 資料夾內分開不同合作項目,也會成為資料夾名稱。',
+        '📌 用來在 APS 交換區內分開不同合作項目,也會成為資料夾名稱。',
+        '請用合作項目或任務命名,不要用人名、電腦名、AI 名稱或發起人名稱。',
         '請用小寫英文字母、數字或底線。',
       ],
-      example: 'branding_2026 或 aps_uat',
+      example: 'brand_refresh_2026 或 client_site_rebuild',
     });
-    const projectSlug = await askWithDefault(rl, '請輸入項目代號', defaultProject, (value) => (
+    const projectSlug = await askWithDefault(rl, '請輸入 APS 合作目錄名稱', defaultProject, (value) => (
       localizeValidation(validateNoPlaceholder('--project', value) || validateSnakeCase('--project', value))
     ));
     const defaultAgent = '';
     printPromptBlock({
       step: '3/3',
-      title: '你自己的 APS 名稱',
+      title: '你自己的用戶名稱',
       body: [
-        '👤 這是你在此 APS 項目中的共享身份,由你自己決定。',
+        '👤 這是你在此 APS 合作目錄中的共享身份,由你自己決定。',
         '請用小寫英文字母、數字或底線;不要照抄別人的名稱。',
       ],
       example: 'user1 或 project_lead',
     });
-    const agentId = await askWithDefault(rl, '請輸入你自己的 APS 名稱', defaultAgent, (value) => (
+    const agentId = await askWithDefault(rl, '請輸入你自己的用戶名稱', defaultAgent, (value) => (
       localizeValidation(validateNoPlaceholder('--agent-id', value) || validateSnakeCase('--agent-id', value))
     ));
 
@@ -792,15 +793,15 @@ async function runInteractiveInit() {
     } catch (err) { /* detection is best-effort; it never blocks setup */ }
     const values = { hubRoot, projectSlug, agentId, otherAgentId: null, role: inferredRole, inviteCode: null };
     const setupHint = inferredRole === 'B'
-      ? '偵測:此項目在共用資料夾已存在,而且已有其他成員先完成設定。你似乎是加入者。若你確實是第一個設定的人,可忽略此提示。'
+      ? '偵測:此 APS 合作目錄已存在,而且已有其他成員先完成設定。你似乎是加入者。若你確實是第一個設定的人,可忽略此提示。'
       : null;
     console.log('');
     printDivider('📝 寫入前計劃');
-    console.log(`  ☁️  共用 Drive 資料夾 root: ${values.hubRoot}`);
-    console.log(`  📁 項目代號: ${values.projectSlug}`);
+    console.log(`  ☁️  APS 交換區: ${values.hubRoot}`);
+    console.log(`  📁 APS 合作目錄: ${values.projectSlug}`);
     console.log(`  👤 你自己: ${values.agentId}`);
     console.log('  🤝 協作對象: 尚未設定 (設定好之後隨時可以邀請)');
-    console.log(`  📂 會建立或使用的共用 Drive 項目資料夾: ${projectPath}`);
+    console.log(`  📂 會建立或使用的 APS 合作目錄資料夾: ${projectPath}`);
     console.log(`  ⚙️  本機設定檔: ${configPath()}`);
     if (setupHint) {
       console.log('');
@@ -833,11 +834,11 @@ async function runInteractiveInit() {
     console.log('');
     console.log('✅ APS 設定完成 (已設定你自己這一邊)。');
     console.log('🚀 下一步:在這個項目資料夾打開 AI 工具,輸入「教我用 APS」。AI 應讀取現有設定、檢查共用 Drive 資料夾,先建立共同目標與分工;已有 confirmed peer 並完成基準確認後,才建議測試交接或正式交接。');
-    console.log('🤝 想搵人一齊做?隨時可以邀請對方,幾時加都可以:');
-    console.log('   • 在 AI 工具直接講「邀請新協作者加入呢個項目」,AI 會生成可轉發邀請。');
-    console.log('   • 或用終端機指令 `npx aps peer invite`。');
-    console.log('   • 若你同對方已約定 APS 技術名稱,才用 `npx aps peer add --agent-id <對方名稱> --display-name <顯示名>`。');
-    console.log('🩺 備用檢查:終端機指令是 `npx aps doctor`。請留意指令名稱是 `aps`,不是 `asp`。');
+    console.log('🤝 想邀請協作者?隨時可以在 AI 工具說「邀請新協作者加入這個項目」。');
+    console.log('   • AI 會生成同一份可轉發邀請,讓對方在自己電腦選定用戶名稱。');
+    console.log('   • 你不需要先知道或替對方設定用戶名稱。');
+    console.log('   • 終端機命令只屬備用 / 維護路徑;一般新協作者邀請不要把 `peer add` 當成選項。');
+    console.log('🩺 備用檢查:在 AI 工具說「Check APS」;熟悉終端機時才直接用 `npx aps doctor`。請留意指令名稱是 `aps`,不是 `asp`。');
     return 0;
   } finally {
     rl.close();
@@ -847,9 +848,9 @@ async function runInteractiveInit() {
 function localizeValidation(message) {
   if (!message) return null;
   return String(message)
-    .replace(/--project/g, '項目代號')
-    .replace(/--agent-id/g, '你的 APS 名稱')
-    .replace(/--other-agent-id/g, '對方 APS 名稱')
+    .replace(/--project/g, 'APS 合作目錄名稱')
+    .replace(/--agent-id/g, '你的用戶名稱')
+    .replace(/--other-agent-id/g, '對方用戶名稱')
     .replace(/--hub-root/g, '共用 Drive 資料夾 root path')
     .replace(/must be lowercase snake_case, start with a letter, and be 1-30 characters\. Got/g, '必須以小寫英文字母開頭,只可使用小寫英文字母、數字與底線,長度為 1 至 30 字元。目前收到')
     .replace(/still looks like a placeholder:/g, '仍像示例或佔位值:')
@@ -1083,7 +1084,7 @@ function createInviteRecord({ hubRoot, projectSlug, inviterAgentId, dryRun }) {
 function acceptInviteCode({ hubRoot, projectSlug, inviteCode, agentId, dryRun }) {
   const recordPath = inviteRecordPath(hubRoot, projectSlug, inviteCode);
   if (!fs.existsSync(recordPath)) {
-    throw new Error(`Invite code ${inviteCode} was not found for project ${projectSlug}. Ask the inviter to generate a fresh \`npx aps peer invite\`.`);
+    throw new Error(`Invite code ${inviteCode} was not found for project ${projectSlug}. Ask the inviter to generate a fresh APS invite and send you the full invitation message.`);
   }
   const record = readJson(recordPath);
   if (record.project !== projectSlug) {
@@ -1267,14 +1268,14 @@ function selfIdentityConflict({ hubRoot, projectSlug, agentId }) {
     try {
       card = readJson(cardPath);
     } catch (err) {
-      return `APS 名稱 ${agentId} 已有 peer card,但內容讀取失敗。請先人工檢查 ${cardPath},不要覆寫同名身份。`;
+      return `用戶名稱 ${agentId} 已有 peer card,但內容讀取失敗。請先人工檢查 ${cardPath},不要覆寫同名身份。`;
     }
   }
   const active = hasSelfActivity({ hubRoot, projectSlug, agentId });
   if (card && card.status !== 'inactive' && card.peer_state === 'provisional' && !active) {
     return null;
   }
-  return `APS 名稱 ${agentId} 在這個 project 已存在。請改用另一個自己的 APS 名稱;如果這其實是你本人的既有項目,請在原本已接入 APS 的本機項目資料夾執行 \`npx aps upgrade\` 或 \`npx aps config\`,不要用新安裝覆寫同名身份。`;
+  return `用戶名稱 ${agentId} 在這個 APS 合作目錄已存在。請改用另一個自己的用戶名稱;如果這其實是你本人的既有項目,請在原本已接入 APS 的本機工作目錄執行 \`npx aps upgrade\` 或 \`npx aps config\`,不要用新安裝覆寫同名身份。`;
 }
 
 // Three-way publish reachability for the recipient. Authorization rests on peer state and
@@ -1282,7 +1283,7 @@ function selfIdentityConflict({ hubRoot, projectSlug, agentId }) {
 // inactive / unregistered / no activity → block.
 function peerReachableForPublish({ peer, hubRoot, projectSlug, toId }) {
   if (!peer) {
-    return { ok: false, reason: `${toId} is not registered as a project peer. For a new collaborator, run \`npx aps peer invite\` and wait for them to join with their own APS name. If you already agreed this exact id with them, run \`npx aps peer add --agent-id ${toId}\`.` };
+    return { ok: false, reason: `${toId} is not registered as a project peer. For a new collaborator, ask your AI to generate an APS invite and wait for them to join with their own user name. Maintenance fallback only: if you already agreed this exact user name with them, use peer add for that exact id.` };
   }
   if (peer.status === 'inactive') {
     return { ok: false, reason: `${toId} is marked inactive and is no longer an active peer for new handoffs.` };
@@ -1296,7 +1297,7 @@ function peerReachableForPublish({ peer, hubRoot, projectSlug, toId }) {
       warn: `${toId} is still listed as ${peer.peer_state || 'provisional'}, but has real activity on this 共用 Drive 資料夾, so the packet will be sent. ${toId}'s own next publish / consume / init will mark its status confirmed.`,
     };
   }
-  return { ok: false, reason: `${toId} is ${peer.peer_state || 'not confirmed'} and has no activity yet; wait for that peer to set up (init / join) before publishing a formal packet. For ordinary new collaborators, prefer \`npx aps peer invite\` so they choose their own APS name.` };
+  return { ok: false, reason: `${toId} is ${peer.peer_state || 'not confirmed'} and has no activity yet; wait for that peer to set up before publishing a formal packet. For ordinary new collaborators, ask your AI to generate an APS invite so they choose their own user name.` };
 }
 
 function ensureExistingFile(filePath, label) {
@@ -5059,7 +5060,7 @@ function scanIdentityIssues({ hubRoot, projectSlug }) {
           severity: 'error',
           owner: agentId,
           source: `lane:${agentId}`,
-          message: `lane 名稱 from_${agentId} 不是合法 APS 名稱。`,
+          message: `lane 名稱 from_${agentId} 不是合法用戶名稱。`,
           next: '先人工核對是否 Google Drive 同步衝突或錯誤改名；不要直接發包。',
         });
       }
@@ -5090,7 +5091,7 @@ function scanIdentityIssues({ hubRoot, projectSlug }) {
             owner: agentId,
             source: `ack:${agentId}`,
             message: `${entry.name} 內的 project 是 ${ack.project},與目前項目 ${projectSlug} 不一致。`,
-            next: '先人工核對是否指向錯誤共用 Drive 項目；不要覆寫。',
+            next: '先人工核對是否指向錯誤 APS 合作目錄；不要覆寫。',
           });
         }
       } catch (err) {
@@ -5129,7 +5130,7 @@ function scanIdentityIssues({ hubRoot, projectSlug }) {
             owner: fileAgentId,
             source: `peer:${fileAgentId}`,
             message: `${entry.name} 內的 project 是 ${card.project},與目前項目 ${projectSlug} 不一致。`,
-            next: '先人工核對是否混入另一個 APS project 的 peer card。',
+            next: '先人工核對是否混入另一個 APS 合作目錄的 peer card。',
           });
         }
         const expectedLane = `from_${fileAgentId}`;
@@ -5241,7 +5242,7 @@ function bridgePackContent(role, values) {
   content = content.replace(/`<your_shared_drive_folder_absolute_path>`/g, `\`${values.hubRoot}\``);
   const counterpartLabel = values.otherAgentId
     ? `\`${values.otherAgentId}\``
-    : '(尚未邀請;新協作者邀請用 `npx aps peer invite`)';
+    : '(尚未邀請;新協作者請在 AI 工具說「邀請新協作者」)';
   content = content.replace(/`<counterpart_agent_id>`/g, counterpartLabel);
   return content;
 }
@@ -5287,30 +5288,32 @@ function ensurePeerArtifacts({ hubRoot, projectSlug, agentId, displayName, peerS
 function starterPackContent(values) {
   const folderName = path.basename(values.hubRoot || '') || 'Agent_Public_Squares';
   const senderName = values.agentId || '發出邀請的人';
-  return `# APS 協作邀請 — ${values.projectSlug}
+  return `# APS 維護用加入指引 — ${values.projectSlug}
 
-（這是給 ${values.otherAgentId} 的加入指引。把下面的訊息整段傳給對方即可，也可以直接轉發這份檔案的內容。）
+（這是維護 / 兼容用 starter pack，只適用於雙方已明確約定用戶名稱為 ${values.otherAgentId} 的情況。一般新協作者應改用一次加入邀請碼，讓對方在自己電腦決定用戶名稱。）
 
 ---
 
-📨 APS 協作邀請：${values.projectSlug}
+📨 APS 維護用加入指引：${values.projectSlug}
 
-${senderName} 想邀請你一同用 Agent Public Squares（APS）進行 AI 跨機協作。做法很簡單：你們共用一個 Google Drive 資料夾，兩邊的 AI 就能互相交收進度，不必每次重新交代背景。
+${senderName} 想邀請你一同用 Agent Public Squares（APS）進行 AI 跨機協作。做法很簡單：你們共用一個 APS 交換區，並在同一個 APS 合作目錄內交收進度，不必每次重新交代背景。
 
-你大致要做這幾件事：
+開始前請先確認一件事：
+
+⚠️ 這份指引預設你已同意在這個 APS 合作目錄使用用戶名稱：
+${values.otherAgentId}
+
+如果你未同意這個用戶名稱，請不要照這份 starter pack 設定；請要求 ${senderName} 改發一次加入邀請碼，讓你自行選定用戶名稱。
 
 ☁️ 你會收到我經 Google Drive 分享的資料夾「${folderName}」（也可能收到一封 Google Drive 通知 email）。請先打開 Google Drive 接受分享，設為「離線可用」，等它同步到你的電腦。
 
-🤖 你在自己本機的 AI Project 目錄如常打開 AI 工具即可；Google Drive 共用資料夾只是 APS 用來同步交接資料。請 AI 讀下面這個安裝指引，讓它替你檢查環境、安裝 APS、設定本機路徑與做驗收：
+🤖 你在自己的本機工作目錄如常打開 AI 工具即可；APS 交換區只是 APS 用來同步交接資料。請 AI 讀下面這個安裝指引，讓它替你檢查環境、安裝 APS、設定本機路徑與做驗收：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-📌 設定時，項目代號要跟我完全一樣，請照抄：
+📌 設定時，APS 合作目錄名稱要跟發起方完全一樣：
 ${values.projectSlug}
 
-👤 你的 APS 名稱請填：
-${values.otherAgentId}
-
-✅ 見到「通過」就裝好了。之後我有東西交給你，你在自己的 AI 工具輸入「check Drive」就會收到。
+✅ 見到「通過」就裝好了。之後對方有東西交給你，你在自己的 AI 工具輸入「check Drive」就會收到。
 
 給人看的逐步詳解（有圖、有安裝命令）：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html
@@ -5323,7 +5326,7 @@ function openInviteContent(values, inviteRecord = null) {
   const inviteCode = inviteRecord && inviteRecord.invite_code ? inviteRecord.invite_code : 'APS-XXXX-XXXX-XXXX';
   return `# APS 一次加入邀請 — ${values.projectSlug}
 
-（這是給新協作者的一次加入邀請。把下面整段訊息傳給對方即可；對方的 APS 名稱由對方自己在本機設定時決定。）
+（這是給新協作者的一次加入邀請。把下面整段訊息傳給對方即可；對方的用戶名稱由對方自己在本機設定時決定。）
 
 ---
 
@@ -5331,30 +5334,41 @@ function openInviteContent(values, inviteRecord = null) {
 
 ${senderName} 想邀請你一同用 Agent Public Squares（APS）做 AI 跨機協作。
 
-APS 的做法是：大家共用同一個 Google Drive 資料夾，各自用自己電腦上的 AI 工具，把進度交接到同一個項目裏。你不用預先接受 ${senderName} 替你取的 APS 名稱。
+APS 的做法是：大家共用同一個 APS 交換區，並把同一個合作項目的進度交接到同一個 APS 合作目錄裏。
 
 你的加入邀請碼是：
 ${inviteCode}
 
-這個邀請碼只代表「可以加入這個 APS 項目」，不代表你的 APS 名稱。你的 APS 名稱仍由你自己決定，AI 會先檢查是否重名。
+這個邀請碼只代表「可以加入這個 APS 合作目錄」，不代表你的用戶名稱。你的用戶名稱由你自己決定，AI 會先檢查是否重名。
 
-請先做一件事：
+請先做幾件簡單的事：
 
-☁️ 你會收到 Google Drive 分享資料夾「${folderName}」。
-請先接受分享，並在你自己的電腦上把這個資料夾設為「離線可用」，等它同步完成。
+1. 先到你的 email 找 Google Drive 分享通知，接受分享資料夾「${folderName}」。
+2. 在你自己的電腦上把這個資料夾設為「離線可用」，等它同步完成。
+3. 在你平日處理這個項目的本機工作目錄，打開能操作本機檔案的 AI 代理，例如 Codex、Claude Code 或 Claude Cowork。
+4. 把下面 \`---✂️---\` 之間的整段直接貼給 AI。
 
-之後，請在你自己的本機項目資料夾打開 AI 工具，把下面 \`---✂️---\` 之間的整段直接貼給 AI：
+AI 會建議你加入 ${values.projectSlug}，並請你提供自己電腦上的 Google Drive 本機路徑和你想使用的用戶名稱。
 
 ---✂️---
 
-請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：
+請在目前本機工作目錄，按這頁指引帶我安裝或加入 Agent Public Squares（APS）。下面網址是給本機 AI 代理讀的安裝／加入依據，不是叫我自己研究命令：
 https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html
 
-你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。請先用一段話列出判斷結果、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑、以及不會做的事；我確認一次後，請按這個範圍連續完成安裝或加入與 doctor，不要每個命令重複問我。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並納入同一次計劃確認。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。
+你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。
+
+如果我是受邀加入，第一屏請用以下方向簡短回覆：
+我已收到邀請人發來的 APS 協作邀請。這份邀請是要把我加入同一個 APS 合作目錄；正常情況下不會影響既有人，也不需要邀請人先知道或替我設定用戶名稱。
+請我提供兩件事：一，我自己電腦上看到的 Google Drive 共用資料夾完整本機路徑；二，我想在這個 APS 合作目錄使用的用戶名稱。
+你會先只讀檢查目前資料夾是否已有 APS 設定；若沒有衝突，直接帶我加入，不要求我自己輸入命令。
+
+正常第一屏只需講邀請內容、建議做法、需要我提供的資料；不需要先解釋底層風險或列 A / B 選項。請先做只讀檢查，再給最佳建議。只有在目前工作目錄已有 .aps/config.json 且指向不同 APS 交換區或 APS 合作目錄時，才顯示衝突說明：目前接着的是甚麼、邀請指定的是甚麼、建議是否改接；改接前先列出會寫入的設定並等我確認一次。若發現雙方互相發出邀請，請直接建議使用已有共同資料、共同目標或最先約定的 APS 合作目錄；若沒有共同資料，就建議使用這份邀請指定的 APS 合作目錄，另一個邀請碼先不要用。
+
+請先用一段話列出判斷結果、建議做法、需要我提供的資料、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑；我確認一次後，請按這個範圍連續完成安裝或加入與 doctor，不要每個命令重複問我。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。Google Drive 本機位置、APS 合作目錄名稱、我的用戶名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 交換區並納入同一次計劃確認。如果我是受邀加入，APS 合作目錄名稱與邀請碼以邀請訊息為準，用戶名稱仍由我自己決定，請先檢查是否重名。
 
 邀請資訊如下：
 
-項目代號：
+APS 合作目錄名稱：
 ${values.projectSlug}
 
 邀請碼：
@@ -5389,7 +5403,7 @@ function setupHub(values, dryRun) {
   const projectDir = path.join(values.hubRoot, values.projectSlug);
   // A counterpart is only built when one is known. A three-question install sets up
   // only the local side. Ordinary collaborators are invited later via `aps peer invite`
-  // and choose their own APS name on their own machine. Old two-person setups still
+  // and choose their own user name on their own machine. Old two-person setups still
   // pass an otherAgentId, so their counterpart lane / ack / provisional card stay built here.
   const hasCounterpart = Boolean(values.otherAgentId);
   const steps = [];
@@ -5491,9 +5505,9 @@ function registerHandoffKitIntegration(values, dryRun) {
 | Installed by | \`@adamchanadam/aps init\` |
 | Local bridge | \`dev/rules/aps-bridge.md\` |
 | Local config | \`.aps/config.json\` |
-| 共用 Drive 項目 | \`${values.projectSlug}\` |
+| APS 合作目錄 | \`${values.projectSlug}\` |
 | Local agent | \`${values.agentId}\` |
-| Partner agent | ${values.otherAgentId ? `\`${values.otherAgentId}\`` : '(尚未邀請;新協作者邀請用 `npx aps peer invite`)'} |
+| Partner agent | ${values.otherAgentId ? `\`${values.otherAgentId}\`` : '(尚未邀請;新協作者請在 AI 工具說「邀請新協作者」)'} |
 | Trigger route | Registered in \`dev/RULE_PACKS.md\`; when the user mentions APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / check Drive / check Hub / Hub 有新嘢 / Drive sync / conflict, read \`dev/rules/aps-bridge.md\` and \`.aps/config.json\` before answering. |
 | Last verified | ${today} |`;
   steps.push(upsertManagedBlock(
@@ -5513,23 +5527,23 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
 透過共用 Drive 資料夾,讓不同電腦上的 AI 代理做一對一交接。
 
 用法:
-  npx aps init                    互動式設定:回答三條問題(Drive 資料夾 / 項目 / 你的名稱),只設定你自己這一邊
+  npx aps init                    互動式設定:回答三條問題(APS 交換區 / APS 合作目錄 / 你的用戶名稱),只設定你自己這一邊
   npx aps init --target claude    只安裝 Claude Code 的 APS skill
   npx aps init --target codex     只安裝 Codex 的 APS skill
   npx aps init --refresh-skill    先備份既有 APS skill,再刷新安裝
   npx aps init --hub-root <path> --project <slug> --agent-id <id> [--invite-code APS-....] [--other-agent-id <id>] [--role A|B]
                                   進階非互動設定 (對方與起手方向可選;只設自己也可)
   npx aps init --dry-run          只顯示會寫入的位置,不真正改檔
-  npx aps upgrade                 npm 更新後刷新既有 APS 項目
+  npx aps upgrade                 npm 更新後刷新既有 APS 合作目錄
   npx aps config                  顯示已保存的本機 APS 設定
   npx aps config --hub-root <path> --project <slug> --agent-id <id> [--other-agent-id <id>] [--role A|B]
                                   只保存或更新本機 APS 設定 (對方與起手方向可選)
-  npx aps peers                   顯示本項目的 peers
-  npx aps peer invite             生成一次加入邀請碼:對方自行選 APS 名稱,不預先建立 peer
+  npx aps peers                   顯示本 APS 合作目錄的 peers
+  npx aps peer invite             備用命令:生成一次加入邀請碼;對方自行選用戶名稱,不預先建立 peer
   npx aps peer add --agent-id <id> [--display-name <name>]
-                                  已知對方 APS 技術名稱時:新增 peer、lane、ack 與 starter pack
+                                  維護 / 兼容:已明確約定對方用戶名稱時才補登 peer 與 starter pack
   npx aps peer starter --agent-id <id>
-                                  重新產生給指定 peer 的 starter pack
+                                  維護 / 兼容:重新產生給指定 peer 的 starter pack
   npx aps publish --to <id> --topic <snake> --body <text>
   npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff]
                                   發佈 v1 交接包並追加 outbox;--items 由發送方申報「請對方做的事」,CLI 逐字記錄(分號分隔;項目本身含分號時改用 --items-file)
@@ -5917,9 +5931,9 @@ if (subcommand === 'config') {
     console.log('⚙️ APS 本機設定');
     console.log(`📄 設定檔: ${filePath}`);
     console.log(`☁️ 共用 Drive 資料夾 root: ${config.hubRoot || '(缺少)'}`);
-    console.log(`📁 項目代號: ${config.projectSlug || '(缺少)'}`);
+    console.log(`📁 APS 合作目錄: ${config.projectSlug || '(缺少)'}`);
     console.log(`👤 本機 agent: ${config.agentId || '(缺少)'}`);
-    console.log(`🤝 對方 agent: ${config.otherAgentId || '尚未設定 (新協作者邀請用 `npx aps peer invite`,或在 AI 工具講「邀請新協作者加入呢個項目」)'}`);
+    console.log(`🤝 對方 agent: ${config.otherAgentId || '尚未設定 (新協作者請在 AI 工具說「邀請新協作者加入這個項目」;CLI invite 只是備用命令)'}`);
     console.log(`🧭 設定起手方向: ${config.role === 'A' ? '發起人(建立共用 Drive 資料夾)' : config.role === 'B' ? '加入者' : config.role || '(未記錄)'}`);
     console.log('   起手方向只影響設定時的預設,不影響日後誰可發送 / 接收(收發由 agent 身份與 packet 收件人決定)。');
     process.exit(0);
@@ -5946,7 +5960,7 @@ if (subcommand === 'peers') {
   try {
     const output = listProjectPeers({ hubRoot, projectSlug, config: { ...config, agentId } });
     console.log(`👥 APS peers (${output.source})`);
-    console.log(`📁 項目代號: ${projectSlug}`);
+    console.log(`📁 APS 合作目錄: ${projectSlug}`);
     console.log('');
     for (const peer of output.peers) {
       const markers = [
@@ -5963,7 +5977,7 @@ if (subcommand === 'peers') {
     }
     if (output.peers.length === 0) console.log('📭 尚未找到 peer。');
     console.log('');
-    console.log('🚀 下一步:如要邀請新協作對象,使用 `npx aps peer invite`。若已約定對方 APS 技術名稱,才使用 `npx aps peer add --agent-id <id> --display-name <name>`。');
+    console.log('🚀 下一步:如要邀請新協作對象,在 AI 工具說「邀請新協作者」。AI 會生成一次加入邀請,讓對方自行確認用戶名稱。`peer add` 只屬維護 / 兼容,不要作為新人邀請選項。');
     process.exit(0);
   } catch (err) {
     console.error(`❌ peers 失敗:${err.message}`);
@@ -5975,8 +5989,8 @@ if (subcommand === 'peer') {
   const action = args[0];
   if (action !== 'invite' && action !== 'add' && action !== 'starter') {
     console.error('❌ peer 子命令只支援 `invite`、`add` 或 `starter`。');
-    console.error('💡 新協作者邀請: npx aps peer invite');
-    console.error('💡 已知對方 APS 技術名稱: npx aps peer add --agent-id fanny --display-name "Fanny"');
+    console.error('💡 一般邀請:在 AI 工具說「邀請新協作者」;CLI 備用命令是 `npx aps peer invite`。');
+    console.error('💡 維護 / 兼容:只有已明確約定對方用戶名稱時才用 `npx aps peer add --agent-id <id>`。');
     process.exit(1);
   }
   const config = loadConfigOrExit();
@@ -6004,6 +6018,7 @@ if (subcommand === 'peer') {
       });
       const inviteTarget = path.join(hubRoot, '_hub', `open-invite-${projectSlug}.md`);
       const uniqueInviteTarget = path.join(inviteDir(hubRoot, projectSlug), `${inviteRecord.invite_code}.md`);
+      const inviteMessage = openInviteContent(inviteValues, inviteRecord);
       const steps = [
         ensureDirectory(path.join(hubRoot, '_hub'), dryRun),
         writeFileOrUpdate(peerCardPath(hubRoot, projectSlug, localAgentId), peerCardJson({
@@ -6015,8 +6030,8 @@ if (subcommand === 'peer') {
         dryRun
           ? { ok: true, path: recordPath, message: `would write invite record ${recordPath}` }
           : { ok: true, path: recordPath, message: `wrote invite record ${recordPath}` },
-        writeFileOrUpdate(uniqueInviteTarget, openInviteContent(inviteValues, inviteRecord), dryRun),
-        writeFileOrUpdate(inviteTarget, openInviteContent(inviteValues, inviteRecord), dryRun),
+        writeFileOrUpdate(uniqueInviteTarget, inviteMessage, dryRun),
+        writeFileOrUpdate(inviteTarget, inviteMessage, dryRun),
       ];
       console.log(`📨 APS peer invite: ${projectSlug}`);
       for (const result of steps) console.log(formatSetupResult(result));
@@ -6024,8 +6039,12 @@ if (subcommand === 'peer') {
       console.log(`🔑 invite code: ${inviteRecord.invite_code}`);
       console.log(`📄 invite: ${inviteTarget}`);
       console.log(`📄 invite record: ${recordPath}`);
-      console.log('ℹ️ 這是一次加入邀請,不會預先建立對方的 lane、ack 或 peer card。對方會在自己的電腦選定 APS 名稱並完成設定。');
-      console.log('🚀 下一步:把 invite 內容傳給對方;對方完成後,你可用 `npx aps peers` 或「Check APS」查看新 peer。');
+      console.log('ℹ️ 這是一次加入邀請,不會預先建立對方的 lane、ack 或 peer card。對方會在自己的電腦選定用戶名稱並完成設定。');
+      console.log('🚀 下一步:把下面整段邀請傳給對方;對方完成後,在 AI 工具說「Check APS」查看是否已加入。熟悉終端機時才把 peers 命令當備用檢查。');
+      console.log('');
+      console.log('--- 可轉發邀請開始 ---');
+      console.log(inviteMessage.trimEnd());
+      console.log('--- 可轉發邀請結束 ---');
       process.exit(0);
     } catch (err) {
       console.error(`❌ peer invite 失敗:${err.message}`);
@@ -6068,14 +6087,14 @@ if (subcommand === 'peer') {
     if (action === 'add') {
       const preservedConfirmed = steps.some((result) => result && result.preserved);
       if (preservedConfirmed) {
-        console.log('✅ 狀態: confirmed 已保留。對方已在自己的電腦完成加入,可先用 `npx aps peers` 核對,再發 `shared_goal_and_roles` 確認共同基準。');
+        console.log('✅ 狀態: confirmed 已保留。對方已在自己的電腦完成加入;請先用「Check APS」核對,再發 `shared_goal_and_roles` 確認共同基準。');
       } else {
-        console.log('⚠️ 狀態: provisional。對方仍須在自己的電腦完成 `npx aps init` 或 `npx aps upgrade`,才可視為 confirmed peer。');
+        console.log('⚠️ 狀態: provisional。對方仍須在自己的電腦完成 APS 安裝 / 加入,才可視為 confirmed peer。');
       }
     } else {
-      console.log('ℹ️ 只重新生成 starter pack,未建立或改動 peer。若仲未邀請過呢位對象,請先用 `npx aps peer add --agent-id ' + peerId + '`。');
+      console.log('ℹ️ 只重新生成維護用 starter pack,未建立或改動 peer。若這是一般新協作者,請改用一次加入邀請碼,不要用 starter pack 作主流程。');
     }
-    console.log('🚀 下一步:把 starter pack 內容或摘要通知傳給對方;對方完成後,由對方在自己的 AI 工具輸入「check Drive」。普通新協作者邀請可改用 `npx aps peer invite`。');
+    console.log('🚀 下一步:starter pack 只屬維護 / 兼容路徑。一般新協作者請改用一次加入邀請碼;對方完成後,由對方在自己的 AI 工具輸入「Check APS」或「check Drive」。');
     process.exit(0);
   } catch (err) {
     console.error(`❌ peer ${action} 失敗:${err.message}`);
@@ -6120,7 +6139,7 @@ if (subcommand === 'publish') {
     } else {
       console.error('本項目仲未有協作對象。');
     }
-    console.error('想搵新人?用 `npx aps peer invite`,或在 AI 工具講「邀請新協作者加入呢個項目」。若已約定對方 APS 技術名稱,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>`。');
+    console.error('想邀請新人?請在 AI 工具說「邀請新協作者加入這個項目」;CLI invite 只屬備用命令。`peer add` 只作維護 / 兼容,不要當成新人邀請選項。');
     process.exit(1);
   }
   const errors = [
@@ -6851,7 +6870,7 @@ if (subcommand === 'doctor') {
     console.log(`🩺 APS 共用 Drive 資料夾 doctor v${packageVersion}`);
     console.log(`📄 設定檔: ${configPath()}`);
     console.log(`☁️ 共用 Drive 資料夾 root: ${hubRoot}`);
-    console.log(`📁 項目代號: ${projectSlug}`);
+    console.log(`📁 APS 合作目錄: ${projectSlug}`);
     console.log(`👤 本機 agent: ${agentId}`);
     console.log('');
     console.log('🔧 本機核心檢查:');
@@ -6884,7 +6903,7 @@ if (subcommand === 'doctor') {
     console.log('');
     console.log('🤝 協作對象狀態 (僅供參考,不影響本機健康):');
     if (output.peerChecks.length === 0) {
-      console.log('  📭 尚未邀請協作對象。想搵人一齊做?喺 AI 工具講「邀請新協作者加入呢個項目」,或用 `npx aps peer invite`。若已約定對方 APS 技術名稱,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>`。隨時都做得。');
+      console.log('  📭 尚未邀請協作對象。想邀請協作者時,在 AI 工具說「邀請新協作者加入這個項目」即可。AI 會生成一次加入邀請,對方自行確認用戶名稱；`peer add` 只屬維護 / 兼容。');
     } else {
       for (const peer of output.peerChecks) {
         console.log(`  - ${peer.peerId} (${peer.state})${peer.allOk ? '' : ' ⚠️ 通道未齊'}`);
@@ -6897,12 +6916,12 @@ if (subcommand === 'doctor') {
     if (failed === 0) {
       console.log('✅ 狀態: 通過 (本機核心齊全)');
       console.log('🚀 下一步:請優先在 AI 工具中輸入「教我用 APS」。AI 應先讀現有設定,再檢查收件箱,用總覽、摘要、預檢、細節與下一步整理結果。');
-      console.log('🤝 想搵人一齊做:喺 AI 工具講「邀請新協作者加入呢個項目」,或備用指令 `npx aps peer invite`;若已約定對方 APS 技術名稱,才用 `npx aps peer add --agent-id <對方> --display-name <名稱>`。');
+      console.log('🤝 想邀請協作者:在 AI 工具說「邀請新協作者加入這個項目」。AI 會生成一次加入邀請,對方自行確認用戶名稱；`peer add` 只屬維護 / 兼容。');
       console.log('💡 其他備用命令:`npx aps inbox`、`npx aps publish --to <對方> --topic ... --body-file ... --items "甲;乙"`、`npx aps consume ...`、`npx aps revise --body-file ...`、`npx aps config`。');
     } else {
       console.log('❌ 狀態: 未通過 (本機核心有缺)');
       console.log('🚀 下一步:先修正上面本機核心缺少的路徑或疑似衝突檔,再繼續使用 APS。不要在未檢查內容前刪除衝突檔。');
-      console.log('💡 提示:如果剛剛重新執行過 `npx aps init`,請確認上方「項目代號」是否就是你剛才建立的項目。');
+      console.log('💡 提示:如果剛剛重新執行過 `npx aps init`,請確認上方「APS 合作目錄」是否就是你剛才建立的合作目錄。');
     }
     process.exit(failed === 0 ? 0 : 1);
   } catch (err) {

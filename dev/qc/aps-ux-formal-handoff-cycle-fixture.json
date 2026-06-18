@@ -1,0 +1,89 @@
+{
+  "title": "APS formal handoff cycle novice UX fixture",
+  "status": "static_single_machine_fixture",
+  "generatedAt": "2026-06-18",
+  "scope": "Single-machine novice UX coverage for first formal handoff, receiver check Drive, missing-information return, sender revise, and sender close before true two-machine UAT.",
+  "boundary": "This fixture locks acceptable first-screen wording, actionability judgement, and failure samples. It is not real human UAT, not true two-machine evidence, not real Drive timing proof, and not an external notification proof.",
+  "cases": [
+    {
+      "id": "first_formal_handoff_from_natural_language",
+      "matrixRow": "第一份正式交接",
+      "userInput": "把目前工作交給 jay，請他檢查能否接手下一步。",
+      "localState": "Current APS cooperation directory has confirmed peers and a confirmed shared baseline. No active handoff ticket exists.",
+      "acceptableFirstScreen": "我會先整理交接確認卡，不會直接寫入共用 Drive。這張確認卡會列出收件人 jay、共同目標、本方已完成、請 jay 做的事、對方不應做的事、真源位置、開工條件與風險。若缺資料，我最多問三個關鍵問題；你確認內容和 topic 後，我才會寫入 APS。",
+      "behindTheScenes": "Run Check APS / peers read-only, verify confirmed shared baseline and confirmed receiver, build a strict handoff body with source pointers and receiver start condition, then wait for explicit user confirmation before publish.",
+      "forbidden": [
+        "直接 publish",
+        "請你自己輸入 npx aps publish",
+        "只問 topic",
+        "把整段聊天倒入 packet",
+        "沒有真源仍發出"
+      ],
+      "passCondition": "A novice sees a confirmation card path and knows nothing is written until they confirm; the AI owns the technical publish step."
+    },
+    {
+      "id": "receiver_check_drive_can_start",
+      "matrixRow": "收件方 check Drive：可開工",
+      "userInput": "check Drive",
+      "localState": "A pending handoff packet from adam to jay is complete: shared goal, sender task, receiver task, source pointers, start condition, and risks are present and readable.",
+      "acceptableFirstScreen": "📬 有一份 adam 交來的工作。先看總覽：主題、版本、來源、建議狀態是可開工。重點是 adam 已完成初稿整理，請你檢查下一步；真源和開工條件可讀。本機對接檢查通過後，我會建議你開始處理，或在你確認後標記已讀。",
+      "behindTheScenes": "Run check-drive / inbox, read the packet body, run context check as background only, verify current project, latest version, source readability, receiver start condition, and no sender-local-only path.",
+      "forbidden": [
+        "收到就 consume",
+        "直接 done",
+        "只貼終端輸出",
+        "忽略真源是否可讀",
+        "把 context 當成覆蓋 packet 的真相"
+      ],
+      "passCondition": "The receiver sees summary, actionability judgement, local fit check, and a clear next step before any ack is written."
+    },
+    {
+      "id": "receiver_check_drive_missing_information",
+      "matrixRow": "收件方 check Drive：資料不足",
+      "userInput": "check Drive",
+      "localState": "A pending handoff packet exists but source pointers or receiver start condition are missing, stale, or sender-local-only.",
+      "acceptableFirstScreen": "⚠️ 這份交接暫時不可開工。缺口是：真源位置不可讀、開工條件未清楚，或版本與目前本機狀態不一致。我會先列出缺甚麼、為何影響回應、你現在能否先做局部工作，然後建議向 adam 發出補交需求；原交接不應被說成完成。",
+      "behindTheScenes": "Keep the original handoff pending unless the user explicitly chooses a returned/declined state; prepare a missing-information request with missing items, reason, and whether partial work is possible.",
+      "forbidden": [
+        "把退回說成完成",
+        "consume 成 done",
+        "另開無關新線",
+        "不說明要對方補甚麼",
+        "要求收件方自己找發送方本機檔案"
+      ],
+      "passCondition": "The receiver can explain exactly what is missing and send a bounded return request without closing the original work line."
+    },
+    {
+      "id": "sender_revise_after_return",
+      "matrixRow": "發送方收到退回後 revise",
+      "userInput": "對方說資料不足，要我補真源和開工條件。",
+      "localState": "The sender owns the original outbox packet and has a returned / missing-information reason from the receiver.",
+      "acceptableFirstScreen": "我會優先修訂同一條交接線，不重發一堆新包。先讀對方退回原因，再整理補交內容：新增可讀真源、明確開工條件、說明這一版補了甚麼。你確認後，我才用 revise 寫入新版本，並給你一段可轉發通知。",
+      "behindTheScenes": "Read status and decline reason, prepare revise body against the original packet id, preserve topic / items unless explicitly changed, and avoid close / withdraw unless requested and justified.",
+      "forbidden": [
+        "重發多個重複包",
+        "close 原包",
+        "要求對方自己找資料",
+        "把退回視為對方已完成",
+        "改成另一個 APS 合作目錄"
+      ],
+      "passCondition": "The sender revises the same handoff line with clear versioned additions and notification text."
+    },
+    {
+      "id": "sender_close_after_resolution",
+      "matrixRow": "收結 close",
+      "userInput": "這條交接完成了，收結。",
+      "localState": "The user is the original sender; the receiver has consumed, replied, declined with resolution, or otherwise confirmed the line is finished.",
+      "acceptableFirstScreen": "我會先確認你是原發送方，並檢查這個 packet 是否在你的 outbox，以及對方是否已有回覆、退回或完成紀錄。符合條件時，我會建議 close，並要求你確認收結理由；close 後這條交接線不再列為待辦。",
+      "behindTheScenes": "Check packet ownership, latest version, receiver ack / reply / decline status, and close reason. Refuse receiver-side close of someone else's packet.",
+      "forbidden": [
+        "收件方 close 對方 packet",
+        "未處理就 close",
+        "close 後仍列 pending",
+        "沒有 close reason",
+        "把 close 當成 consume"
+      ],
+      "passCondition": "Only the original sender closes their own outbox packet after resolution, with a specific reason."
+    }
+  ]
+}

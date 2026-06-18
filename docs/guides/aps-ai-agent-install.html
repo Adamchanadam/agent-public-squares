@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>APS AI 代理安裝與升級指引 — Install or Upgrade Agent Public Squares with Codex or Claude Code</title>
-<meta name="description" content="AI-agent-readable install and upgrade guide for Agent Public Squares. Use Codex, Claude Code, or another local AI agent to install APS, upgrade an existing APS project, configure Google Drive handoff, run aps doctor, and prepare first collaboration packets safely.">
+<meta name="description" content="AI-agent-readable install and upgrade guide for Agent Public Squares. Use Codex, Claude Code, or another local AI agent to install APS, upgrade an existing APS 合作目錄, configure Google Drive handoff, run aps doctor, and prepare first collaboration packets safely.">
 <link rel="canonical" href="https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html">
 <meta property="og:type" content="article">
 <meta property="og:title" content="APS AI 代理安裝與升級指引">
@@ -88,14 +88,16 @@
 <header class="cover">
   <div class="eyebrow">只給本機 AI 代理讀</div>
   <h1>本頁是 AI 代理安裝與升級指令，不是人類手動教學</h1>
-  <p class="subtitle">人類用戶只需要把本頁交給能操作本機資料夾與終端機的 AI 代理，例如 Codex 或 Claude Code。AI 代理必須先讀完整頁面，判斷目前項目是新安裝還是既有 APS 項目升級，再向用戶確認路徑與寫入計劃；人類不需要自行逐條執行下面的命令。</p>
+  <p class="subtitle">人類用戶只需要把本頁交給能操作本機工作目錄與終端機的 AI 代理，例如 Codex 或 Claude Code。AI 代理必須先讀完整頁面，判斷目前項目是新安裝還是既有 APS 項目升級，再向用戶確認路徑與寫入計劃；人類不需要自行逐條執行下面的命令。</p>
 </header>
 
 <section>
   <h2>AI 代理先讀摘要</h2>
   <ul>
-    <li>目前工作目錄應是用戶自己的 AI Project 目錄。</li>
-    <li>不要在 Google Drive 共用資料夾內安裝 APS；它只作 APS 交接同步區。</li>
+    <li>目前工作目錄應是用戶自己的本機工作目錄。</li>
+    <li>不要在 Google Drive 共用資料夾內安裝 APS；它只作 APS 交換區。</li>
+    <li>收到邀請時，正常第一屏只講邀請內容、建議加入指定 APS 合作目錄、需要用戶提供 Google Drive 本機路徑和用戶名稱；不要先顯示內部風險或 A / B 選項。</li>
+    <li>只有發現目前 <code>.aps/config.json</code> 已接到不同 APS 交換區或 APS 合作目錄時，才解釋衝突並提出最佳建議；互邀時優先按已有共同資料、共同目標或最先約定者建議唯一合作空間。</li>
     <li>AI 先做只讀檢查，再列出一次性安裝或升級計劃；用戶確認一次後，按該範圍連續完成，不要每個命令重複打斷。</li>
     <li>非互動終端不要直接跑會等待鍵盤輸入的裸命令；先用 <code>--dry-run</code> 預覽，正式執行時用工具自己的 <code>--yes</code>。</li>
     <li>本頁同時適用於新安裝與既有 APS 項目升級。先檢查 <code>.aps/config.json</code>；有就升級，沒有才新安裝。</li>
@@ -109,7 +111,10 @@
 
 <section>
   <h2>任務定位</h2>
-  <p>你的任務是帶非技術用戶在目前本機 AI Project 目錄安裝或升級 Agent Public Squares。第一步永遠是只讀檢查目前資料夾是否已有 <code>.aps/config.json</code>：已有者代表這是既有 APS 項目，應走升級路徑；沒有者才走新安裝路徑。用戶可只提供 Google Drive 本機根目錄；你應建議 APS 共用位置，例如 <code>Agent_Public_Squares</code>，並在用戶確認後建立。自己的 APS 名稱由用戶本人決定。邀請碼只代表可加入項目，不代表受邀者名稱，你不可替受邀者命名。</p>
+  <p>你的任務是帶非技術用戶在目前本機工作目錄安裝、加入或升級 Agent Public Squares。第一步永遠是只讀檢查目前資料夾是否已有 <code>.aps/config.json</code>：已有者代表這個本機工作目錄已接過某個 APS 交換區與 APS 合作目錄，應先比對 APS 合作目錄名稱與共用 Drive 路徑；沒有者才走新安裝或受邀加入路徑。用戶可只提供 Google Drive 本機根目錄；你應建議 APS 交換區，例如 <code>Agent_Public_Squares</code>，並在用戶確認後建立。自己的用戶名稱由用戶本人決定。邀請碼只代表可加入 APS 合作目錄，不代表受邀者名稱，你不可替受邀者命名。</p>
+  <div class="callout warn">
+    <strong>受邀加入第一屏：</strong>若用戶貼上邀請 template，正常第一屏只需確認已收到邀請、建議加入指定 APS 合作目錄、請用戶提供 Google Drive 本機路徑與自己的用戶名稱。AI 只在發現目前 <code>.aps/config.json</code> 指向不同 APS 交換區或 APS 合作目錄時，才向用戶解釋衝突並提出是否改接的最佳建議；不得預設叫用戶另開或改建本機工作目錄。
+  </div>
   <div class="callout warn">
     <strong>安全邊界：</strong>安裝或升級前，必須先列出判斷結果、會安裝或更新甚麼、會寫入或使用哪些本機與共用 Drive 路徑、以及不會做的事。用戶確認一次後，該確認覆蓋計劃內的 npm install、init 或 upgrade、設定寫入與 doctor；不要每個命令重複打斷。只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。不要自動替用戶發出 APS 交接包，不要改 Google Drive 權限，不要代發外部訊息。
   </div>
@@ -128,12 +133,12 @@
 <section>
   <h2>AI 的安裝前只讀檢查</h2>
   <ol class="steps">
-    <li><strong>確認能力。</strong>如果你不能讀寫本機資料夾或不能執行命令，停止並告訴用戶要改用 Codex、Claude Code 或同等本機代理型 AI。</li>
+    <li><strong>確認能力。</strong>如果你不能讀寫本機工作目錄或不能執行命令，停止並告訴用戶要改用 Codex、Claude Code 或同等本機代理型 AI。</li>
     <li><strong>確認工作目錄。</strong>顯示目前資料夾路徑，問用戶是否就是要安裝 APS 的項目資料夾。不要在不明根目錄安裝。</li>
     <li><strong>檢查是否已有 Agent Handoff Kit。</strong>只讀檢查是否有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>。缺少時，下一步才建議初始化；已存在時，不要重複初始化，先跑健康檢查，必要時才建議升級。</li>
     <li><strong>檢查是否已有 APS。</strong>只讀檢查是否有 <code>.aps/config.json</code>。已有者走升級路徑，沒有者走新安裝路徑。</li>
-    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機位置或你建議的 APS 共用資料夾路徑、項目代號、自己的 APS 名稱。若用戶只提供 Google Drive 根目錄，先建議 <code>&lt;Google Drive 根目錄&gt;\Agent_Public_Squares</code>；若項目代號未定，根據本機項目資料夾名稱建議一個小寫代號。不要用瀏覽器網址，不要照抄別人電腦上的 <code>G:\...</code> 或 <code>C:\...</code>。提醒項目代號和 APS 名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer，並在安裝命令加入邀請碼。</li>
-    <li><strong>建立後再確認離線可用。</strong>執行前先列出會建立或使用的 APS 共用資料夾，並納入同一次安裝計劃確認。完成後請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
+    <li><strong>向用戶收集三項資料。</strong>Google Drive 本機位置或你建議的 APS 交換區路徑、APS 合作目錄名稱、自己的用戶名稱。若用戶只提供 Google Drive 根目錄，先建議 <code>&lt;Google Drive 根目錄&gt;\Agent_Public_Squares</code>；若 APS 合作目錄名稱未定，根據合作項目或任務建議一個小寫代號，不要用人名、電腦名、AI 名稱或發起人名稱。不要用瀏覽器網址，不要照抄別人電腦上的 <code>G:\...</code> 或 <code>C:\...</code>。提醒 APS 合作目錄名稱和用戶名稱只能用小寫英文、數字與底線；若是受邀加入，先檢查共用資料夾內是否已有同名 peer，並在安裝命令加入邀請碼。</li>
+    <li><strong>建立後再確認離線可用。</strong>執行前先列出會建立或使用的 APS 交換區，並納入同一次安裝計劃確認。完成後請用戶在 Windows 的 Google Drive 目標資料夾按右鍵，選 <strong>顯示其他選項</strong> → <strong>離線存取</strong> → <strong>可離線使用</strong>。這一步由用戶在檔案總管確認；你不要改 Google Drive 權限，也不要猜測同步狀態。</li>
   </ol>
   <figure>
     <img class="guide-image" src="google_drive_local_access_pic_1.png" alt="Windows 右鍵選單中，Google Drive 離線存取已選擇可離線使用。">
@@ -164,7 +169,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
     <li>執行 APS 初始化。非互動終端不要直接跑 <code>npx aps init</code>，也不要用 <code>npx aps init --help</code> 查用法；查用法請用 <code>npx aps --help</code>。先預覽：
       <pre>npx aps init --dry-run</pre>
       同一次安裝計劃確認後，用三項已確認資料執行非互動設定：
-      <pre>npx aps init --hub-root "&lt;AI 建議並經用戶確認的 APS 共用資料夾路徑&gt;" --project &lt;項目代號&gt; --agent-id &lt;自己的 APS 名稱&gt; [--invite-code &lt;邀請碼&gt;]</pre>
+      <pre>npx aps init --hub-root "&lt;AI 建議並經用戶確認的 APS 交換區路徑&gt;" --project &lt;APS_合作目錄名稱&gt; --agent-id &lt;自己的用戶名稱&gt; [--invite-code &lt;邀請碼&gt;]</pre>
     </li>
     <li>完成後跑健康檢查：
       <pre>npx aps doctor</pre>
@@ -176,7 +181,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
   <h2>既有項目升級路徑</h2>
   <p class="lede">如果已有 <code>.aps/config.json</code>，這就是 APS 新版本升級流程。不要重建共用 Drive 資料夾，不要重跑 <code>aps init</code>，不要覆寫既有交接、ack、peer 或共同目標與分工。</p>
   <ol class="steps">
-    <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前項目、共用 Drive 資料夾、自己的 APS 名稱。</li>
+    <li>讀取 <code>.aps/config.json</code>，向用戶摘要目前 APS 合作目錄、APS 交換區、自己的用戶名稱。</li>
     <li>向用戶說明這次只會更新本地 npm 套件、刷新 APS 橋接與技能，並做健康檢查；不會改 Google Drive 權限，不會刪除或重建既有交接資料。</li>
     <li>同一次升級計劃確認後，更新 npm 套件：
       <pre>npm install --save-dev @adamchanadam/aps@latest</pre>
@@ -197,11 +202,11 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
     </thead>
     <tbody>
       <tr><td>Agent Handoff Kit</td><td>目前資料夾有 <code>AGENTS.md</code>、<code>dev/RULE_PACKS.md</code>、<code>dev/PROJECT_INDEX.md</code>；新項目已初始化，既有項目已健康檢查，必要升級已經用戶確認。</td></tr>
-      <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的共用 Drive 資料夾、項目代號與自己的 APS 名稱。</td></tr>
+      <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的 APS 交換區、APS 合作目錄名稱與自己的用戶名稱。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
       <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。排錯用的數量、同步、路徑、來源編號和完整追溯資料由 AI 自己使用，不預設丟給用戶；只有需要深入排錯時才用 <code>check-aps --full</code> 展開。它不是自動派工，也不是背景自動監察。</td></tr>
       <tr><td>狀態入口</td><td>真正操作主線在 AI terminal；用戶說 <code>Check APS</code> 時，AI 先整理交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。若有真實卡點需要即時釐清，<code>Check APS</code> 可按需生成 APS Live 交接追蹤頁。正式寫入仍回到 terminal，經用戶確認後才寫入 APS 紀錄。</td></tr>
-      <tr><td>下一步</td><td>先帶用戶建立「夠安全開始」的共同目標與分工，確認共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項與最小驗收方式；其他分工或邀請細節可先標為未定。確認後，必須按狀態推進：未落地就問本機保存；已有已確認協作者就請對方確認共同基準或整理第一輪交接草稿；未有協作者就主動生成含一次加入邀請碼的可轉發邀請，對方在自己的電腦、自己的項目資料夾、自己的 Google Drive 本機路徑加入，APS 名稱由對方自己確認。示範人名不得當作固定預設。</td></tr>
+      <tr><td>下一步</td><td>先帶用戶建立「夠安全開始」的共同目標與分工，確認共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項與最小驗收方式；其他分工或邀請細節可先標為未定。確認後，必須按狀態推進：未落地就問本機保存；已有已確認協作者就請對方確認共同基準或整理第一輪交接草稿；未有協作者就主動生成含一次加入邀請碼的可轉發邀請，對方在自己的電腦、自己的本機工作目錄、自己的 Google Drive 本機路徑加入，用戶名稱由對方自己確認。示範人名不得當作固定預設。</td></tr>
     </tbody>
   </table>
 </section>
@@ -210,23 +215,23 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
   <h2>安裝後：先建立夠安全開始的共同基準</h2>
   <p class="lede">這是安裝成功後的第一個產品流程。不要直接叫用戶邀請對方或發測試包，先把團隊共同口徑定到足以安全開始；未定的地方可以標明，之後按實際進展修訂。</p>
   <ol class="steps">
-    <li><strong>向用戶說明用途。</strong>共同目標與分工會成為這個 APS project 的目前有效基準，用於之後邀請 peer、發第一輪交接包、以及對方 <code>check Drive</code> 時判斷能否接手。它不是完整項目計劃。</li>
+    <li><strong>向用戶說明用途。</strong>共同目標與分工會成為這個 APS 合作目錄 的目前有效基準，用於之後邀請 peer、發第一輪交接包、以及對方 <code>check Drive</code> 時判斷能否接手。它不是完整項目計劃。</li>
     <li><strong>由 AI 先整理草稿。</strong>從用戶已提供的項目背景、目前資料夾內容和對話中整理；缺資料才問，最多問三個關鍵問題。</li>
-    <li><strong>起步先有五項：</strong>共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項、最小驗收方式。</li>
+    <li><strong>起步先有五項：</strong>共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項、最小驗收方式。</li>
     <li><strong>其餘可先未定。</strong>每人長期角色、完整第一輪分工、第一個邀請對象、第一輪交接對象、詳細驗收標準，可以先標為「未定」或「待確認」。</li>
-    <li><strong>不要硬套示範人名。</strong>實際參與者、角色和 APS 名稱必須由用戶提供，或由 AI 整理後交用戶確認。</li>
+    <li><strong>不要硬套示範人名。</strong>實際參與者、角色和用戶名稱必須由用戶提供，或由 AI 整理後交用戶確認。</li>
     <li><strong>可以加欄。</strong>八項是 AI 的檢查框架，不是新手一開始必填表；若項目需要截止日期、優先級、參考檔、品牌語氣、審批點、合規限制、輸出格式、語言、預算或時間限制，可以加入，但不要刪除共同目標、邊界和最小驗收方式。</li>
     <li><strong>先讓用戶確認。</strong>確認這份基準是否夠安全開始、未定項是否如實標出、以及可否作為這個 project 的目前有效基準。</li>
     <li><strong>確認後必須問落地。</strong>不要只把內容留在對話。問用戶要本機保存、讓已確認協作者確認共同基準，或先邀請對方加入；若用戶暫不落地，明確標示內容尚未寫入本機檔案或共用 Drive。</li>
-    <li><strong>未有協作者時主動邀請。</strong>若基準已確認但沒有 confirmed peer，AI 應主動說「我可以替你生成一段含一次加入邀請碼、可轉發給對方 AI 的加入邀請」，然後使用 <code>peer invite</code>。不要等用戶知道這條命令。</li>
-    <li><strong>避免平行版本。</strong>一個 APS project 只應有一份目前有效的共同目標與分工；可以修訂出新版本，不應由各 peer 各自建立互相打架的版本。</li>
+    <li><strong>未有協作者時主動邀請。</strong>若基準已確認但沒有 confirmed peer，AI 應主動說「我可以替你生成一段含一次加入邀請碼、可轉發給對方 AI 的加入邀請」，由 AI 內部生成一次加入邀請。不要等用戶知道任何命令，也不要叫用戶手動輸入命令。</li>
+    <li><strong>避免平行版本。</strong>一個 APS 合作目錄 只應有一份目前有效的共同目標與分工；可以修訂出新版本，不應由各 peer 各自建立互相打架的版本。</li>
     <li><strong>對方要透過 APS 收到。</strong>不要說放入 <code>_hub</code> 根目錄後 peer 就會自動收到。要讓對方 <code>check Drive</code> 時看到，應用 topic <code>shared_goal_and_roles</code> 一對一發給 confirmed peer。</li>
     <li><strong>多人逐一確認。</strong>APS 沒有群發確認。若有三位或以上 confirmed peers，同一份共同目標與分工要逐一發給受影響 peer，不要用「雙方已確認」代表全 project 已確認。</li>
     <li><strong>後加入不重建。</strong>受邀加入或新 peer 首次使用時，先查找或要求發起方補發最新共同目標與分工；不能因本機未見基準就另開一份。</li>
     <li><strong>修訂要有版本。</strong>共同目標、長期角色、驗收標準、不可做事項或影響多個交接包的分工邊界改變，才修訂基準。普通任務、bugfix、補資料、審閱或單次交付，走普通 APS packet 或 <code>revise</code>。</li>
     <li><strong>不一致時停下確認。</strong>若收到另一份不一致內容，發 <code>shared_goal_and_roles_clarification</code> 或要求修訂原包，不要直接開始任務。</li>
   </ol>
-  <pre>請先幫我建立這個 APS 項目夠安全開始的共同目標與分工，再決定是否保存、邀請協作者，或讓已加入的協作者確認。起步先有共同目標、自己的 APS 名稱、第一個可做小步、明顯不可做事項、最小驗收方式；每人長期角色、完整第一輪分工、第一個邀請對象、第一輪交接對象和詳細驗收標準，可以先標為未定或待確認。不要為了填滿欄位而假裝已定。確認後，請按狀態推進：未落地就問我要不要本機保存；已有已確認協作者就用 shared_goal_and_roles 讓對方確認共同基準；未有協作者就主動替我生成可轉發邀請。若已有基準，請先讀最新版，不要重建另一份。日後要正式交接任務時，教用戶用穩定說法：請用 APS 把這段工作交接給 &lt;協作者&gt;，先整理草稿，等我確認後才寫入共用 Drive。</pre>
+  <pre>請先幫我建立這個 APS 項目夠安全開始的共同目標與分工，再決定是否保存、邀請協作者，或讓已加入的協作者確認。起步先有共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項、最小驗收方式；每人長期角色、完整第一輪分工、第一個邀請對象、第一輪交接對象和詳細驗收標準，可以先標為未定或待確認。不要為了填滿欄位而假裝已定。確認後，請按狀態推進：未落地就問我要不要本機保存；已有已確認協作者就用 shared_goal_and_roles 讓對方確認共同基準；未有協作者就主動替我生成可轉發邀請。若已有基準，請先讀最新版，不要重建另一份。日後要正式交接任務時，教用戶用穩定說法：請用 APS 把這段工作交接給 &lt;協作者&gt;，先整理草稿，等我確認後才寫入共用 Drive。</pre>
 </section>
 
 <section>
@@ -234,8 +239,8 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
   <ul>
     <li><strong>Google Drive 路徑不存在：</strong>請用戶在檔案總管或 Finder 打開共用資料夾，重新複製完整路徑。不要使用含 <code>...</code> 的省略路徑。</li>
     <li><strong>npm 或 npx 失敗：</strong>先讀錯誤訊息。若是網絡、權限或快取問題，說明原因並請用戶確認是否允許重試；不要提權，不要清除全域 cache，不要改用危險命令。若錯誤包含 <code>EPERM</code>、<code>_cacache</code> 或 npm cache tmp，可改用隔離 cache 重試：<code>npx --cache C:\tmp\npx-aps-install --yes ...</code>。</li>
-    <li><strong>doctor 未通過：</strong>不要手寫共用 Drive 檔案。先核對 <code>.aps/config.json</code>、共用 Drive 路徑和項目代號。</li>
-    <li><strong>普通聊天 AI 無法操作：</strong>明確告訴用戶要改用本機代理型 AI，因為普通聊天 AI 不能讀寫本機項目資料夾。</li>
+    <li><strong>doctor 未通過：</strong>不要手寫共用 Drive 檔案。先核對 <code>.aps/config.json</code>、APS 交換區路徑和 APS 合作目錄名稱。</li>
+    <li><strong>普通聊天 AI 無法操作：</strong>明確告訴用戶要改用本機代理型 AI，因為普通聊天 AI 不能讀寫本機工作目錄。</li>
   </ul>
 </section>
 
@@ -244,7 +249,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
   <p>完成後，用簡短中文回報：</p>
   <ul>
     <li>安裝是否成功。</li>
-    <li>目前項目代號與自己的 APS 名稱。</li>
+    <li>目前 APS 合作目錄名稱與自己的用戶名稱。</li>
     <li><code>doctor</code> 是否通過。</li>
     <li>不要把安裝完成當成終點。若用戶仍在同一段 AI 對話內，安裝成功後要主動接上「共同目標與分工」流程：先整理夠安全開始的草稿，缺資料才問最多三個關鍵問題；確認後按狀態建議保存、邀請、讓協作者確認共同基準或整理第一輪交接草稿。</li>
     <li>只在 AI 沒有自動接上、或用戶日後想手動觸發時，才建議用戶說：「請幫我建立這個 APS 項目夠安全開始的共同目標與分工」。日後要看整體狀態可說 <code>Check APS</code>。</li>

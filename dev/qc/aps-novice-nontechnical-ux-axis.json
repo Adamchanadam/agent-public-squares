@@ -1,0 +1,119 @@
+{
+  "id": "aps_novice_nontechnical_ux_axis",
+  "status": "acceptance_axis_standard",
+  "principle": "用戶講目的，AI 做技術",
+  "productGoal": "非技術新手只用自然語言向 AI 說目的，不需要理解命令、邀請碼模型或 APS 內部資料夾，也能完成 APS 核心合作流程。",
+  "passResult": "新手能由收到邀請或想開始 APS，一路完成安裝或加入、第一次 Check APS、共同目標與分工、第一份正式交接、對方 check Drive、資料不足退回、修正、完成關閉；過程中不混淆本機工作目錄與 Google Drive APS 合作目錄。",
+  "notEnoughToPass": [
+    "只建立驗收標準，不代表產品結果已經通過。",
+    "命令能跑，不等於非技術新手能完成整條合作流程。",
+    "AI persona 或單機 fixture 只能證明局部分支，不等於真人新手 UAT 通過。"
+  ],
+  "boundary": "This is a durable novice non-technical UX product-result gate. It is covered for static single-machine fixture / regression scope only and is not real human UAT evidence until a real non-developer transcript is attached.",
+  "hardGate": "Before true two-machine or costly human UAT is requested, evidence must show the novice can complete the APS cooperation journey end-to-end; a standard-only gate is not a pass result.",
+  "persona": {
+    "name": "非技術新手",
+    "assumptions": [
+      "不懂 npx、init、doctor、peer invite、consume、decline、revise 或 close。",
+      "只會用自然語言向本機 agentic AI 說目的。",
+      "可以按 AI 指示提供 Google Drive 本機路徑、自己的用戶名稱、任務背景與是否確認寫入。",
+      "不應被要求理解 APS 內部資料夾、邀請碼模型、packet / ack / lane 或 Trystero room。"
+    ]
+  },
+  "completeJourney": [
+    {
+      "stage": "start_or_invite",
+      "userGoal": "我想用 APS 開始這個合作 / 我收到一段 APS 邀請。",
+      "acceptableGuidance": "AI 先判斷是安裝、升級、加入或已接入；正常情況直接告訴用戶下一步要提供甚麼。",
+      "failIf": [
+        "要求用戶手動輸入 npx 作主流程",
+        "先解釋內部模型",
+        "叫用戶換本機工作目錄"
+      ]
+    },
+    {
+      "stage": "setup_or_join",
+      "userGoal": "完成本機設定並接到正確 APS 合作目錄。",
+      "acceptableGuidance": "AI 只問必要資料，列明會寫入甚麼，取得確認後由 AI 執行技術步驟。",
+      "failIf": [
+        "照抄發起人的 Drive 路徑",
+        "要求邀請人替受邀者命名",
+        "把邀請碼說成身份或房間"
+      ]
+    },
+    {
+      "stage": "first_check_aps",
+      "userGoal": "知道現在 APS 狀態和下一步。",
+      "acceptableGuidance": "AI 回答目前合作目錄、用戶名稱、協作者、共同基準狀態與一句可直接跟進的自然語言。",
+      "failIf": [
+        "只列 packet id",
+        "把 check Drive 當整體狀態",
+        "沒有共同基準仍說可以開工"
+      ]
+    },
+    {
+      "stage": "shared_baseline",
+      "userGoal": "建立或確認共同目標與分工。",
+      "acceptableGuidance": "AI 用草稿形式整理，最多問三個關鍵問題；確認後才寫入 APS。",
+      "failIf": [
+        "把八項檢查框架變成新手必填表",
+        "未確認便發普通任務",
+        "平行建立兩份基準"
+      ]
+    },
+    {
+      "stage": "first_formal_handoff",
+      "userGoal": "把這段工作交給對方。",
+      "acceptableGuidance": "AI 顯示交接確認卡，補齊真源、開工條件、請對方做的事與風險，經確認才寫入。",
+      "failIf": [
+        "只問 topic",
+        "直接 publish",
+        "整段聊天倒入 packet",
+        "缺真源仍發出"
+      ]
+    },
+    {
+      "stage": "receiver_check_drive",
+      "userGoal": "對方查看交來的內容並知道可否開工。",
+      "acceptableGuidance": "AI 先摘要，再做完整性與本機對接檢查，最後建議可開工、退回、澄清或等待補交。",
+      "failIf": [
+        "收到就 consume",
+        "直接 done",
+        "只貼終端輸出",
+        "忽略真源是否可讀"
+      ]
+    },
+    {
+      "stage": "missing_info_revise_close",
+      "userGoal": "資料不足時回到同一條交接線補資料，完成後收結。",
+      "acceptableGuidance": "AI 清楚說缺甚麼，發送方 revise，同一條交接線補完；只有原發送方在完成後 close。",
+      "failIf": [
+        "把退回說成完成",
+        "重發多個重複包",
+        "收件方 close 對方 packet"
+      ]
+    }
+  ],
+  "passDefinition": [
+    "新手只用自然語言說目的，AI 能完成安裝或加入、第一次 Check APS、共同基準、第一份正式交接、check Drive、資料不足退回、revise、close 的完整引導。",
+    "每一步首屏都能讓新手知道下一步，不需要理解命令、內部模型或資料夾協定。",
+    "正常情況直接建議最佳下一步；只有讀到真衝突才解釋衝突。",
+    "所有正式寫入共用 Drive 前都有用戶確認；所有技術命令由 AI 背後執行。"
+  ],
+  "currentEvidence": {
+    "coveredByFixture": [
+      "dev/qc/aps-ux-transcript-b-side-invite-fixture.json",
+      "dev/qc/aps-ux-check-aps-live-branches-fixture.json",
+      "dev/qc/aps-ux-formal-handoff-cycle-fixture.json"
+    ],
+    "coveredByOperationSmoke": [
+      "dev/qc/evidence/aps-live-operation-smoke/20260618T114335/"
+    ],
+    "remainingGaps": [
+      "完整非技術真人 UAT",
+      "真兩機 / 真 Drive timing / 真外部通知證據"
+    ],
+    "singleMachineResult": "covered_by_static_fixtures_and_public_regression_for_install_join_checkaps_baseline_first_handoff_checkdrive_missing_info_revise_close",
+    "remainingSingleMachineGaps": []
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "title": "APS B-side invite first-screen transcript fixture",
+  "status": "static_single_machine_fixture",
+  "generatedAt": "2026-06-18",
+  "scope": "B receives a transferable APS invite prompt in a local AI tool before true two-machine UAT.",
+  "boundary": "This fixture locks acceptable first-screen wording and failure samples. It is not real human UAT, not true two-machine evidence, and not Drive timing proof.",
+  "cases": [
+    {
+      "id": "b_invite_no_aps",
+      "matrixRow": "B 貼邀請：未安裝 APS",
+      "userInput": "---✂️---\n請在目前本機工作目錄，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：\nhttps://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html\n\n邀請資訊如下：\n\nAPS 合作目錄名稱：brand_launch_room\n邀請碼：APS-BRAN-0B05-CDDC\nGoogle Drive 共用資料夾名稱：Agent_Public_Squares\n邀請人：user_a\n---✂️---",
+      "localState": "No .aps/config.json exists in the current local AI work directory.",
+      "acceptableFirstScreen": "這是 user_a 邀請你加入 APS 合作目錄 brand_launch_room 的邀請。我會先讀安裝指引和檢查目前本機工作目錄；如果未安裝 APS，下一步只需要你提供兩項資料：你自己電腦上的 Google Drive 共用資料夾本機路徑，以及你想使用的用戶名稱。上面的網址是給本機 AI 代理讀取和執行，不是叫你手動輸入命令。",
+      "behindTheScenes": "Read the invite, read the AI-agent install guide, check whether .aps/config.json exists, then prepare one upfront install/join plan. Write only after user confirms the plan.",
+      "forbidden": [
+        "請你自己輸入 npx",
+        "請另開一個本機工作目錄",
+        "使用邀請人的 Google Drive 路徑",
+        "請 user_a 先替你取 APS 名稱",
+        "你有 A / B 兩條路"
+      ],
+      "failureSample": "你現在有 A / B 兩條路：A 是另開新本機工作目錄，B 是使用 user_a 的邀請碼。請先輸入 npx aps init。",
+      "passCondition": "A non-technical invitee knows to provide only their own Google Drive local path and chosen user name; no command typing or work-directory switch is requested."
+    },
+    {
+      "id": "b_invite_same_cooperation_directory",
+      "matrixRow": "B 貼邀請：已有同一 APS 合作目錄",
+      "userInput": "B pastes the same transferable invite while the current local work directory already has .aps/config.json pointing to the same APS exchange and brand_launch_room.",
+      "localState": ".aps/config.json exists and matches the invite APS exchange and APS cooperation directory. The local user name is already set.",
+      "acceptableFirstScreen": "你目前這個本機工作目錄已經接到同一個 APS 合作目錄 brand_launch_room，不需要重裝 APS，也不需要重建 Google Drive 資料夾。我會先做只讀狀態檢查；建議下一步是 Check APS，確認你是否已加入、協作者是否可見，以及共同目標與分工是否已存在。",
+      "behindTheScenes": "Read .aps/config.json, compare the invite cooperation directory and exchange folder, then run only read-only status checks unless the user explicitly asks to repair a real mismatch.",
+      "forbidden": [
+        "重新安裝 APS",
+        "覆寫 .aps/config.json",
+        "請重建 Google Drive 資料夾",
+        "請另開一個本機工作目錄",
+        "這是另一個新項目"
+      ],
+      "failureSample": "這個邀請可能是另一個新項目。安全做法是另開一個本機工作目錄，重新安裝 APS。",
+      "passCondition": "The first screen preserves the existing local configuration and directs the user to read-only Check APS / baseline confirmation."
+    },
+    {
+      "id": "b_invite_different_cooperation_directory",
+      "matrixRow": "B 貼邀請：已有不同 APS 合作目錄",
+      "userInput": "B pastes A invite for brand_launch_room while .aps/config.json points to packaging_review_room in the same or another APS exchange.",
+      "localState": ".aps/config.json exists but the configured APS cooperation directory differs from the invite.",
+      "acceptableFirstScreen": "我檢查到目前本機工作目錄已接到另一個 APS 合作目錄 packaging_review_room，而你剛貼上的邀請是 brand_launch_room。這不是叫你換本機工作目錄；要決定的是這個工作目錄接下來預設連到哪個 APS 合作目錄。就本次合作而言，我建議使用剛貼上的邀請 brand_launch_room；我會先列出會改哪些本機 APS 設定，經你確認後才寫入。",
+      "behindTheScenes": "Read current .aps/config.json and invite data, show both cooperation directories and exchange roots, recommend one target based on the newly pasted invite, and dry-run the config change before writing.",
+      "forbidden": [
+        "預設另開新工作目錄",
+        "把本機工作目錄當作 APS 合作目錄",
+        "兩個邀請碼可以一起用",
+        "直接覆寫設定",
+        "請自己理解 invite code"
+      ],
+      "failureSample": "你應該另開 C:\\Users\\you\\APS_join_user_a，因為這是另一個項目。把 jay 的邀請碼用在目前工作目錄會混亂。",
+      "passCondition": "Conflict is explained only because a real mismatch exists; the user gets one recommended path and a no-write preview."
+    },
+    {
+      "id": "b_mutual_invites",
+      "matrixRow": "互邀：A 和 B 都發過邀請",
+      "userInput": "B has already generated an invite for A, then pastes A invite for brand_launch_room into the local AI tool.",
+      "localState": "The local conversation or fixture contains two invite codes for two possible APS cooperation directories.",
+      "acceptableFirstScreen": "這是互邀情況。兩個邀請碼不需要互相使用，也不應建立兩條平行合作線。就本次合作，應選一個 APS 合作目錄作唯一交換空間；如果沒有其他已確認共同目標，我建議採用你剛貼上的 brand_launch_room 邀請加入，另一個邀請碼先不用。我會先核對兩份邀請的合作目錄和 Google Drive 共用資料夾名稱，再列出將採用哪一份。",
+      "behindTheScenes": "Compare invite code, sender, APS cooperation directory, and shared folder name for both invites. Pick a single cooperation directory; do not merge invite codes or initialize two rooms.",
+      "forbidden": [
+        "雙方都要用自己的驗證碼",
+        "兩個邀請碼要合併",
+        "建立兩個 APS 合作目錄",
+        "邀請碼就是身份",
+        "互相加入對方的項目才安全"
+      ],
+      "failureSample": "你要堅持使用自己產生的邀請碼，叫對方加入你的項目；同時也可以再用對方的邀請碼另開一個項目。",
+      "passCondition": "Only one cooperation directory remains active for the collaboration; the unused invite code is explicitly set aside."
+    }
+  ]
+}

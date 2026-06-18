@@ -1,0 +1,265 @@
+{
+  "title": "APS first Check APS and APS Live branch fixture",
+  "status": "static_single_machine_fixture",
+  "generatedAt": "2026-06-18",
+  "scope": "First Check APS after join, shared baseline confirmation, and APS Live function / branch coverage before true two-machine UAT.",
+  "boundary": "This fixture locks acceptable first-screen and branch behavior. It is not real human UAT, not true two-machine evidence, not real Trystero reliability, and not real Drive timing proof.",
+  "checkApsCases": [
+    {
+      "id": "check_aps_no_baseline_first_use",
+      "userInput": "Check APS",
+      "localState": "The user has joined an APS cooperation directory, peers are confirmed, and no valid shared_goal_and_roles baseline exists.",
+      "acceptableFirstScreen": "🔎 目前已接上 APS 交換區與 APS 合作目錄，協作者已加入；但未有共同基準。建議下一步是先建立共同目標與分工，暫時不要發普通交接。若需要即時核對，我會打開 APS Live 交接追蹤；頁面應顯示「共同基準：未通過 / 需處理」與「需先建立共同目標與分工」。",
+      "behindTheScenes": "Run whole-project status through Check APS, inspect peer cards and shared-goal state, generate or refresh APS Live only if useful, and avoid packet / ack mutation.",
+      "forbidden": [
+        "未有共同基準仍說可以開工",
+        "把 check Drive 當整體狀態",
+        "要求用戶自己輸入 npx",
+        "直接發普通任務",
+        "顯示大量 packet id"
+      ],
+      "passCondition": "The first recommendation is to create or confirm the shared goal and roles before ordinary handoff."
+    },
+    {
+      "id": "check_aps_shared_goal_draft_unconfirmed",
+      "userInput": "看看 APS 狀態",
+      "localState": "A shared_goal_and_roles packet or draft exists, but the receiver has not confirmed it.",
+      "acceptableFirstScreen": "🔎 APS 已有共同目標與分工草稿，但仍未確認。建議先處理共同基準：可同意、部分同意並請對方修改、有異議，或稍後再處理。APS Live 若打開，應顯示「共同基準：進行中」，不能顯示已完成。",
+      "behindTheScenes": "Read shared-goal draft state, keep ordinary handoff blocked, and route confirmation decisions back to terminal / local AI.",
+      "forbidden": [
+        "共同基準：已完成",
+        "直接發普通任務",
+        "把草稿當正式基準",
+        "Live 自動寫入正式狀態"
+      ],
+      "passCondition": "The user sees that the project is not ready for ordinary work until the baseline is confirmed."
+    },
+    {
+      "id": "check_aps_confirmed_baseline_no_active_packet",
+      "userInput": "Check APS",
+      "localState": "A current shared baseline is confirmed, peers are confirmed, and there is no active incoming or outgoing handoff ticket.",
+      "acceptableFirstScreen": "🔎 APS 合作目錄、用戶名稱、協作者與共同基準都已就緒。現在沒有待處理交接。建議下一步：如果要交工作給協作者，請直接說「把目前工作交給 <用戶名稱>」，我會先整理交接確認卡，等你確認後才寫入共用 Drive。",
+      "behindTheScenes": "Run whole-project status, keep Live out of the path if there is no blockage or live coordination need, and do not generate unnecessary chat surfaces.",
+      "forbidden": [
+        "未解釋共同基準狀態",
+        "把 APS Live 當必做步驟",
+        "要求用戶自己輸入 publish 命令",
+        "直接寫入 Drive"
+      ],
+      "passCondition": "The user gets a direct, non-technical next sentence for first formal handoff."
+    },
+    {
+      "id": "check_aps_confirmed_baseline_active_handoff",
+      "userInput": "Check APS",
+      "localState": "A shared baseline is confirmed and one active handoff ticket exists.",
+      "acceptableFirstScreen": "🔎 目前已有一條交接正在進行。先顯示交接狀態、發送方、接收方、任務、真源與開工條件；再判斷接收方是否可開工。若狀態不一致、資料不足或需要即時核對，才建議打開 APS Live。",
+      "behindTheScenes": "Compare Check APS, check Drive, packet, ack, and Live snapshot candidates against the same active ticket.",
+      "forbidden": [
+        "把 Live presence 當 ack",
+        "把 Live 訊息當正式完成",
+        "只列 packet id 不講任務",
+        "跳過可開工判斷"
+      ],
+      "passCondition": "The user sees one active handoff ticket and the next formal action."
+    }
+  ],
+  "apsLiveFunctions": [
+    {
+      "id": "live_top_bar_and_identity",
+      "function": "APS Live 交接追蹤 top bar and identity pills",
+      "acceptableBehavior": "Show APS Live 交接追蹤, APS cooperation directory name, and participant identities from APS state, not hard-coded names.",
+      "forbidden": [
+        "Adam / Jay as defaults",
+        "room id as user-facing identity",
+        "raw JSON identity dump"
+      ]
+    },
+    {
+      "id": "live_primary_ticket",
+      "function": "One primary 交接單 ticket",
+      "acceptableBehavior": "Show one active ticket with sender, receiver, current station, and visible status before discussion.",
+      "forbidden": [
+        "generic chat first",
+        "project-management board first",
+        "multiple unrelated ticket cards as first screen"
+      ]
+    },
+    {
+      "id": "live_progress_tracker",
+      "function": "Progress tracker",
+      "acceptableBehavior": "Show created / sent / receiver seen / start judgement / complete or returned with icon plus text: 已完成, 進行中, 未通過 / 需處理, 未開始.",
+      "forbidden": [
+        "colour-only status",
+        "baseline completed when missing",
+        "blank timestamp treated as done"
+      ]
+    },
+    {
+      "id": "live_task_source_start_condition",
+      "function": "任務 / 真源 / 開工條件",
+      "acceptableBehavior": "Show task, receiver-readable source, and start condition as human facts before the user can judge work readiness.",
+      "forbidden": [
+        "sender-local absolute path as receiver truth",
+        "raw packet fields only",
+        "missing source treated as actionable"
+      ]
+    },
+    {
+      "id": "live_connection_and_presence",
+      "function": "連接 APS Live and presence status",
+      "acceptableBehavior": "Show one connection action and stateful peer presence. Peer offline only means not present in Live now.",
+      "forbidden": [
+        "把 peer offline 當成 Drive 未同步",
+        "把 peer online 當成已讀或 ack",
+        "send enabled with no real peer present"
+      ]
+    },
+    {
+      "id": "live_event_log",
+      "function": "交接事件紀錄",
+      "acceptableBehavior": "Show compact timestamped event log and expandable history for formal packet view, Live comments, return, or close state.",
+      "forbidden": [
+        "old pending hint remains after send",
+        "event history treated as formal APS truth",
+        "no visible current state"
+      ]
+    },
+    {
+      "id": "live_stage_guide",
+      "function": "目前階段與正式操作",
+      "acceptableBehavior": "Explain current station, where formal action happens, and one sentence the user can bring back to local AI.",
+      "forbidden": [
+        "tutorial essay first",
+        "formal action hidden in Live",
+        "command list as user burden"
+      ]
+    },
+    {
+      "id": "live_coordination_block",
+      "function": "協調與回應",
+      "acceptableBehavior": "Provide quick replies, editable draft, send button, stateful status, and current-room history in one bounded block.",
+      "forbidden": [
+        "unbounded social chat",
+        "message card that looks sent before connection",
+        "sensitive material broadcast"
+      ]
+    },
+    {
+      "id": "live_local_ai_return",
+      "function": "本機 AI return and queue bridge",
+      "acceptableBehavior": "Send structured discussion material, current APS status, and selected intent to local-only queue when bridge is online; provide human-readable fallback when offline or token invalid.",
+      "forbidden": [
+        "raw JSON fallback",
+        "terminal auto-wake promise",
+        "queue treated as formal APS truth"
+      ]
+    },
+    {
+      "id": "live_terminal_options",
+      "function": "Terminal formal options",
+      "acceptableBehavior": "Offer confirm / agree, object, return / request more information, and close as terminal/local-AI drafts requiring user approval.",
+      "forbidden": [
+        "Live 自動 consume",
+        "Live 自動 decline",
+        "Live 自動 revise",
+        "Live 自動 close",
+        "Live 自動 publish",
+        "Live 自動 ack"
+      ]
+    }
+  ],
+  "apsLiveBranches": [
+    {
+      "id": "live_no_baseline",
+      "trigger": "Confirmed peers exist but no valid shared baseline exists.",
+      "acceptableBehavior": "共同基準 is blocked; ordinary task start is blocked; return to local AI to create shared-goal-and-roles draft.",
+      "forbidden": [
+        "共同基準：已完成",
+        "normal handoff can start"
+      ]
+    },
+    {
+      "id": "live_unconfirmed_baseline",
+      "trigger": "A shared-goal draft exists but is not confirmed.",
+      "acceptableBehavior": "共同基準 remains 進行中; expose agree / partial agree / object / later return paths.",
+      "forbidden": [
+        "draft treated as final baseline",
+        "ordinary handoff readiness"
+      ]
+    },
+    {
+      "id": "live_normal_handoff",
+      "trigger": "Confirmed baseline and complete handoff ticket.",
+      "acceptableBehavior": "Receiver makes a can-start judgement; formal consume or reply remains terminal / local AI.",
+      "forbidden": [
+        "Live consume",
+        "skip source and start condition checks"
+      ]
+    },
+    {
+      "id": "live_missing_information",
+      "trigger": "Confirmed baseline but source, version, scope, or start condition is missing.",
+      "acceptableBehavior": "Block 可開工判斷, name missing information, and route to terminal decline / revise / consume / close after approval.",
+      "forbidden": [
+        "consume as done",
+        "close the original line automatically"
+      ]
+    },
+    {
+      "id": "live_stale_page_refresh",
+      "trigger": "Generated APS Live page is stale after terminal state changes.",
+      "acceptableBehavior": "Show refresh formal state boundary and avoid treating old page data as truth.",
+      "forbidden": [
+        "old HTML overrides terminal state",
+        "old pending remains after consume"
+      ]
+    },
+    {
+      "id": "live_peer_offline",
+      "trigger": "Collaborator is not present in Live.",
+      "acceptableBehavior": "Explain only that the peer is not present in Live now; fall back to normal APS status, human notification, Drive sync wait, Check APS, and check Drive.",
+      "forbidden": [
+        "offline means not installed",
+        "offline means no Drive sync",
+        "online means ack"
+      ]
+    },
+    {
+      "id": "live_wrong_project_identity",
+      "trigger": "Wrong APS cooperation directory, wrong room, same identity, or non-current participant appears.",
+      "acceptableBehavior": "Block valid collaborator interpretation and keep formal recipient unchanged.",
+      "forbidden": [
+        "wrong project counted as peer",
+        "same identity counted as collaborator"
+      ]
+    },
+    {
+      "id": "live_drive_sync_delay",
+      "trigger": "Drive packet and Live presence do not match.",
+      "acceptableBehavior": "Treat Drive packet / outbox / ack / shared goal as formal truth and surface sync mismatch without inventing ack.",
+      "forbidden": [
+        "Live message proves Drive sync",
+        "file existence proves notification receipt"
+      ]
+    },
+    {
+      "id": "live_three_plus_one_to_one",
+      "trigger": "三位或以上 participants are present in the same APS Live context.",
+      "acceptableBehavior": "Allow bounded coordination while active formal ticket remains 一對一: one sender to one receiver; third participant cannot ack, consume, decline, or satisfy close.",
+      "forbidden": [
+        "group-recipient packet",
+        "third-party ack",
+        "B sees C-only packet"
+      ]
+    },
+    {
+      "id": "live_no_formal_write",
+      "trigger": "Any Live discussion proposes a formal APS action.",
+      "acceptableBehavior": "Return to terminal/local AI; user approves before publish, revise, decline, consume, close, withdraw, or shared-goal update.",
+      "forbidden": [
+        "Live 自動寫入正式狀態",
+        "hidden formal action"
+      ]
+    }
+  ]
+}

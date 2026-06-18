@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APS 全流程地圖 · Agent Public Squares</title>
+<style>
+  :root {
+    --ink: #1b2230;
+    --ink-soft: #4b5568;
+    --ink-fade: #7b8495;
+    --bg: #f6f3ec;
+    --panel: #fffdf7;
+    --line: #d9d4c5;
+    --accent: #2f5d7c;
+    --accent-soft: #e3edf3;
+    --ok: #2e7d4f;
+    --ok-soft: #e3f1e8;
+    --work: #8a6a23;
+    --work-soft: #f7ecdd;
+    --wait: #7c3aed;
+    --wait-soft: #eadcff;
+    --risk: #b94a3a;
+    --risk-soft: #f7e0db;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "PingFang TC", monospace;
+    --serif: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", Georgia, serif;
+    --sans: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px 64px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.75;
+  }
+  main { max-width: 1180px; margin: 0 auto; }
+  .site-nav {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: baseline;
+    font-size: 14px;
+  }
+  .site-nav__brand { font-family: var(--serif); font-weight: 700; }
+  .site-nav__brand-tag {
+    margin-left: 5px;
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .site-nav__link {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    padding-bottom: 2px;
+    white-space: nowrap;
+  }
+  .site-nav__link:hover, .site-nav__link--active { border-bottom-color: var(--accent); }
+  .site-nav__link--active { color: var(--ink); font-weight: 600; }
+  .site-nav__spacer { flex: 1; }
+  .site-nav__hint { color: var(--ink-fade); font-size: 12px; }
+  header.cover {
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 26px;
+    padding-bottom: 24px;
+  }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  h1, h2, h3 { letter-spacing: 0; }
+  h1 {
+    margin: 0 0 8px;
+    font-family: var(--serif);
+    font-size: 34px;
+    line-height: 1.25;
+  }
+  .subtitle {
+    max-width: 900px;
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 17px;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+    margin: 18px 0;
+  }
+  section > h2 {
+    margin: 0 0 8px;
+    font-family: var(--serif);
+    font-size: 23px;
+  }
+  .lede { margin: 0 0 14px; color: var(--ink-soft); }
+  code, .path {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: #ece6d3;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .principle {
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px;
+    background: #fff;
+  }
+  .principle strong { display: block; margin-bottom: 6px; }
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .node {
+    min-height: 150px;
+    border: 1px solid var(--line);
+    border-top: 5px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+  }
+  .node strong { display: block; font-size: 15px; margin-bottom: 6px; }
+  .node p { margin: 0 0 8px; color: var(--ink-soft); font-size: 13.5px; }
+  .node small { display: block; color: var(--ink-fade); font-size: 12px; }
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .status {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+  }
+  .status strong { display: block; }
+  .done { border-left: 5px solid var(--ok); background: var(--ok-soft); }
+  .local { border-left: 5px solid var(--accent); background: var(--accent-soft); }
+  .ux { border-left: 5px solid var(--work); background: var(--work-soft); }
+  .variant { border-left: 5px solid var(--risk); background: var(--risk-soft); }
+  .final { border-left: 5px solid var(--wait); background: var(--wait-soft); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 9px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent-soft);
+    font-weight: 700;
+  }
+  .badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .badge.done { color: var(--ok); }
+  .badge.local { color: var(--accent); }
+  .badge.ux { color: var(--work); }
+  .badge.variant { color: var(--risk); }
+  .badge.final { color: var(--wait); }
+  .callout {
+    border-left: 5px solid var(--risk);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: var(--risk-soft);
+  }
+  footer {
+    margin-top: 28px;
+    text-align: center;
+    color: var(--ink-fade);
+    font-size: 12px;
+  }
+  @media (max-width: 900px) {
+    .principles, .flow, .status-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+<nav class="site-nav" aria-label="主目錄">
+  <span class="site-nav__brand">Agent Public Squares<span class="site-nav__brand-tag">APS</span></span>
+  <a class="site-nav__link" href="../index.html">入口</a>
+  <a class="site-nav__link" href="../guides/index.html">教學中心</a>
+  <a class="site-nav__link" href="governance-map.html">分層 QC</a>
+  <a class="site-nav__link site-nav__link--active" href="aps-flow-map.html">流程地圖</a>
+  <a class="site-nav__link" href="aps-ux-transcript-matrix.html">UX 矩陣</a>
+  <a class="site-nav__link" href="../maintainers/index.html">維護者規格</a>
+  <a class="site-nav__link" href="https://github.com/Adamchanadam/agent-public-squares">GitHub</a>
+  <span class="site-nav__spacer"></span>
+  <span class="site-nav__hint">2026-06-18</span>
+</nav>
+
+<header class="cover">
+  <div class="eyebrow">產品流程 · 完成度檢查</div>
+  <h1>APS 全流程地圖與完成度檢查表</h1>
+  <p class="subtitle">這頁用來決定 APS 是否已成熟到值得做真人或雙機測試。合格標準不是「命令能跑」，而是非技術用戶用自然語言提出目的後，AI 能穩定完成整條合作流程。</p>
+</header>
+
+<section>
+  <h2>真源定位</h2>
+  <p class="lede">本頁是 APS 產品旅程與完成度安排的真源。凡改動 APS 使用者流程、功能邏輯、階段順序、完成度判斷或工作優先級，必須同步更新本頁、APS 單機 UX Transcript 矩陣內的「新手非技術 UX 驗收軸」，再同步 QC 覆蓋登記與熱圖。</p>
+  <p>本頁不取代其他真源：CLI 實際行為以 <code>bin/aps.js</code> 為準；可執行回歸以 <code>dev/qc/check_context_index.cjs</code> 為準；QC 覆蓋狀態、缺口與阻塞以 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code> 為準；單機第一屏與用戶語句驗收以 <a href="aps-ux-transcript-matrix.html">APS 單機 UX Transcript 矩陣</a> 跟隨本頁補齊。</p>
+</section>
+
+<section>
+  <h2>通用產品準則</h2>
+  <p class="lede">以下準則適用於整個 APS，不只適用於邀請協作者。</p>
+  <div class="principles">
+    <article class="principle">
+      <strong>用戶講目的，AI 做技術。</strong>
+      <p>正常入口應是「邀請協作者」、「Check APS」、「check Drive」、「把這段交給對方」這類目的語句。命令列存在，但不應成為非技術用戶的主操作方法。</p>
+    </article>
+    <article class="principle">
+      <strong>單機產品級完成，才推雙機。</strong>
+      <p>雙機測試成本高，只應在單機流程、真 Drive 本機煙霧測試、用語、負向變體與 UX transcript 都收口後才做。</p>
+    </article>
+    <article class="principle">
+      <strong>新手 UX 是產品結果閘。</strong>
+      <p>非技術新手只講目的時，AI 必須能帶他完成安裝 / 加入、Check APS、共同基準、正式交接、收件、退回、修訂與收結。目標是完成整條合作流程，不是只建立驗收標準；未過這一軸，不可宣稱產品旅程成熟。</p>
+    </article>
+    <article class="principle">
+      <strong>發現一個坑，要查鄰近變體。</strong>
+      <p>若用戶測到一個錯誤，不可只補該句文字；要檢查相鄰入口、同義語、既有設定、互邀、重名、Drive 路徑、收件與退回等同機可驗變體。</p>
+    </article>
+  </div>
+</section>
+
+<section>
+  <h2>全流程圖</h2>
+  <p class="lede">每一格代表用戶眼中的一步。AI 背後可讀 HTML、跑 CLI 或檢查檔案，但不把技術步驟推給用戶。</p>
+  <div class="flow" aria-label="APS 全流程">
+    <article class="node"><strong>1. 選本機工作目錄</strong><p>用戶在平日處理該項目的本機工作目錄打開 agentic AI。</p><small>不得把本機工作目錄與 Google Drive APS 交換區混為一談。</small></article>
+    <article class="node"><strong>2. 安裝或升級 APS</strong><p>AI 讀安裝頁、檢查現況、提出一次性計劃，確認後連續執行。</p><small>已有 <code>.aps/config.json</code> 走升級，不重建。</small></article>
+    <article class="node"><strong>3. 建立 APS 交換區</strong><p>Google Drive 共用資料夾是同步地方；每部機的本機路徑可不同。</p><small>不得把發起方路徑交給受邀方照抄。</small></article>
+    <article class="node"><strong>4. 建立 APS 合作目錄</strong><p>合作目錄等同這次合作的房間，名稱應與任務或項目有關。</p><small>不要用人名、電腦名、AI 名稱或發起人名稱。</small></article>
+    <article class="node"><strong>5. 建共同目標與分工</strong><p>先確定共同目標、角色、第一輪分工、驗收標準與不可做的事。</p><small>未有共同基準，不應先發普通任務。</small></article>
+    <article class="node"><strong>6. 邀請協作者</strong><p>發起人只需說「邀請協作者」。AI 生成可轉發邀請；對方用戶名稱由對方自己定。</p><small><code>peer add</code> 只屬維護或兼容。</small></article>
+    <article class="node"><strong>7. 受邀者加入</strong><p>受邀者貼上邀請後，AI 讀邀請、檢查設定、正常情況直接建議加入。</p><small>只有發現衝突才解釋衝突。</small></article>
+    <article class="node"><strong>8. Check APS 基準確認</strong><p>加入後先看整體狀態、共同基準、協作者與下一步。</p><small><code>Check APS</code> 是整體狀態；<code>check Drive</code> 是讀具體收件。</small></article>
+    <article class="node"><strong>9. 發正式交接</strong><p>發送方整理交接確認卡，補齊真源、開工條件與風險，經用戶確認才寫 Drive。</p><small>正式交接每次仍是一對一。</small></article>
+    <article class="node"><strong>10. 收件方 check Drive</strong><p>收件方 AI 摘要對方交來甚麼，做完整性與本機對接檢查。</p><small>收到 packet 不等於可以立即開工。</small></article>
+    <article class="node"><strong>11. 判斷可開工或退回</strong><p>資料足夠才處理；不足則發補交需求或共識確認。</p><small>未補齊前不把原交接收結。</small></article>
+    <article class="node"><strong>12. 修訂、回覆與收結</strong><p>發送方 revise / withdraw / close；收件方 consume / decline / reply，狀態可追蹤。</p><small>舊版本不可被當作最新任務。</small></article>
+    <article class="node"><strong>13. 多人逐一交接</strong><p>同一 APS 合作目錄可有多位用戶，但每個 packet 只發給一位。</p><small>不能讓 B 看見或消化 C 的 packet。</small></article>
+    <article class="node"><strong>14. APS Live 只處理卡點</strong><p>Live 可協調疑問，但正式狀態仍回到 terminal / 本機 AI 經用戶確認落帳。</p><small>Live 不取代 Drive 帳本。</small></article>
+    <article class="node"><strong>15. 升級維護</strong><p>既有項目更新套件、跑 upgrade、再 doctor。</p><small>不得覆寫既有交接、ack、peer 或共同基準。</small></article>
+    <article class="node"><strong>16. 最後才做真雙機</strong><p>單機流程與 UX 變體收口後，才安排真人或兩部實體機測試。</p><small>雙機測試不是補單機設計粗疏的工具。</small></article>
+  </div>
+</section>
+
+<section>
+  <h2>狀態說明</h2>
+  <div class="status-grid">
+    <div class="status done"><strong>已可單機驗收</strong><span>有本地可執行測試或直接檢查，能驗證功能與主要負向例。</span></div>
+    <div class="status local"><strong>真 Drive 本機已驗</strong><span>用真 Google Drive 本機同步資料夾驗過，但不是兩部實體機。</span></div>
+    <div class="status ux"><strong>真人 UAT gate</strong><span>單機 fixture 已覆蓋時，才用真人檢查第一屏與後續引導是否自然。</span></div>
+    <div class="status variant"><strong>外部 timing gate</strong><span>真 Drive timing、真兩機或 APS Live transport 仍需外部條件驗證。</span></div>
+    <div class="status final"><strong>只可最後做雙機</strong><span>等單機產品流成熟後，才用真人或兩部機驗外部同步與理解。</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>完成度檢查表</h2>
+  <p class="lede">此表用來決定下一步是否仍應單機修補，還是可進入真人或雙機測試。</p>
+  <table>
+    <thead>
+      <tr><th>流程</th><th>目前判斷</th><th>已知證據</th><th>外部未覆蓋</th><th>下一步</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>安裝 / 升級提示</td><td><span class="badge done">已可單機驗收</span></td><td>v0.2.26 已發佈並讀回；0.2.27 候選保留一次計劃確認並加入邀請 / UX 修補。</td><td>真人是否覺得第一屏自然，仍屬 UAT。</td><td>保留，不再每次急推雙機。</td></tr>
+      <tr><td>本機工作目錄與 APS 交換區邊界</td><td><span class="badge done">已可單機驗收</span></td><td>S138-S141 已修正邀請文字與 regression；B-side invite fixture 覆蓋未安裝、已有同一合作目錄、已有不同合作目錄、互邀。</td><td>真人是否自然理解仍待 UAT。</td><td>保留為真人 UAT gate；不再阻塞單機產品流程。</td></tr>
+      <tr><td>APS 合作目錄命名</td><td><span class="badge done">已可單機驗收</span></td><td>現有 regression 禁人名、電腦名、AI 名稱或發起人名稱。</td><td>公開頁與 CLI 用語仍需發佈後讀回。</td><td>發佈前再跑靜態檢查。</td></tr>
+      <tr><td>邀請協作者</td><td><span class="badge local">真 Drive 本機已驗</span></td><td>S142 用真 Google Drive 本機同步資料夾跑通 A invite → B join。</td><td>兩部實體機收到同一模板後的真 UX 仍未驗。</td><td>暫不急推；先補 transcript 與相鄰變體。</td></tr>
+      <tr><td>互邀與多邀請</td><td><span class="badge done">已可單機驗收</span></td><td>B-side invite fixture 鎖住只選一個 APS 合作目錄、另一邀請碼不用；正常情況不先講互邀衝突。</td><td>真人是否自然理解仍待 UAT。</td><td>保留為真人 UAT gate；不再阻塞單機產品流程。</td></tr>
+      <tr><td>受邀者加入後 Check APS</td><td><span class="badge done">已可單機驗收</span></td><td>S108 / S142 證明加入與 peer artifacts 可建立；first Check APS / APS Live branches fixture 覆蓋 no-baseline、unconfirmed baseline、confirmed baseline、active handoff。</td><td>真人是否自然跟到共同基準仍待 UAT。</td><td>保留為真人 UAT gate；不再阻塞單機產品流程。</td></tr>
+      <tr><td>共同目標與分工</td><td><span class="badge done">已可單機驗收</span></td><td>S108 證明 shared_goal_and_roles 可發出並 consume。</td><td>真人是否明白它不是普通任務，仍需 UAT。</td><td>保留為所有交接前置 gate。</td></tr>
+      <tr><td>第一份正式交接</td><td><span class="badge done">已可單機驗收</span></td><td>strict handoff regression 覆蓋必填欄位、真源、開工條件與敏感資料防線；<code>dev/qc/aps-ux-formal-handoff-cycle-fixture.json</code> 覆蓋自然語言一語交接第一屏。</td><td>真人語感仍待 UAT。</td><td>保留為真人 UAT gate，不再阻塞單機產品流程。</td></tr>
+      <tr><td>收件方 check Drive</td><td><span class="badge done">已可單機驗收</span></td><td>check-drive 摘要、shared_goal_and_roles 摘要、active-packet 一致性與 formal handoff cycle fixture 已覆蓋可開工 / 不可開工判斷。</td><td>真人能否自然理解仍待 UAT；真 Drive timing 另列外部 gate。</td><td>保留為真人與真 Drive timing gate，不再阻塞單機產品流程。</td></tr>
+      <tr><td>資料不足退回</td><td><span class="badge done">已可單機驗收</span></td><td>decline、revise、status、close lifecycle regression 與 formal handoff cycle fixture 已覆蓋退回不等於完成、同線 revise、原發送方 close。</td><td>真人語感仍待 UAT。</td><td>保留為真人 UAT gate，不再阻塞單機產品流程。</td></tr>
+      <tr><td>發送方看到退回後下一步</td><td><span class="badge done">已可單機驗收</span></td><td>Check APS 顯示 revise / withdraw / close 下一步已有覆蓋；formal handoff cycle fixture 覆蓋收到資料不足後優先 revise 同一條交接線。</td><td>真人語感仍待 UAT。</td><td>保留為真人 UAT gate，不再阻塞單機產品流程。</td></tr>
+      <tr><td>多人但每包一對一</td><td><span class="badge done">已可單機驗收</span></td><td>本機三身分矩陣覆蓋一對一 formal boundary。</td><td>真兩機多人可靠性不是現階段優先。</td><td>維持本地 gate。</td></tr>
+      <tr><td>APS Live 六階段</td><td><span class="badge done">已可單機驗收</span></td><td>S105 / S119 / S120 / S122 / S125 覆蓋本機矩陣。</td><td>真 Trystero peer-offline、真 Drive timing、真人理解仍是外部 gate。</td><td>先不要以 Live 推真雙機。</td></tr>
+      <tr><td>真兩機安裝</td><td><span class="badge final">只可最後做雙機</span></td><td>Adam 回報兩機成功安裝；S142 真 Drive 本機邀請煙霧通過。</td><td>不代表整個交接流程成熟。</td><td>只作最後驗證，不作日常補坑方法。</td></tr>
+      <tr><td>新手非技術 UX 驗收軸</td><td><span class="badge done">已可單機驗收</span></td><td><code>dev/qc/aps-novice-nontechnical-ux-axis.json</code> 已記錄產品結果閘；B-side invite、第一次 Check APS、共同基準、APS Live、第一份正式交接、check Drive、資料不足退回、發送方 revise、close 已有單機 fixture / regression。</td><td>真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋。</td><td>單機產品流程可進入外部 gate 前檢；不可把真人 / 真雙機視為已通過。</td></tr>
+      <tr><td>真人零知識 UAT</td><td><span class="badge final">只可最後做雙機</span></td><td>S107 / S108 是 AI persona 替代驗收。</td><td>需要非技術真人讀 prompt、跟 AI 操作、指出困惑。</td><td>等新手非技術 UX 驗收軸清走明顯坑後再做。</td></tr>
+      <tr><td>公開發佈讀回</td><td><span class="badge final">只可最後做雙機</span></td><td>v0.2.26 已發佈讀回；0.2.27 候選包含 S137-S153 邀請、用語、UX 與 QC 修補，仍需正式發佈讀回。</td><td>本輪修補要另行授權發佈。</td><td>不在本頁任務內發佈。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>雙機測試門檻</h2>
+  <div class="callout">
+    <strong>雙機測試不是早期排錯手段。</strong>
+    <p>目前單機產品流、UX fixture 與相鄰變體已補到可重跑驗收；下一步若要升級證據，應分開做真人新手 UAT、真 Drive timing、真兩機 / APS Live transport。若任何真人或真機測試再暴露表面困惑，相關單機行需立即降回 partial 並補 regression。</p>
+  </div>
+</section>
+
+<section>
+  <h2>單機清零狀態與外部 gate</h2>
+  <table>
+    <thead><tr><th>層級</th><th>範圍</th><th>驗收判斷</th></tr></thead>
+    <tbody>
+      <tr><td>已清零</td><td><a href="aps-ux-transcript-matrix.html">B 貼上邀請、互邀、已有 APS、不同 APS 合作目錄</a>。</td><td>由 B-side invite fixture 與 regression 覆蓋；不再列為單機待辦。</td></tr>
+      <tr><td>已清零</td><td>加入後第一次 <code>Check APS</code>、共同基準、APS Live 本機分支。</td><td>由 first Check APS / APS Live branches fixture 覆蓋；不再列為單機待辦。</td></tr>
+      <tr><td>已清零</td><td>第一份正式交接、收件方 <code>check Drive</code>、資料不足退回、發送方 revise、最終 close。</td><td>由 formal handoff cycle fixture 覆蓋；單機完整合作流程已可驗收。</td></tr>
+      <tr><td>下一個外部 gate</td><td>真人新手 UAT。</td><td>檢查非技術真人是否自然理解 AI 第一屏與下一步；若暴露表面困惑，相關單機行降回 partial 並補 regression。</td></tr>
+      <tr><td>下一個外部 gate</td><td>真 Drive timing、真兩機 / APS Live transport、外部通知證據。</td><td>這些需要外部條件；不可用單機 fixture 或 CLI regression 代替。</td></tr>
+      <tr><td>治理守則</td><td>流程地圖、UX 矩陣、OPS 覆蓋登記與熱圖。</td><td>保持分工：本頁管產品旅程；UX 矩陣管第一屏證據；OPS 覆蓋登記管 coverage truth；不新增第二套優先級真源。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Agent Public Squares · APS 全流程地圖 · 建立 2026-06-18 · 覆蓋狀態真源：OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code>
+</footer>
+</main>
+</body>
+</html>
+

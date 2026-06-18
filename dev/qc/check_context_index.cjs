@@ -195,6 +195,240 @@ function expectRepoFileContains(name, relativePath, requiredText, forbiddenText 
   console.log(`PASS ${name}`);
 }
 
+function expectBsideInviteTranscriptFixture() {
+  const relativePath = 'dev/qc/aps-ux-transcript-b-side-invite-fixture.json';
+  const fixture = JSON.parse(readRepoFile(relativePath));
+  assert(fixture.status === 'static_single_machine_fixture', 'B-side invite transcript fixture: status should be static_single_machine_fixture');
+  assert(fixture.boundary.includes('not real human UAT'), 'B-side invite transcript fixture: boundary must keep human UAT separate');
+  assert(fixture.boundary.includes('not true two-machine evidence'), 'B-side invite transcript fixture: boundary must keep true two-machine evidence separate');
+  assert(Array.isArray(fixture.cases) && fixture.cases.length === 4, 'B-side invite transcript fixture: expected four invite cases');
+  const expectedIds = [
+    'b_invite_no_aps',
+    'b_invite_same_cooperation_directory',
+    'b_invite_different_cooperation_directory',
+    'b_mutual_invites',
+  ];
+  for (const id of expectedIds) {
+    const item = fixture.cases.find((entry) => entry.id === id);
+    assert(item, `B-side invite transcript fixture: missing case ${id}`);
+    for (const field of ['userInput', 'localState', 'acceptableFirstScreen', 'behindTheScenes', 'failureSample', 'passCondition']) {
+      assert(typeof item[field] === 'string' && item[field].trim().length > 0, `B-side invite transcript fixture: ${id} missing ${field}`);
+    }
+    assert(Array.isArray(item.forbidden) && item.forbidden.length >= 4, `B-side invite transcript fixture: ${id} must include forbidden strings`);
+    for (const bad of item.forbidden) {
+      assert(!item.acceptableFirstScreen.includes(bad), `B-side invite transcript fixture: ${id} acceptable first screen includes forbidden text "${bad}"`);
+    }
+  }
+  const allScreens = fixture.cases.map((entry) => entry.acceptableFirstScreen).join('\n');
+  for (const text of [
+    'Google Drive 共用資料夾本機路徑',
+    '用戶名稱',
+    '不需要重裝 APS',
+    '不是叫你換本機工作目錄',
+    '另一個邀請碼先不用',
+  ]) {
+    assert(allScreens.includes(text), `B-side invite transcript fixture: missing required first-screen text "${text}"`);
+  }
+  console.log('PASS B-side invite transcript fixture clears four first-screen branches');
+}
+
+function expectFirstCheckApsLiveTranscriptFixture() {
+  const relativePath = 'dev/qc/aps-ux-check-aps-live-branches-fixture.json';
+  const fixture = JSON.parse(readRepoFile(relativePath));
+  assert(fixture.status === 'static_single_machine_fixture', 'First Check APS fixture: status should be static_single_machine_fixture');
+  for (const text of ['not real human UAT', 'not true two-machine evidence', 'not real Trystero reliability', 'not real Drive timing proof']) {
+    assert(fixture.boundary.includes(text), `First Check APS fixture: boundary must include "${text}"`);
+  }
+  const expectedCheckIds = [
+    'check_aps_no_baseline_first_use',
+    'check_aps_shared_goal_draft_unconfirmed',
+    'check_aps_confirmed_baseline_no_active_packet',
+    'check_aps_confirmed_baseline_active_handoff',
+  ];
+  const expectedFunctionIds = [
+    'live_top_bar_and_identity',
+    'live_primary_ticket',
+    'live_progress_tracker',
+    'live_task_source_start_condition',
+    'live_connection_and_presence',
+    'live_event_log',
+    'live_stage_guide',
+    'live_coordination_block',
+    'live_local_ai_return',
+    'live_terminal_options',
+  ];
+  const expectedBranchIds = [
+    'live_no_baseline',
+    'live_unconfirmed_baseline',
+    'live_normal_handoff',
+    'live_missing_information',
+    'live_stale_page_refresh',
+    'live_peer_offline',
+    'live_wrong_project_identity',
+    'live_drive_sync_delay',
+    'live_three_plus_one_to_one',
+    'live_no_formal_write',
+  ];
+  assert(Array.isArray(fixture.checkApsCases) && fixture.checkApsCases.length === expectedCheckIds.length, 'First Check APS fixture: expected four Check APS cases');
+  assert(Array.isArray(fixture.apsLiveFunctions) && fixture.apsLiveFunctions.length === expectedFunctionIds.length, 'First Check APS fixture: expected ten APS Live functions');
+  assert(Array.isArray(fixture.apsLiveBranches) && fixture.apsLiveBranches.length === expectedBranchIds.length, 'First Check APS fixture: expected ten APS Live branches');
+  for (const id of expectedCheckIds) {
+    const item = fixture.checkApsCases.find((entry) => entry.id === id);
+    assert(item, `First Check APS fixture: missing Check APS case ${id}`);
+    for (const field of ['userInput', 'localState', 'acceptableFirstScreen', 'behindTheScenes', 'passCondition']) {
+      assert(typeof item[field] === 'string' && item[field].trim().length > 0, `First Check APS fixture: ${id} missing ${field}`);
+    }
+    assert(Array.isArray(item.forbidden) && item.forbidden.length >= 4, `First Check APS fixture: ${id} must include forbidden strings`);
+    for (const bad of item.forbidden) {
+      assert(!item.acceptableFirstScreen.includes(bad), `First Check APS fixture: ${id} acceptable first screen includes forbidden text "${bad}"`);
+    }
+  }
+  for (const id of expectedFunctionIds) {
+    const item = fixture.apsLiveFunctions.find((entry) => entry.id === id);
+    assert(item, `First Check APS fixture: missing APS Live function ${id}`);
+    assert(typeof item.acceptableBehavior === 'string' && item.acceptableBehavior.trim().length > 0, `First Check APS fixture: ${id} missing acceptableBehavior`);
+    assert(Array.isArray(item.forbidden) && item.forbidden.length >= 2, `First Check APS fixture: ${id} must include forbidden strings`);
+  }
+  for (const id of expectedBranchIds) {
+    const item = fixture.apsLiveBranches.find((entry) => entry.id === id);
+    assert(item, `First Check APS fixture: missing APS Live branch ${id}`);
+    assert(typeof item.acceptableBehavior === 'string' && item.acceptableBehavior.trim().length > 0, `First Check APS fixture: ${id} missing acceptableBehavior`);
+    assert(Array.isArray(item.forbidden) && item.forbidden.length >= 2, `First Check APS fixture: ${id} must include forbidden strings`);
+  }
+  const combined = JSON.stringify(fixture);
+  for (const text of [
+    '共同基準',
+    '需先建立共同目標與分工',
+    'Check APS',
+    'APS Live 交接追蹤',
+    '任務',
+    '真源',
+    '開工條件',
+    '連接 APS Live',
+    '交接事件紀錄',
+    '目前階段與正式操作',
+    '協調與回應',
+    '本機 AI',
+    'Live 自動 consume',
+    '三位或以上',
+    '一對一',
+  ]) {
+    assert(combined.includes(text), `First Check APS fixture: missing required text "${text}"`);
+  }
+  console.log('PASS first Check APS and APS Live branch fixture covers baseline and live functions');
+}
+
+
+
+function expectFormalHandoffCycleFixture() {
+  const relativePath = 'dev/qc/aps-ux-formal-handoff-cycle-fixture.json';
+  const fixture = JSON.parse(readRepoFile(relativePath));
+  assert(fixture.status === 'static_single_machine_fixture', 'Formal handoff cycle fixture: status should be static_single_machine_fixture');
+  for (const text of ['not real human UAT', 'not true two-machine evidence', 'not real Drive timing proof', 'not an external notification proof']) {
+    assert(fixture.boundary.includes(text), `Formal handoff cycle fixture: boundary must include "${text}"`);
+  }
+  const expectedIds = [
+    'first_formal_handoff_from_natural_language',
+    'receiver_check_drive_can_start',
+    'receiver_check_drive_missing_information',
+    'sender_revise_after_return',
+    'sender_close_after_resolution',
+  ];
+  assert(Array.isArray(fixture.cases) && fixture.cases.length === expectedIds.length, 'Formal handoff cycle fixture: expected five cases');
+  for (const id of expectedIds) {
+    const item = fixture.cases.find((entry) => entry.id === id);
+    assert(item, `Formal handoff cycle fixture: missing case ${id}`);
+    for (const field of ['matrixRow', 'userInput', 'localState', 'acceptableFirstScreen', 'behindTheScenes', 'passCondition']) {
+      assert(typeof item[field] === 'string' && item[field].trim().length > 0, `Formal handoff cycle fixture: ${id} missing ${field}`);
+    }
+    assert(Array.isArray(item.forbidden) && item.forbidden.length >= 5, `Formal handoff cycle fixture: ${id} needs forbidden strings`);
+    for (const bad of item.forbidden) {
+      assert(!item.acceptableFirstScreen.includes(bad), `Formal handoff cycle fixture: ${id} acceptable first screen includes forbidden text "${bad}"`);
+    }
+  }
+  const combined = JSON.stringify(fixture);
+  for (const text of [
+    '交接確認卡',
+    '不會直接寫入共用 Drive',
+    '可開工',
+    '資料不足',
+    '原交接不應被說成完成',
+    '修訂同一條交接線',
+    '不重發一堆新包',
+    '你是原發送方',
+    '收件方 close 對方 packet',
+  ]) {
+    assert(combined.includes(text), `Formal handoff cycle fixture: missing required text "${text}"`);
+  }
+  console.log('PASS formal handoff cycle fixture clears first handoff, check Drive, revise, and close UX branches');
+}
+function expectNoviceNontechnicalUxAxis() {
+  const relativePath = 'dev/qc/aps-novice-nontechnical-ux-axis.json';
+  const axis = JSON.parse(readRepoFile(relativePath));
+  assert(axis.status === 'acceptance_axis_standard', 'Novice non-technical UX axis: status should be acceptance_axis_standard');
+  assert(axis.principle === '用戶講目的，AI 做技術', 'Novice non-technical UX axis: principle must be durable');
+  assert(axis.hardGate.includes('standard-only gate is not a pass result'), 'Novice non-technical UX axis: product-result gate must distinguish standard from pass result');
+  assert(axis.productGoal && axis.productGoal.includes('非技術新手只用自然語言'), 'Novice non-technical UX axis: product goal must be user-result-first');
+  assert(axis.passResult && axis.passResult.includes('完成安裝或加入') && axis.passResult.includes('完成關閉'), 'Novice non-technical UX axis: pass result must cover the full cooperation journey');
+  assert(Array.isArray(axis.notEnoughToPass) && axis.notEnoughToPass.length >= 3, 'Novice non-technical UX axis: must say what is not enough to pass');
+  assert(Array.isArray(axis.completeJourney) && axis.completeJourney.length >= 7, 'Novice non-technical UX axis: expected complete journey stages');
+  for (const id of ['start_or_invite', 'setup_or_join', 'first_check_aps', 'shared_baseline', 'first_formal_handoff', 'receiver_check_drive', 'missing_info_revise_close']) {
+    const item = axis.completeJourney.find((entry) => entry.stage === id);
+    assert(item, `Novice non-technical UX axis: missing stage ${id}`);
+    for (const field of ['userGoal', 'acceptableGuidance']) {
+      assert(typeof item[field] === 'string' && item[field].trim().length > 0, `Novice non-technical UX axis: ${id} missing ${field}`);
+    }
+    assert(Array.isArray(item.failIf) && item.failIf.length >= 3, `Novice non-technical UX axis: ${id} needs failure signals`);
+  }
+  const combined = JSON.stringify(axis);
+  for (const text of [
+    '不懂 npx',
+    '自然語言',
+    'Google Drive 本機路徑',
+    '第一次 Check APS',
+    '共同目標與分工',
+    '交接確認卡',
+    'check Drive',
+    '資料不足退回',
+    'revise',
+    'close',
+    'dev/qc/aps-ux-formal-handoff-cycle-fixture.json',
+    'remainingSingleMachineGaps',
+    '完整非技術真人 UAT',
+    '只建立驗收標準，不代表產品結果已經通過',
+    '命令能跑，不等於非技術新手能完成整條合作流程',
+  ]) {
+    assert(combined.includes(text), `Novice non-technical UX axis: missing required text "${text}"`);
+  }
+  expectRepoFileContains(
+    'public flow map exposes novice non-technical UX product-result gate',
+    'docs/qc/aps-flow-map.html',
+    [
+      '新手非技術 UX 驗收軸',
+      '非技術新手只講目的時',
+      '未過這一軸，不可宣稱產品旅程成熟',
+      '目標是完成整條合作流程，不是只建立驗收標準',
+      '單機產品流程可進入外部 gate 前檢',
+    ],
+  );
+  expectRepoFileContains(
+    'public UX matrix exposes novice non-technical UX product-result gate',
+    'docs/qc/aps-ux-transcript-matrix.html',
+    [
+      '新手非技術 UX 驗收軸',
+      '雙機測試前的產品結果閘',
+      'AI 是否有足夠引導力帶他完成整個 APS 合作流程',
+      '合格結果',
+      '只建立驗收標準、命令能跑、AI persona 局部 fixture 通過，全部都不等於新手已能完成整條合作流程',
+      '完整旅程通過',
+      '單機 fixture / regression 已覆蓋完整合作流程',
+      '真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋',
+      'dev/qc/aps-ux-formal-handoff-cycle-fixture.json',
+      '真人 UAT 未跑',
+    ],
+  );
+  console.log('PASS novice non-technical UX product-result gate is covered for single-machine fixture scope');
+}
 function listFilesRecursive(dirPath, predicate) {
   const results = [];
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
@@ -377,6 +611,84 @@ try {
   );
 
   expectRepoFileContains(
+    'invite flow keeps one route and hides conflict detail until needed',
+    'skills/aps/SKILL.md',
+    [
+      '受邀加入與互邀邊界硬規則',
+      '正常第一屏必須簡短說明',
+      '正常情況不會影響既有人',
+      '邀請人不需要先知道或替受邀者設定用戶名稱',
+      '不要求用戶自己輸入命令',
+      '不得在正常第一屏先講內部風險',
+      '不得列 A / B 選項',
+      '只有在目前本機工作目錄已接到不同 APS 交換區或不同 APS 合作目錄時',
+      'AI 要直接按已有共同資料、共同目標或最先約定者提出最佳建議',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public invite guide keeps normal join simple and conflict-only',
+    'docs/guides/aps-join-invite.html',
+    [
+      '你仍然可以把邀請貼給 AI。AI 會先讀目前的本機 APS 設定，再給你一個建議',
+      '正常情況：',
+      'AI 只會請你提供自己電腦上的 Google Drive 本機路徑和你想使用的用戶名稱。',
+      '發現衝突時：',
+      '雙方都發過邀請時：',
+      '若沒有共同資料，就建議使用你剛貼上的邀請，另一個邀請碼先不要用。',
+    ],
+    [
+      '請在那個項目自己的本機資料夾操作',
+      '不要在原本已接 APS 的項目資料夾覆寫設定',
+      '建議另開新資料夾',
+      '先停下來選一個 APS 合作目錄作本次合作唯一合作空間',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public install prompt gives B-side recommendation first',
+    'README.md',
+    [
+      '如果我是受邀加入，第一屏請用以下方向簡短回覆',
+      '這份邀請是要把我加入同一個 APS 合作目錄；正常情況下不會影響既有人，也不需要邀請人先知道或替我設定用戶名稱。',
+      '請我提供兩件事：一，我自己電腦上看到的 Google Drive 共用資料夾完整本機路徑；二，我想在這個 APS 合作目錄使用的用戶名稱。',
+      '若沒有衝突，直接帶我加入，不要求我自己輸入命令。',
+      '正常第一屏只需講邀請內容、建議做法、需要我提供的資料；不需要先解釋底層風險或列 A / B 選項。',
+      '只有在目前工作目錄已有 .aps/config.json 且指向不同 APS 交換區或 APS 合作目錄時，才顯示衝突說明',
+    ],
+  );
+
+  expectRepoFileContains(
+    'invitation wording keeps one human entry and maintenance-only peer add',
+    'README.md',
+    [
+      '對 AI 說「邀請協作者」；備用命令 `peer invite`',
+      '用戶名稱由對方自己確認，發起人不需要預先知道',
+      '一般邀請新協作者不要用這條路',
+      '維護 / 兼容命令 `peer starter`',
+    ],
+    [
+      '已知 APS 技術名稱時新增協作者',
+      '一般邀請新協作者用 `peer invite`',
+    ],
+  );
+
+  expectRepoFileContains(
+    'setup dialogue keeps invite UX non-technical and user-name-led',
+    'skills/aps/references/setup-dialogue.md',
+    [
+      '標準人類入口是「邀請協作者」',
+      '對方會在自己電腦選定自己的用戶名稱',
+      '不要把命令當成非技術用戶要手動輸入的主步驟',
+      '只有雙方已約定對方用戶名稱且需要維護指定 starter pack 時',
+    ],
+    [
+      '你自己在這個共用資料夾內叫甚麼名字(你的 agent_id)',
+      '自己的 agent id',
+      '已約定對方的 APS 技術名稱',
+    ],
+  );
+  expectRepoFileContains(
     'AI dialogue draft quality sample keeps one-sentence handoff as confirmed draft intake',
     'skills/aps/SKILL.md',
     [
@@ -425,6 +737,111 @@ try {
     ],
   );
 
+  expectRepoFileContains(
+    'public APS flow map shows product journey gates',
+    'docs/qc/aps-flow-map.html',
+    [
+      'APS 全流程地圖與完成度檢查表',
+      '真源定位',
+      '本頁是 APS 產品旅程與完成度安排的真源',
+      '凡改動 APS 使用者流程、功能邏輯、階段順序、完成度判斷或工作優先級，必須同步更新本頁',
+      'CLI 實際行為以 <code>bin/aps.js</code> 為準',
+      'QC 覆蓋狀態、缺口與阻塞以 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code> 為準',
+      '用戶講目的，AI 做技術',
+      '單機產品級完成，才推雙機',
+      '本機工作目錄',
+      'APS 交換區',
+      'APS 合作目錄',
+      '用戶名稱',
+      'Check APS 基準確認',
+      '收件方 check Drive',
+      '雙機測試不是早期排錯手段',
+      '真人 UAT gate',
+      '外部 timing gate',
+      '單機清零狀態與外部 gate',
+      '不新增第二套優先級真源',
+      '只可最後做雙機',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public APS flow map links to UX transcript matrix',
+    'docs/qc/aps-flow-map.html',
+    [
+      'href="aps-ux-transcript-matrix.html">UX 矩陣</a>',
+      'APS 單機 UX Transcript 矩陣',
+      '單機清零狀態與外部 gate',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public APS UX transcript matrix defines first-screen gates',
+    'docs/qc/aps-ux-transcript-matrix.html',
+    [
+      'APS 單機 UX Transcript 矩陣',
+      '用戶輸入',
+      '合格第一屏',
+      'AI 背後應做',
+      '不可出現',
+      '通過條件',
+      '證據狀態',
+      '下一步證據',
+      '真人 UAT gate',
+      '需補 fixture',
+      '已有本機證據',
+      '外部 gate',
+      'B 貼邀請：未安裝 APS',
+      'B 貼邀請：已有同一 APS 合作目錄',
+      'B 貼邀請：已有不同 APS 合作目錄',
+      '互邀：A 和 B 都發過邀請',
+      '加入後第一次 Check APS',
+      '第一份正式交接',
+      '收件方 check Drive：資料不足',
+      '發送方收到退回後 revise',
+      '預設建議更換、另開或改建本機工作目錄',
+      '把邀請碼說成房間、身份、共同目標或正式交接',
+      '單機清零狀態與下一個 gate',
+      '單機完整合作流程已可驗收',
+      'dev/qc/aps-ux-transcript-b-side-invite-fixture.json',
+      'dev/qc/aps-ux-check-aps-live-branches-fixture.json',
+      'APS Live 功能與分支覆蓋',
+      'APS Live operation smoke',
+      '真 Drive timing 與真兩機 / APS Live transport',
+      'APS Live operation smoke 已有本機 CLI + localhost bridge evidence',
+      'dev/qc/evidence/aps-live-operation-smoke/20260618T114335/',
+      '16 PASS / 0 FAIL / 2 BLOCKED',
+      'peer join / leave / reconnect',
+      'A→B / B→A browser chat',
+      '需先建立共同目標與分工',
+      '共同基準：未通過 / 需處理',
+      '共同基準：進行中',
+      '連接 APS Live',
+      '交接事件紀錄',
+      '目前階段與正式操作',
+      '協調與回應',
+      'Live 自動寫入正式狀態',
+      '真人新手 UAT',
+      '若暴露表面困惑，需降回單機 partial 並補 regression',
+    ],
+  );
+
+  expectBsideInviteTranscriptFixture();
+  expectFirstCheckApsLiveTranscriptFixture();
+  expectFormalHandoffCycleFixture();
+  expectNoviceNontechnicalUxAxis();
+
+  expectRepoFileContains(
+    'governance map links to APS full flow map and UX matrix',
+    'docs/qc/governance-map.html',
+    [
+      'href="aps-flow-map.html">流程地圖</a>',
+      'href="aps-ux-transcript-matrix.html">UX 矩陣</a>',
+      'APS 全流程地圖',
+      'APS 單機 UX Transcript 矩陣',
+      '安裝、邀請、加入、共同基準、正式交接、收件、退回與收結',
+    ],
+  );
+
   expectPublicDocsDoNotMentionDashboardHistory();
 
   expectRepoFileContains(
@@ -452,6 +869,26 @@ try {
       'Trystero evidence is message-channel evidence',
       'Six-stage product flow',
       'No Trystero peer event, queue item, screenshot, or unchanged hash may be counted as a substitute for a missing stage transition.',
+      'APS Live Operation Smoke Standard',
+      'Run this smoke before any true two-machine user test',
+      'Entry path',
+      'Connection',
+      'Chat',
+      'Status responses',
+      'Local AI queue bridge',
+      'Terminal follow-up',
+      'Formal boundary',
+      'Handoff progression',
+      'Security and privacy',
+      'dev/qc/evidence/aps-live-operation-smoke/<YYYYMMDD-HHMMSS>/',
+      'formal-state-before.json',
+      'formal-state-after-live.json',
+      'formal-state-after-terminal.json',
+      'Latest Local Operation Smoke',
+      'dev/qc/evidence/aps-live-operation-smoke/20260618T114335/',
+      '16 `PASS`, 0 `FAIL`, 2 `BLOCKED`',
+      'real browser peer join / leave / reconnect',
+      'real Trystero A-to-B / B-to-A browser chat',
       'APS Live end-to-end operation flow',
       '`Check APS`, `check Drive`, or handoff preflight identifies a live coordination need',
       'terminal AI reads the queue',
@@ -483,6 +920,11 @@ try {
       'None of those can replace a missing six-stage transition.',
       'the case where no `shared_goal_and_roles` baseline exists and `共同基準` must be shown as blocked rather than completed',
       'APS Live end-to-end operation flow',
+      'APS Live operation smoke standard',
+      'This recurring smoke is a product operation gate, not a one-time demo',
+      'entry path, connect / no-peer / peer-left / reconnect / wrong-project / same-identity states',
+      'bridge online / offline / invalid-token queue paths',
+      'formal state before / after comparisons',
       '3+ participant one-to-one-boundary',
       'The APS Live end-to-end operation flow gate must prove the whole path',
       'The six-stage product-flow gate must pass before the Trystero evidence can be treated as product readiness.',
@@ -770,15 +1212,18 @@ try {
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html',
     '給人看的逐步詳解',
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html',
-    '項目代號要跟我完全一樣',
+    'APS 合作目錄名稱要跟發起方完全一樣',
     '\nstarter_pack_demo\n',
+    '維護 / 兼容用 starter pack',
+    '如果你未同意這個用戶名稱',
     '\nuser2\n',
-    '你在自己本機的 AI Project 目錄如常打開 AI 工具即可',
-    'Google Drive 共用資料夾只是 APS 用來同步交接資料',
+    '你在自己的本機工作目錄如常打開 AI 工具即可',
+    'APS 交換區只是 APS 用來同步交接資料',
   ]) {
     assert(starter.includes(text), `starter pack: missing ${text}`, starter);
   }
   assert(!starter.includes('你大致要做這幾件事： ☁️'), 'starter pack: invitation must not collapse into one paragraph', starter);
+  assert(!starter.includes('你的用戶名稱請填'), 'starter pack: maintenance guide must not present assigned user name as ordinary invite flow', starter);
   console.log('PASS starter pack invitation is readable and AI-agent led');
 
   const starterAck = JSON.parse(fs.readFileSync(path.join(hubRoot, 'starter_pack_demo', '_ack', 'user2.ack.json'), 'utf8'));
@@ -806,17 +1251,29 @@ try {
     '📨 APS 協作邀請：open_invite_demo',
     '你的加入邀請碼是：',
     inviteCode,
-    '這個邀請碼只代表「可以加入這個 APS 項目」，不代表你的 APS 名稱',
+    '這個邀請碼只代表「可以加入這個 APS 合作目錄」，不代表你的用戶名稱',
+    '你的用戶名稱由你自己決定，AI 會先檢查是否重名。',
+    '請先做幾件簡單的事：',
+    '先到你的 email 找 Google Drive 分享通知，接受分享資料夾「',
+    '在你平日處理這個項目的本機工作目錄，打開能操作本機檔案的 AI 代理，例如 Codex、Claude Code 或 Claude Cowork',
+    'AI 會建議你加入 open_invite_demo，並請你提供自己電腦上的 Google Drive 本機路徑和你想使用的用戶名稱。',
     '把下面 `---✂️---` 之間的整段直接貼給 AI',
     '---✂️---',
-    '請在目前本機項目資料夾，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：',
+    '請在目前本機工作目錄，按這頁指引帶我安裝或加入 Agent Public Squares（APS）。下面網址是給本機 AI 代理讀的安裝／加入依據，不是叫我自己研究命令：',
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html',
     '你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。',
-    '若目前資料夾已有 .aps/config.json，請先讀取並比對項目代號與共用 Drive 路徑，不要直接覆寫。',
+    '下面網址是給本機 AI 代理讀的安裝／加入依據，不是叫我自己研究命令',
+    '如果我是受邀加入，第一屏請用以下方向簡短回覆：',
+    '正常情況下不會影響既有人，也不需要邀請人先知道或替我設定用戶名稱。',
+    '請我提供兩件事：一，我自己電腦上看到的 Google Drive 共用資料夾完整本機路徑；二，我想在這個 APS 合作目錄使用的用戶名稱。',
+    '若沒有衝突，直接帶我加入，不要求我自己輸入命令。',
+    '正常第一屏只需講邀請內容、建議做法、需要我提供的資料；不需要先解釋底層風險或列 A / B 選項。',
+    '只有在目前工作目錄已有 .aps/config.json 且指向不同 APS 交換區或 APS 合作目錄時，才顯示衝突說明',
+    '請直接建議使用已有共同資料、共同目標或最先約定的 APS 合作目錄',
     '我確認一次後，請按這個範圍連續完成安裝或加入與 doctor，不要每個命令重複問我。',
     '只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。',
-    'Google Drive 本機位置、項目代號、我的 APS 名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 共用位置並納入同一次計劃確認。如果我是受邀加入，項目代號與邀請碼以邀請訊息為準，APS 名稱仍由我自己決定，請先檢查是否重名。',
-    '項目代號：\nopen_invite_demo',
+    'Google Drive 本機位置、APS 合作目錄名稱、我的用戶名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 交換區並納入同一次計劃確認。如果我是受邀加入，APS 合作目錄名稱與邀請碼以邀請訊息為準，用戶名稱仍由我自己決定，請先檢查是否重名。',
+    'APS 合作目錄名稱：\nopen_invite_demo',
     `邀請碼：\n${inviteCode}`,
     'Google Drive 共用資料夾名稱：',
     '邀請人：\nadam',
@@ -825,9 +1282,30 @@ try {
   ]) {
     assert(invite.includes(text), `open invite: missing ${text}`, invite);
   }
+  for (const text of [
+    '--- 可轉發邀請開始 ---',
+    '📨 APS 協作邀請：open_invite_demo',
+    '---✂️---',
+    `APS 合作目錄名稱：\nopen_invite_demo`,
+    `邀請碼：\n${inviteCode}`,
+    '--- 可轉發邀請結束 ---',
+  ]) {
+    assert(inviteOutput.includes(text), `peer invite stdout: missing ${text}`, inviteOutput);
+  }
   assert(!invite.includes('我收到一個 Agent Public Squares（APS）協作邀請。請你帶我加入這個 APS project。'), 'open invite: must not drift from the public HTML core prompt', invite);
-  assert(!invite.includes('你的 APS 名稱請填'), 'open invite: must not assign the recipient APS name', invite);
+  assert(!invite.includes('你的用戶名稱請填'), 'open invite: must not assign the recipient APS name', invite);
+  assert(!invite.includes('你的用戶名稱請填'), 'open invite: must not assign the recipient user name', invite);
   assert(!invite.includes('\nuser2\n'), 'open invite: must not include hard-coded user2 identity', invite);
+  assert(!invite.includes('建議另開新資料夾'), 'open invite: must not suggest a new local work folder as the default', invite);
+  assert(!invite.includes('替你取的用戶名稱'), 'open invite: must not imply the inviter named the recipient', invite);
+  assert(!invite.includes('不要直接在目前這個資料夾'), 'open invite: must not frame joining as leaving the current local work folder by default', invite);
+  assert(!invite.includes('請先分清三個位置'), 'open invite: must not lead with internal location taxonomy', invite);
+  assert(!invite.includes('收到邀請時，不要因為對方的邀請碼而改建或切換本機工作目錄'), 'open invite: must not show old internal risk wording in normal flow', invite);
+  assert(!invite.includes('如果雙方都互相發出邀請，先停下來選一個共同 APS 合作目錄作本次合作唯一合作空間'), 'open invite: must not ask the recipient to resolve mutual-invite internals up front', invite);
+  assert(!invite.includes('請先輸出「加入判斷卡」'), 'open invite: must not show the old decision-card wording', invite);
+  assert(invite.includes('不要求我自己輸入命令'), 'open invite: must tell the invitee AI not to ask the user to type commands', invite);
+  assert(invite.includes('正常情況下不會影響既有人'), 'open invite: must reassure the invitee that normal joining does not affect existing people', invite);
+  assert(invite.includes('下面網址是給本機 AI 代理讀的安裝／加入依據'), 'open invite: must frame the URL as AI-readable instructions', invite);
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', 'from_user2')), 'open invite: must not create invitee lane');
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_ack', 'user2.ack.json')), 'open invite: must not create invitee ack');
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_peers', 'agents', 'user2.json')), 'open invite: must not create invitee peer card');
@@ -901,7 +1379,7 @@ try {
   );
   const duplicateOutput = outputOf(duplicateInit);
   assert(duplicateInit.status === 1, `duplicate init: expected exit 1, got ${duplicateInit.status}`, duplicateOutput);
-  assert(duplicateOutput.includes('APS 名稱 alex 在這個 project 已存在'), 'duplicate init: missing collision warning', duplicateOutput);
+  assert(duplicateOutput.includes('用戶名稱 alex 在這個 APS 合作目錄已存在'), 'duplicate init: missing collision warning', duplicateOutput);
   console.log('PASS init blocks duplicate confirmed APS identity');
 
   const provisionalJoin = runApsProcess(
@@ -1022,7 +1500,7 @@ try {
     'publish blocks local APS identity override',
     ['--hub-root', hubRoot, '--project', 'publish_missing_peer', '--from', 'mary', '--to', 'jay', '--topic', 'identity_override', '--body', 'should block'],
     1,
-    ['publish 已阻擋', '本機 APS 名稱是 adam', '指令要求使用 mary', '--allow-agent-override'],
+    ['publish 已阻擋', '本機用戶名稱是 adam', '指令要求使用 mary', '--allow-agent-override'],
   );
   for (const [name, command, extraArgs, expectedText] of [
     ['revise blocks local APS identity override', 'revise', ['--packet-id', '20260612T000000Z__identity_override', '--body', 'should block', '--reason', 'identity check'], 'revise 已阻擋'],
@@ -1034,7 +1512,7 @@ try {
     const result = runApsProcess([command, '--hub-root', hubRoot, '--project', 'publish_missing_peer', '--agent-id', 'mary', ...extraArgs]);
     const output = outputOf(result);
     assert(result.status === 1, `${name}: expected exit 1, got ${result.status}`, output);
-    for (const text of [expectedText, '本機 APS 名稱是 adam', '指令要求使用 mary', '--allow-agent-override']) {
+    for (const text of [expectedText, '本機用戶名稱是 adam', '指令要求使用 mary', '--allow-agent-override']) {
       assert(output.includes(text), `${name}: missing expected output text "${text}"`, output);
     }
     console.log(`PASS ${name}`);
@@ -1043,7 +1521,7 @@ try {
     'publish blocks explicit unregistered peer',
     ['--hub-root', hubRoot, '--project', 'publish_missing_peer', '--agent-id', 'adam', '--to', 'ghost_id', '--topic', 'missing_peer', '--body', 'should block'],
     1,
-    ['not registered as a project peer', 'peer invite', 'peer add'],
+    ['not registered as a project peer', 'ask your AI to generate an APS invite', 'Maintenance fallback only'],
   );
 
   writeTempApsConfig('publish_provisional_peer', 'adam');
@@ -1054,7 +1532,7 @@ try {
     'publish blocks inactive provisional peer',
     ['--hub-root', hubRoot, '--project', 'publish_provisional_peer', '--agent-id', 'adam', '--to', 'pending_peer', '--topic', 'provisional_peer', '--body', 'should block'],
     1,
-    ['no activity yet', 'peer invite'],
+    ['no activity yet', 'ask your AI to generate an APS invite'],
   );
 
   publishReadyProject('decline_packet_demo');
@@ -1220,7 +1698,7 @@ try {
     '身份結構檢查',
     'alex.ack.json 內的 agent 是 mary',
     'casey.ack.json 內的 project 是 wrong_project',
-    'lane 名稱 from_bad-name 不是合法 APS 名稱',
+    'lane 名稱 from_bad-name 不是合法用戶名稱',
     'bob.json 內的 agent_id 是 robert',
     'casey.json 內的 project 是 wrong_project',
     'dana.json 內的 lane 是 from_different_dana',
@@ -1236,7 +1714,7 @@ try {
     '建議下一步（可直接複製給 AI）',
     'alex.ack.json 內的 agent 是 mary',
     'casey.ack.json 內的 project 是 wrong_project',
-    'lane 名稱 from_bad-name 不是合法 APS 名稱',
+    'lane 名稱 from_bad-name 不是合法用戶名稱',
   ]) {
     assert(identityCheckApsOutput.includes(text), `identity check-aps: missing ${text}`, identityCheckApsOutput);
   }
@@ -1529,8 +2007,8 @@ try {
     ['slack user', 'xoxp-' + 'APS-QC-FAKE-SECRET-000000'],
     ['slack app', 'sl.' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
     ['google api', 'AIza' + 'APS_QC_FAKE_SECRET_DO_NOT_USE_000000'],
-    ['aws access', 'AKIAABCDEFGHIJKLMNOP'],
-    ['private key', '-----BEGIN PRIVATE KEY-----\\nAPS_QC_FAKE_SECRET_DO_NOT_USE_000000\\n-----END PRIVATE KEY-----'],
+    ['aws access', 'AKIA' + 'ABCDEFGHIJKLMNOP'],
+    ['private key', '-----BEGIN ' + 'PRIVATE KEY-----\\nAPS_QC_FAKE_SECRET_DO_NOT_USE_000000\\n-----END ' + 'PRIVATE KEY-----'],
   ];
   for (const [sampleName, sampleValue] of fakeSecretSamples) {
     expectPublishCase(
@@ -1790,7 +2268,7 @@ try {
   );
   writeFile(
     path.join(hubRoot, 'shared_goal_inbox_insufficient', 'from_adam', 'packets', '20260616T143211Z__shared_goal_and_roles__v1', 'packet.md'),
-    `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox_insufficient\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\nProject: aps_jay\n`,
+    `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox_insufficient\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\nProject: incomplete_placeholder\n`,
   );
   inboxPacket('context_add', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary');
   inboxPacket('context_add_exact', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary', 1);
@@ -2740,7 +3218,7 @@ try {
     ],
     [
       '對方交了甚麼',
-      'Project: aps_jay',
+      'Project: incomplete_placeholder',
     ],
   );
 

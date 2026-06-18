@@ -33,6 +33,81 @@ This gate is a matrix of common user flows, not one route. Each claim must name 
 
 Current local executable coverage: PUBLIC `dev/qc/check_context_index.cjs` covers the fixture-able local branches: no-baseline first use through `check-aps`, unconfirmed shared-goal draft with `共同基準` in progress, normal confirmed-baseline handoff with `可開工判斷` active, missing-information return with `可開工判斷` blocked, stale generated-page refresh boundary, no-peer / same-identity send guard, wrong-project room isolation, Drive-sync-delay-shaped incomplete peer artifacts, and active-packet consistency across `check-aps`, `check-drive`, and APS Live. OPS `dev/qc/evidence/aps-live-local-gap-qc/` adds a local browser visual proof for the no-baseline generated page. This does not pass the reliable cross-machine Trystero gate and does not cover real Trystero peer-offline behavior, real Drive sync timing, real user comprehension, external notification delivery, or true two-device behavior.
 
+## APS Live Operation Smoke Standard
+
+This is the recurring operation smoke standard for APS Live. It is not a one-off demo record. Run it whenever APS Live connection, chat, local AI queue, status wording, handoff progression, or formal-state boundary changes. It may be run on one machine with isolated browser profiles to catch product-flow regressions before asking for a real two-machine test, but it cannot certify reliable cross-machine APS Live.
+
+The smoke answers one product question: can a non-technical user move from a blocked or uncertain APS handoff into APS Live, coordinate with the collaborator, send the result back to local AI, and return to terminal formal action without hidden writes, split-brain state, or misleading status?
+
+### When To Run
+
+Run this smoke before any true two-machine user test when one of these surfaces changes:
+
+- APS Live generated HTML, status text, connect controls, message controls, browser-local transcript, or local-AI return wording.
+- Trystero import, room id, peer join / leave handling, action channels, resend, or de-duplication.
+- `Check APS`, `check Drive`, `aps live`, `aps live-bridge`, or `aps live-queue` behavior.
+- Formal APS packet, outbox, ack, shared-goal, consume, decline, revise, close, or publish boundary wording.
+- UX transcript matrix rows covering first Check APS, Live, missing information, revise, close, or 3+ participant behavior.
+
+### Required Scenarios
+
+Every recurring smoke package must list each scenario as `PASS`, `FAIL`, `BLOCKED`, or `NOT_RUN`. A missing scenario is a failed package, not an implicit pass.
+
+| Scenario family | Required branches | Pass condition |
+|---|---|---|
+| Entry path | `Check APS` opens or refreshes Live; `check Drive` or handoff preflight can recommend Live; maintainer `aps live` regeneration remains secondary. | The user is not told to run technical commands as the normal path. The page opens only with project, user, active ticket, blocker, and next formal action context. |
+| Connection | no peer, peer joins, peer leaves, reconnect / reload, stale page, same identity in another tab, wrong APS project / room. | The visible state is current and plain-language. Same identity and wrong project are not counted as valid collaborators. Offline means only not present in Live now. |
+| Chat | A sends to B, B sends to A, near-simultaneous sends, immediate send after peer discovery, duplicate warmup resend. | Both sides see one human-readable message in the right ticket context. Duplicate cards are not created. Chat history remains browser-local convenience only. |
+| Status responses | connected, connected without peer, peer left, wrong project / identity, no baseline, unconfirmed baseline, confirmed baseline, normal handoff, missing information, Drive sync delay, declined / returned packet. | Each state gives one clear next user action. Old pending hints do not remain after a later state. No status text claims formal ack, notification receipt, or Drive sync proof. |
+| Local AI queue bridge | bridge online, bridge offline, invalid token, selected follow-up intent, recent messages attached. | Online bridge writes only `_context/live_queue` local material. Offline fallback is copyable human-readable text. Invalid token is rejected without formal state writes. |
+| Terminal follow-up | `aps live-queue` and `Check APS` surface queued Live material; terminal AI summarises and judges first. | Terminal proposal is a draft or recommendation. No formal APS command runs until the user confirms in terminal / local AI. |
+| Formal boundary | Compare formal state before Live, after Live / queue, and after terminal-approved action. | Live and queue do not modify packet / outbox / ack / shared-goal / consume / decline / revise / close / publish records. Only terminal-approved formal action may change formal state. |
+| Handoff progression | Six stages from `共同基準` to `正式更新`, including normal handoff, no-baseline block, unconfirmed-baseline block, and missing-information return. | The ledger records both identities, trigger, visible state, queue / terminal evidence, decision, and next formal action for every stage or explicit block. |
+| 3+ participant boundary | three distinct identities, non-Adam / non-Jay names, display names differ from `agent_id`, A->B and A->C separate packets, C comments in A->B Live room. | Presence and bounded coordination work, but formal handoff remains one sender to one receiver. Third party cannot ack, consume, decline, close, or satisfy another receiver's packet. |
+| Security and privacy | local absolute paths, credentials-like strings, private file snippets, oversized messages. | Sensitive material is not broadcast as receiver instruction. Local paths are not treated as receiver-readable truth. User-facing fallback never exposes raw JSON as the normal path. |
+
+### Required Evidence Package
+
+Store recurring smoke evidence under:
+
+```text
+dev/qc/evidence/aps-live-operation-smoke/<YYYYMMDD-HHMMSS>/
+```
+
+The folder must contain these files or an explicit blocked reason for each missing file:
+
+| Evidence file | Purpose |
+|---|---|
+| `summary.json` | Run metadata: APS source commit, OS, browser, network shape, participants, project, room mode, and whether physical machines or isolated browser profiles were used. |
+| `scenario-ledger.md` | One row per required scenario branch with `PASS`, `FAIL`, `BLOCKED`, or `NOT_RUN`, reason, and next action. |
+| `six-stage-ledger.md` | Stage-by-stage product-flow ledger for `共同基準`, `已發出`, `對方查看`, `可開工判斷`, `處理 / 補資料`, and `正式更新`. |
+| `events.jsonl` | Structured peer join, leave, reconnect, send, receive, de-dup, queue, and terminal-return events. |
+| `screenshots/` | Before / after screenshots or captures for entry, connection, chat, queue return, stale / offline, wrong project, and missing-information branches. |
+| `formal-state-before.json` | File list or hashes for formal APS records before Live. |
+| `formal-state-after-live.json` | File list or hashes after Live chat and queue creation, before terminal-approved formal action. |
+| `formal-state-after-terminal.json` | File list or hashes after the user-approved terminal formal action, or blocked reason if no formal action was approved. |
+| `queue-readback.txt` | Terminal readback from `aps live-queue` or `Check APS` showing how local AI should summarise / judge queued material. |
+| `browser-console.json` | Browser errors, warnings, and transport diagnostics with secrets redacted. |
+
+### Pass / Fail Policy
+
+- Product-flow evidence, Trystero / browser evidence, local queue evidence, and formal-boundary evidence are separate layers. One layer cannot pass another layer by proxy.
+- Same-machine isolated-browser smoke may pass local product operation only. It must be labelled `local operation smoke`, not `reliable cross-machine`.
+- True two-machine support requires the same scenario ledger on physical machines or independent network contexts.
+- Stale screenshots, mixed project folders, mixed identities, or evidence copied from a different APS collaboration directory fail the package.
+- A package fails if user-facing wording asks a non-technical user to operate the core flow through `npx`, raw JSON, room id, packet id, or internal diagnostics.
+- A package fails if Live chat, presence, or queue material is treated as formal ack, consume, decline, revise, close, publish, notification receipt, or Drive sync proof.
+
+### Latest Local Operation Smoke
+
+Latest run: `dev/qc/evidence/aps-live-operation-smoke/20260618T114335/`
+
+Result: `partial_with_blocked_transport` — 16 `PASS`, 0 `FAIL`, 2 `BLOCKED`.
+
+Passed locally: `Check APS` generated APS Live, maintainer `aps live` regenerated the page, no-peer send stayed disabled, wrong-project room id was isolated, no-baseline blocked `共同基準`, unconfirmed baseline stayed `進行中`, missing-information status surfaced, localhost bridge accepted a valid queue item, invalid token was rejected, offline fallback text was human-readable, terminal `live-queue` and `Check APS` read queued material, Live / queue did not change formal APS records, terminal-approved `decline` changed formal state, wrong-recipient consume was rejected in the 3+ participant boundary, local hub path was not exposed in generated HTML, and normal UI did not expose raw JSON.
+
+Blocked locally: real browser peer join / leave / reconnect, and real Trystero A-to-B / B-to-A browser chat. These need isolated browser profiles or true two-machine / independent-network evidence. This run does not certify reliable cross-machine APS Live.
+
 ## Required Test Matrix
 
 | Area | Minimum scenarios | Pass condition |
