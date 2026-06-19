@@ -119,6 +119,14 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 
 升級流程不可覆寫既有 packet folder、outbox、ack 或 `_hub/PROTOCOL.md`。若 `npx aps upgrade` 顯示缺 `.aps/config.json`,代表這不是升級路徑,應改走新安裝。
 
+**升級完成回報硬規則**:完成後最終回報只用短格式,不得把備份路徑、`.claude/skills`、`.codex/skills`、TLS / 網絡讀頁失敗、`SESSION_HANDOFF.md`、`SESSION_LOG.md`、完整命令流水、npm 安裝細節或 skill 安裝目標放入主回報。這些只在用戶追問或 doctor 失敗時補充。成功時使用:
+
+```text
+✅ APS 升級完成，doctor 預檢通過。
+🚀 下一步:重新啟動 Claude Code 或 Codex，再在項目資料夾輸入「教我用 APS」。
+APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
+```
+
 ### 4.2 項目開局對齊子流程
 
 此流程是安裝後與多人合作前的唯一口徑真源。README、公開 HTML 與 setup wording 只可摘要本節或提供話術,不得另立一套欄位或順序。目標是讓第一位用戶在邀請 peer 前,先由 AI 引導建立可確認、但不過度沉重的「夠安全開始」共同目標與分工,避免後續各 workspace 各自理解共同目標與分工。它是 project-level shared baseline:同一個 APS 合作目錄 只可有一份目前有效基準,可透過修訂產生版本,不可由不同 peer 各自建立平行版本。

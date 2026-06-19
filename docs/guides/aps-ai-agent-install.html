@@ -247,7 +247,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
 
 <section>
   <h2>收尾輸出</h2>
-  <p>完成後，回報格式要貼近 CLI 結果，不要另創厚模板。先照實際情況選用以下短格式，再最多補一行 APS 合作目錄、用戶名稱和 doctor 狀態。</p>
+  <p>完成後，最終回報只可使用以下短格式；這是完成合約，不是寫作建議。即使終端機輸出列出備份、刷新、TLS、網絡、handoff 或 log 細節，主回報仍要保持短。備份路徑、TLS 握手失敗、<code>SESSION_HANDOFF.md</code>、<code>SESSION_LOG.md</code>、完整命令流水、npm 安裝詳情、skill 安裝目標與本機檔案清單，不得放入主回報；只有用戶追問細節或 doctor 失敗時才補充。</p>
   <pre>✅ APS 設定完成
 🚀 下一步:打開 AI 工具並輸入「教我用 APS」。AI 應讀取現有設定、檢查共用 Drive 資料夾，先建立共同目標與分工。
 APS 合作目錄：&lt;名稱&gt;；用戶名稱：&lt;名稱&gt;；doctor：&lt;通過／未通過&gt;。</pre>
@@ -258,6 +258,7 @@ APS 合作目錄：&lt;名稱&gt;；用戶名稱：&lt;名稱&gt;；doctor：通
     <li>若 doctor 未通過，保留 CLI 失敗意思，用一句話說明卡在哪裏，並請用戶不要先發正式交接包。</li>
     <li>不要聲稱已提交、推送、發佈、改權限、代發外部訊息或自動發正式交接包；這些都不是安裝或升級流程的一部分。</li>
     <li>安裝成功後要接上「共同目標與分工」流程；但回報格式本身保持短，下一步用 CLI 對齊句承接。</li>
+    <li>若因本機環境未能讀取本頁，但已靠本機 APS skill、npm 最新版本與 doctor 完成核對，主回報仍使用同一短格式；不要把讀頁失敗原因放在主回報。</li>
   </ul>
 </section>
 

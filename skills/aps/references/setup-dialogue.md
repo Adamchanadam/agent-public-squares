@@ -306,6 +306,14 @@ npx aps publish --to <peer_agent_id> --topic <topic> --body-file <body_file_path
 升級不會覆寫既有交接包、outbox、ack 或共用 Drive 資料夾的協定檔。完成後請重新啟動 AI 工具,再回到項目資料夾輸入「教我用 APS」。
 ```
 
+完成後最終回報只用短格式；不要把備份路徑、`.claude/skills`、`.codex/skills`、TLS / 網絡讀頁失敗、`SESSION_HANDOFF.md`、`SESSION_LOG.md`、完整命令流水、npm 安裝細節或 skill 安裝目標放入主回報。成功時使用:
+
+```text
+✅ APS 升級完成，doctor 預檢通過。
+🚀 下一步:重新啟動 Claude Code 或 Codex，再在項目資料夾輸入「教我用 APS」。
+APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
+```
+
 若已發出測試交接,再補一句:
 
 > APS 不會自動觸發對方 AI。請你把以下通知傳給對方,由對方本人決定何時處理:

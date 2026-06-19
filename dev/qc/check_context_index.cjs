@@ -723,7 +723,34 @@ try {
       '用戶端 prompt 只需提供本頁網址；其餘安裝、加入、升級、確認與收尾規則，一律以本頁為準。',
       '安裝後先建立「夠安全開始」的共同目標與分工',
       '從用戶已提供的項目背景、目前資料夾內容和對話中整理；缺資料才問，最多問三個關鍵問題',
-      '完成後，回報格式要貼近 CLI 結果，不要另創厚模板',
+      '最終回報只可使用以下短格式；這是完成合約，不是寫作建議',
+      '備份路徑、TLS 握手失敗、<code>SESSION_HANDOFF.md</code>、<code>SESSION_LOG.md</code>、完整命令流水、npm 安裝詳情、skill 安裝目標與本機檔案清單，不得放入主回報',
+      '✅ APS 升級完成，doctor 預檢通過。',
+    ],
+  );
+
+  expectRepoFileContains(
+    'APS skill fallback keeps upgrade closeout short when HTML is unavailable',
+    'skills/aps/SKILL.md',
+    [
+      '升級完成回報硬規則',
+      '不得把備份路徑',
+      '`SESSION_HANDOFF.md`',
+      '`SESSION_LOG.md`',
+      '完整命令流水',
+      '✅ APS 升級完成，doctor 預檢通過。',
+    ],
+  );
+
+  expectRepoFileContains(
+    'setup dialogue fallback keeps upgrade closeout short',
+    'skills/aps/references/setup-dialogue.md',
+    [
+      '完成後最終回報只用短格式',
+      '不要把備份路徑',
+      '`SESSION_HANDOFF.md`',
+      '`SESSION_LOG.md`',
+      'npm 安裝細節',
       '✅ APS 升級完成，doctor 預檢通過。',
     ],
   );
