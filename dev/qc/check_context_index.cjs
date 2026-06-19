@@ -646,15 +646,17 @@ try {
   );
 
   expectRepoFileContains(
-    'public install prompt gives B-side recommendation first',
+    'public install prompt stays short and delegates rules to AI install guide',
     'README.md',
     [
+      '請在目前本機工作目錄，按以下頁面完成 Agent Public Squares（APS）安裝、加入或升級：',
+      'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html',
+      '詳細規則由頁面交給 AI 讀取和執行',
+    ],
+    [
       '如果我是受邀加入，第一屏請用以下方向簡短回覆',
-      '這份邀請是要把我加入同一個 APS 合作目錄；正常情況下不會影響既有人，也不需要邀請人先知道或替我設定用戶名稱。',
-      '請我提供兩件事：一，我自己電腦上看到的 Google Drive 共用資料夾完整本機路徑；二，我想在這個 APS 合作目錄使用的用戶名稱。',
-      '若沒有衝突，直接帶我加入，不要求我自己輸入命令。',
-      '正常第一屏只需講邀請內容、建議做法、需要我提供的資料；不需要先解釋底層風險或列 A / B 選項。',
-      '只有在目前工作目錄已有 .aps/config.json 且指向不同 APS 交換區或 APS 合作目錄時，才顯示衝突說明',
+      '下面網址是給本機 AI 代理讀的安裝／加入／升級依據',
+      '既有同一 APS 合作目錄應走升級路徑：更新 npm 套件、執行 APS upgrade、再跑 doctor',
     ],
   );
 
@@ -718,8 +720,11 @@ try {
       'AI 先做只讀檢查，再列出一次性安裝或升級計劃',
       '用戶確認一次後，該確認覆蓋計劃內的 npm install、init 或 upgrade、設定寫入與 doctor',
       '不要每個命令重複打斷',
+      '用戶端 prompt 只需提供本頁網址；其餘安裝、加入、升級、確認與收尾規則，一律以本頁為準。',
       '安裝後先建立「夠安全開始」的共同目標與分工',
-      '先整理夠安全開始的草稿，缺資料才問最多三個關鍵問題',
+      '從用戶已提供的項目背景、目前資料夾內容和對話中整理；缺資料才問，最多問三個關鍵問題',
+      '完成後，回報格式要貼近 CLI 結果，不要另創厚模板',
+      '✅ APS 升級完成，doctor 預檢通過。',
     ],
   );
 
@@ -1259,25 +1264,13 @@ try {
     'AI 會建議你加入 open_invite_demo，並請你提供自己電腦上的 Google Drive 本機路徑和你想使用的用戶名稱。',
     '把下面 `---✂️---` 之間的整段直接貼給 AI',
     '---✂️---',
-    '請在目前本機工作目錄，按這頁指引帶我安裝或加入 Agent Public Squares（APS）。下面網址是給本機 AI 代理讀的安裝／加入依據，不是叫我自己研究命令：',
+    '請在目前本機工作目錄，按以下頁面完成 Agent Public Squares（APS）安裝、加入或升級：',
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html',
-    '你要先讀完整頁面，再檢查目前資料夾是否適合安裝或加入。',
-    '下面網址是給本機 AI 代理讀的安裝／加入依據，不是叫我自己研究命令',
-    '如果我是受邀加入，第一屏請用以下方向簡短回覆：',
-    '正常情況下不會影響既有人，也不需要邀請人先知道或替我設定用戶名稱。',
-    '請我提供兩件事：一，我自己電腦上看到的 Google Drive 共用資料夾完整本機路徑；二，我想在這個 APS 合作目錄使用的用戶名稱。',
-    '若沒有衝突，直接帶我加入，不要求我自己輸入命令。',
-    '正常第一屏只需講邀請內容、建議做法、需要我提供的資料；不需要先解釋底層風險或列 A / B 選項。',
-    '只有在目前工作目錄已有 .aps/config.json 且指向不同 APS 交換區或 APS 合作目錄時，才顯示衝突說明',
-    '請直接建議使用已有共同資料、共同目標或最先約定的 APS 合作目錄',
-    '我確認一次後，請按這個範圍連續完成安裝或加入與 doctor，不要每個命令重複問我。',
-    '只有遇到計劃外路徑、刪除或覆寫既有 APS 資料、提交、推送、發佈、改權限、費用操作或代發外部訊息，才停下再問。',
-    'Google Drive 本機位置、APS 合作目錄名稱、我的用戶名稱由我提供或確認；如果我只提供 Google Drive 根目錄，請建議 Agent_Public_Squares 作 APS 交換區並納入同一次計劃確認。如果我是受邀加入，APS 合作目錄名稱與邀請碼以邀請訊息為準，用戶名稱仍由我自己決定，請先檢查是否重名。',
     'APS 合作目錄名稱：\nopen_invite_demo',
     `邀請碼：\n${inviteCode}`,
     'Google Drive 共用資料夾名稱：',
     '邀請人：\nadam',
-    '通過後，請告訴我以後可以輸入「Check APS」查看整體狀態',
+    '請按頁內收尾輸出，用與 CLI 對齊的短格式回報',
     'https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-join-invite.html',
   ]) {
     assert(invite.includes(text), `open invite: missing ${text}`, invite);
@@ -1303,9 +1296,10 @@ try {
   assert(!invite.includes('收到邀請時，不要因為對方的邀請碼而改建或切換本機工作目錄'), 'open invite: must not show old internal risk wording in normal flow', invite);
   assert(!invite.includes('如果雙方都互相發出邀請，先停下來選一個共同 APS 合作目錄作本次合作唯一合作空間'), 'open invite: must not ask the recipient to resolve mutual-invite internals up front', invite);
   assert(!invite.includes('請先輸出「加入判斷卡」'), 'open invite: must not show the old decision-card wording', invite);
-  assert(invite.includes('不要求我自己輸入命令'), 'open invite: must tell the invitee AI not to ask the user to type commands', invite);
-  assert(invite.includes('正常情況下不會影響既有人'), 'open invite: must reassure the invitee that normal joining does not affect existing people', invite);
-  assert(invite.includes('下面網址是給本機 AI 代理讀的安裝／加入依據'), 'open invite: must frame the URL as AI-readable instructions', invite);
+  assert(invite.includes('請在目前本機工作目錄，按以下頁面完成 Agent Public Squares（APS）安裝、加入或升級：'), 'open invite: must keep the client prompt short', invite);
+  assert(invite.includes('請按頁內收尾輸出，用與 CLI 對齊的短格式回報'), 'open invite: must delegate completion reporting to the AI install page', invite);
+  assert(!invite.includes('如果我是受邀加入，第一屏請用以下方向簡短回覆'), 'open invite: must not inline the long B-side prompt', invite);
+  assert(!invite.includes('下面網址是給本機 AI 代理讀的安裝／加入依據'), 'open invite: must not keep the old long URL framing', invite);
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', 'from_user2')), 'open invite: must not create invitee lane');
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_ack', 'user2.ack.json')), 'open invite: must not create invitee ack');
   assert(!fs.existsSync(path.join(hubRoot, 'open_invite_demo', '_peers', 'agents', 'user2.json')), 'open invite: must not create invitee peer card');

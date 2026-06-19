@@ -8,7 +8,7 @@
     {
       "id": "b_invite_no_aps",
       "matrixRow": "B 貼邀請：未安裝 APS",
-      "userInput": "---✂️---\n請在目前本機工作目錄，按這頁指引帶我安裝或加入 Agent Public Squares（APS）：\nhttps://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html\n\n邀請資訊如下：\n\nAPS 合作目錄名稱：brand_launch_room\n邀請碼：APS-BRAN-0B05-CDDC\nGoogle Drive 共用資料夾名稱：Agent_Public_Squares\n邀請人：user_a\n---✂️---",
+      "userInput": "---✂️---\n請在目前本機工作目錄，按以下頁面完成 Agent Public Squares（APS）安裝、加入或升級：\nhttps://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-install.html\n\n邀請資訊如下：\n\nAPS 合作目錄名稱：brand_launch_room\n邀請碼：APS-BRAN-0B05-CDDC\nGoogle Drive 共用資料夾名稱：Agent_Public_Squares\n邀請人：user_a\n---✂️---",
       "localState": "No .aps/config.json exists in the current local AI work directory.",
       "acceptableFirstScreen": "這是 user_a 邀請你加入 APS 合作目錄 brand_launch_room 的邀請。我會先讀安裝指引和檢查目前本機工作目錄；如果未安裝 APS，下一步只需要你提供兩項資料：你自己電腦上的 Google Drive 共用資料夾本機路徑，以及你想使用的用戶名稱。上面的網址是給本機 AI 代理讀取和執行，不是叫你手動輸入命令。",
       "behindTheScenes": "Read the invite, read the AI-agent install guide, check whether .aps/config.json exists, then prepare one upfront install/join plan. Write only after user confirms the plan.",
