@@ -2579,12 +2579,288 @@ function sourceRefDisplay(ref) {
   return `<code>${htmlEscape(value)}</code>`;
 }
 
+function packetDisplayTitle(packetId) {
+  return humanizeTopicForUser(packetTopic(packetId));
+}
+
+function liveActionButtonLabel(action) {
+  if (!action || !action.type) return '先檢查再繼續';
+  if (action.type === 'consume-packet') return '確認已收到，可處理';
+  if (action.type === 'decline-packet') return '退回，請對方補資料';
+  if (action.type === 'confirm-shared-goal') return '確認共同基準';
+  if (action.type === 'close-packet') return '收結這條交接';
+  return '檢查後繼續';
+}
+
+function liveDecisionInstruction(actions) {
+  const list = Array.isArray(actions) ? actions : [];
+  if (list.length === 0) {
+    return '目前沒有可直接執行的正式決策。請先同步最新進度；若仍沒有動作，再交給你的 AI 整理下一步。';
+  }
+  const types = new Set(list.map((action) => action && action.type).filter(Boolean));
+  const hasWarn = list.some((action) => action && action.tone === 'warn');
+  if (types.has('consume-packet') && !hasWarn) {
+    return '下一步：AI 建議這張交接單可接受。請先看右方檢查結果；若你同意，按「確認已收到，可處理」。';
+  }
+  if (types.has('decline-packet') && !types.has('consume-packet')) {
+    return '下一步：AI 建議先退回補資料。請先看右方缺口清單；若你同意，按「退回，請對方補資料」。';
+  }
+  if (types.has('confirm-shared-goal')) {
+    return '下一步：這是共同基準確認。請先看 AI 檢查結果；同意就確認共同基準，不同意就退回要求修訂。';
+  }
+  if (types.has('close-packet')) {
+    return '下一步：AI 看到這條交接已有回覆。請先看檢查結果；若你同意，按「收結這條交接」。';
+  }
+  return '下一步：請按目前顯示的決策卡處理；若你不同意 AI 判斷，先到「釐清問題與求助 AI」補充原因。';
+}
+
+function liveDiscussionFocusOptions(snapshot) {
+  const actions = Array.isArray(snapshot && snapshot.formal_actions) ? snapshot.formal_actions : [];
+  const types = new Set(actions.map((action) => action && action.type).filter(Boolean));
+  const options = [];
+  if (types.has('consume-packet')) {
+    options.push({
+      value: 'acceptance-note',
+      label: '接受前補充',
+      detail: '補充你同意接受的條件、限制或下一步。',
+      taskMode: '判斷可否開工',
+      placeholder: `${snapshot.target_peer || '協作者'}，我同意目前可進入處理；補充條件是：`,
+    });
+  }
+  if (types.has('decline-packet')) {
+    options.push({
+      value: 'missing-info',
+      label: '退回補資料',
+      detail: '指出缺少哪份資料、版本、範圍或驗收標準。',
+      taskMode: '產生補資料請求',
+      placeholder: `${snapshot.target_peer || '協作者'}，目前未能處理，請補充：`,
+    });
+  }
+  if (types.has('confirm-shared-goal')) {
+    options.push({
+      value: 'shared-goal',
+      label: '共同基準',
+      detail: '討論共同目標、角色分工、第一輪範圍或驗收標準。',
+      taskMode: '整理共識 / 分歧 / 待決定事項',
+      placeholder: `${snapshot.target_peer || '協作者'}，關於共同目標與分工，我想補充：`,
+    });
+  }
+  if (types.has('close-packet')) {
+    options.push({
+      value: 'closeout',
+      label: '收結前核對',
+      detail: '補充為何可收結，或說明仍不應收結的原因。',
+      taskMode: '整理共識 / 分歧 / 待決定事項',
+      placeholder: `${snapshot.target_peer || '協作者'}，關於這條交接是否可收結，我的補充是：`,
+    });
+  }
+  options.push({
+    value: 'sync-difference',
+    label: '同步差異',
+    detail: '雙方看到的交接單、版本、狀態或在線情況不一致時使用。',
+    taskMode: '整理共識 / 分歧 / 待決定事項',
+    placeholder: `${snapshot.target_peer || '協作者'}，雙方看到的 APS 狀態可能不同，差異是：`,
+  });
+  options.push({
+    value: 'other-risk',
+    label: '其他風險',
+    detail: '不屬於上面情況，但會影響交接是否可推進。',
+    taskMode: '整理共識 / 分歧 / 待決定事項',
+    placeholder: `${snapshot.target_peer || '協作者'}，我發現另一個會影響交接的風險：`,
+  });
+  const seen = new Set();
+  return options.filter((option) => {
+    if (seen.has(option.value)) return false;
+    seen.add(option.value);
+    return true;
+  });
+}
+
+function liveAcceptanceReportFor({ state, reason, missing = [], packetId, version }) {
+  const title = packetDisplayTitle(packetId);
+  if (state === 'actionable') {
+    return {
+      verdict: '✅ AI 檢查結果：可接受',
+      summary: `${title} v${version} 已通過基本交接檢查。系統看到任務、共同目標、真源或來源、開工條件與風險說明，未見必須先退回的缺口。`,
+      checks: [
+        '有清楚任務或待辦',
+        '有共同目標',
+        '有真源或來源指標',
+        '有接收方開工條件',
+        reason || '未見阻塞缺口',
+      ],
+      next: '如你同意 AI 檢查結果，按下方按鈕會先同步最新進度，再讓你確認記錄「已收到，可處理」。',
+    };
+  }
+  if (state === 'return') {
+    return {
+      verdict: '⛔ AI 檢查結果：不能直接處理',
+      summary: `${title} v${version} 未通過基本交接檢查；需要先退回補資料。`,
+      checks: missing.length > 0 ? missing : String(reason || '資料不足').split('；').filter(Boolean),
+      next: '如你同意 AI 檢查結果，按下方按鈕會先同步最新進度，再讓你確認記錄退回理由。',
+    };
+  }
+  if (state === 'clarify_goal') {
+    return {
+      verdict: '🔎 AI 檢查結果：先處理共同基準',
+      summary: `${title} v${version} 關係到共同目標或分工；普通交接前應先確認基準。`,
+      checks: [reason || '共同目標與分工尚未完成確認'],
+      next: '如你同意 AI 檢查結果，先確認或退回共同基準。',
+    };
+  }
+  return {
+    verdict: '⚠️ AI 檢查結果：需要人工判斷',
+    summary: reason || '目前不能自動判斷是否可處理。',
+    checks: [],
+    next: '請先用補充討論或交給你的 AI 整理後，再作正式決策。',
+  };
+}
+
+function buildLiveFormalActions(dashboard) {
+  const agentId = dashboard.agentId;
+  const actions = [];
+  const pendingItems = (dashboard.incomingGroups || [])
+    .flatMap((group) => (group.pending || []).map((item) => ({ ...item, from: group.from })));
+  for (const item of pendingItems.slice(0, 4)) {
+    const actionability = item.actionability || assessPendingActionability(item, { sharedGoal: dashboard.sharedGoal });
+    const topic = packetTopic(item.packetId);
+    if (topic === 'shared_goal_and_roles' || actionability.state === 'clarify_goal') {
+      const report = liveAcceptanceReportFor({
+        state: 'clarify_goal',
+        reason: actionability.reason,
+        packetId: item.packetId,
+        version: Number(item.version),
+      });
+      actions.push({
+        type: 'confirm-shared-goal',
+        label: '確認共同基準',
+        tone: 'ok',
+        packet_id: item.packetId,
+        version: Number(item.version),
+        from: item.from,
+        default_text: `同意 ${topic} v${item.version} 作為目前共同目標與分工基準。`,
+        preview: `將以 ${agentId} 身份確認 ${item.from} 發出的共同目標與分工 v${item.version}。`,
+        button_label: '確認共同基準',
+        report,
+      });
+      actions.push({
+        type: 'decline-packet',
+        label: '共同基準需修改',
+        tone: 'danger',
+        packet_id: item.packetId,
+        version: Number(item.version),
+        from: item.from,
+        default_text: '共同目標、角色分工、第一輪範圍或驗收標準仍需修改，暫不確認。',
+        preview: `將以 ${agentId} 身份退回 ${item.from} 發出的共同目標與分工 v${item.version}，要求修訂。`,
+        button_label: '退回要求修訂',
+        report: {
+          ...report,
+          verdict: '⛔ AI 檢查結果：共同基準需修訂',
+          summary: '共同目標、角色分工、第一輪範圍或驗收標準仍需修改；暫時不能確認為目前基準。',
+          next: '如共同基準不準確，按下方按鈕會先同步最新進度，再讓你確認記錄退回理由。',
+        },
+      });
+      continue;
+    }
+    if (actionability.state === 'actionable') {
+      const report = liveAcceptanceReportFor({
+        state: 'actionable',
+        reason: actionability.reason,
+        packetId: item.packetId,
+        version: Number(item.version),
+      });
+      actions.push({
+        type: 'consume-packet',
+        label: 'AI 建議：接受並繼續',
+        tone: 'ok',
+        packet_id: item.packetId,
+        version: Number(item.version),
+        from: item.from,
+        default_text: `已在 APS Live 核對 ${packetDisplayTitle(item.packetId)} v${item.version}，可按交接內容進入處理。`,
+        preview: `將以 ${agentId} 身份標記已收到 ${item.from} 的 ${packetDisplayTitle(item.packetId)} v${item.version}。`,
+        button_label: '確認已收到，可處理',
+        report,
+      });
+    } else if (actionability.state === 'return') {
+      const missing = String(actionability.reason || '').split('；').filter(Boolean);
+      const report = liveAcceptanceReportFor({
+        state: 'return',
+        reason: actionability.reason,
+        missing,
+        packetId: item.packetId,
+        version: Number(item.version),
+      });
+      actions.push({
+        type: 'decline-packet',
+        label: 'AI 建議：退回補資料',
+        tone: 'danger',
+        packet_id: item.packetId,
+        version: Number(item.version),
+        from: item.from,
+        default_text: actionability.reason || '資料不足，請補回可共享真源、範圍或驗收標準。',
+        preview: `將以 ${agentId} 身份退回 ${item.from} 的 ${packetDisplayTitle(item.packetId)} v${item.version}。`,
+        button_label: '退回，請對方補資料',
+        report,
+      });
+    }
+  }
+  const hasActiveWaitingWork = (dashboard.outgoingPackets || []).some((item) => (
+    item.state === 'waiting'
+    && packetTopic(item.packetId) !== 'shared_goal_and_roles'
+    && packetTopic(item.packetId) !== 'shared_goal_and_roles_clarification'
+  ));
+  const closeableOutgoing = hasActiveWaitingWork
+    ? []
+    : (dashboard.outgoingPackets || []).filter((item) => (
+      packetTopic(item.packetId) !== 'shared_goal_and_roles'
+      && packetTopic(item.packetId) !== 'shared_goal_and_roles_clarification'
+    ));
+  for (const item of closeableOutgoing.slice(0, 6)) {
+    if (item.state !== 'consumed' && item.state !== 'declined') continue;
+    actions.push({
+      type: 'close-packet',
+      label: item.state === 'declined' ? '收結已退回交接' : '收結已回覆交接',
+      tone: item.state === 'declined' ? 'warn' : 'ok',
+      packet_id: item.packetId,
+      version: Number(item.version),
+      to: item.toId,
+      default_text: item.state === 'declined'
+        ? `對方已退回 ${packetDisplayTitle(item.packetId)} v${item.version}，此線先收結，後續另行修訂或重開。`
+        : `對方已回覆 ${packetDisplayTitle(item.packetId)} v${item.version}，此交接線收結。`,
+      preview: `將以 ${agentId} 身份收結自己發給 ${item.toId || '對方'} 的 ${packetDisplayTitle(item.packetId)} v${item.version}。`,
+      button_label: '收結這條交接',
+      report: {
+        verdict: item.state === 'declined' ? '⚠️ AI 檢查結果：對方已退回' : '✅ AI 檢查結果：對方已回覆',
+        summary: item.state === 'declined'
+          ? '對方已明確退回，這條交接可先收結，後續用修訂或新交接處理。'
+          : '對方已有正式回覆，這條交接可收結。',
+        checks: ['已看到對方正式回覆', '此動作只收結本方發出的交接線'],
+        next: '如你同意 AI 檢查結果，按下方按鈕會先同步最新進度，再讓你確認收結。',
+      },
+    });
+  }
+  return actions.slice(0, 8);
+}
+
 function localFileHref(filePath) {
   const resolved = path.resolve(String(filePath || '')).replace(/\\/g, '/');
   return `file:///${resolved.split('/').map((part, index) => {
     if (index === 0 && /^[A-Za-z]:$/.test(part)) return part;
     return encodeURIComponent(part);
   }).join('/')}`;
+}
+
+function defaultApsLiveBridgePort({ hubRoot = '', projectSlug = '' } = {}) {
+  const resolvedHub = hubRoot ? path.resolve(String(hubRoot)) : '';
+  const basis = `${resolvedHub}|${String(projectSlug || '')}`;
+  const digest = crypto.createHash('sha256').update(basis).digest();
+  return 45000 + (digest.readUInt32BE(0) % 12000);
+}
+
+function resolveApsLiveBridgePort({ hubRoot, projectSlug } = {}) {
+  const explicit = getRequiredFlagValue('--bridge-port') || getRequiredFlagValue('--port');
+  if (explicit) return Number(explicit);
+  return defaultApsLiveBridgePort({ hubRoot, projectSlug });
 }
 
 function collectSuggestedReads({ incomingGroups, outgoingPackets, contextReport, sharedGoal }) {
@@ -3056,8 +3332,8 @@ function checkApsPrimaryOutcome({ pendingItems, outgoingPackets, riskRecords, sh
   if (waitingOutgoing.length > 0) {
     return {
       decision: `你有 ${waitingOutgoing.length} 件交接仍在等對方處理。`,
-      prompt: '請用 APS 查看我交出去的事，幫我判斷是否只需等待、要補發人類通知，還是要修訂。',
-      next: '不要把已寫入 Drive 當成對方已收到；必要時只補發人類通知。',
+      prompt: '請用 APS 查看我交出去的事：正式路徑是補發人類通知叫對方在自己的項目資料夾 check Drive；如要即時核對，請同時提示雙方各自說 Check APS 打開自己的 APS Live 頁。',
+      next: '正式狀態仍等對方 check Drive / 回覆；APS Live 只作即時核對，不取代 packet / ack。',
     };
   }
   if (confirmedPeers.length === 0) {
@@ -3122,10 +3398,15 @@ function checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords, 
     || blockers.length > 0;
 }
 
-function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], hubRoot, projectSlug, agentId, livePath: generatedLivePath = null, liveGenerated = false, demoPreview = false }) {
+function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], hubRoot, projectSlug, agentId, livePath: generatedLivePath = null, liveGenerated = false, demoPreview = false, liveError = null }) {
   const hasLiveCandidate = checkApsHasLiveCandidate({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId });
-  if (!hasLiveCandidate) return [];
   const livePath = path.join(contextDir(hubRoot, projectSlug), apsLiveFileNameForAgent(agentId));
+  if (!hasLiveCandidate) {
+    return [
+      '本次 Check APS 未生成 APS Live：目前未見共同基準、交接包、補資料、退回或狀態不一致卡點。',
+      `如要手動生成追蹤頁，可執行 aps live；HTML 會在 ${livePath}`,
+    ];
+  }
   const lines = [
     '建議開 APS Live：當共同目標與分工、交接包、補資料、退回或確認需要對方回饋時使用。',
   ];
@@ -3133,17 +3414,118 @@ function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, 
     lines.push('正式項目會由 Check APS 自動生成 APS Live 頁；demo preview 不會寫入 HTML。');
   } else if (generatedLivePath) {
     lines.push(`APS Live: ${generatedLivePath}`);
+    lines.push(`可點擊開啟: ${localFileHref(generatedLivePath)}`);
     lines.push(liveGenerated
       ? '頁面已由 Check APS 自動生成 / 更新；你只需打開頁面使用，不需要自行要求 AI 生成。'
       : '本機已找到 APS Live 頁；你只需打開頁面使用，不需要自行要求 AI 生成。');
+  } else if (liveError) {
+    lines.push(`APS Live 頁暫時未能更新：${safeLiveDiagnosticText(liveError.message || liveError, '寫入失敗')}`);
+    lines.push('正式狀態已照常讀取；請先按上方 APS 流程位置推進。要使用 APS Live，先關閉已開啟的 APS Live HTML 或稍後再說「Check APS」。');
   } else if (fs.existsSync(livePath)) {
     lines.push(`APS Live: ${livePath}`);
+    lines.push(`可點擊開啟: ${localFileHref(livePath)}`);
     lines.push('本機已找到 APS Live 頁；你只需打開頁面使用，不需要自行要求 AI 生成。');
   } else {
     lines.push('APS Live 頁會由 Check APS 在真項目自動生成；目前未能確認路徑，請先檢查本機 APS 設定。');
   }
-  lines.push('邊界：Live 只做即時核對；正式確認仍要回到 terminal，經你批准後才寫回 APS Drive 紀錄。');
+  lines.push('邊界：Trystero 只做即時核對；正式狀態以 Drive 紀錄為準。APS Live 只有透過本機 live-bridge、經預檢與使用者確認後，才可執行有限正式推進。');
   return lines;
+}
+
+function checkApsCurrentJourneyStage({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], agentId = '' }) {
+  const confirmedPeerCount = peers.filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive').length;
+  const pendingByState = pendingItems.reduce((map, item) => {
+    const state = item.actionability ? item.actionability.state : 'actionable';
+    map[state] = (map[state] || 0) + 1;
+    return map;
+  }, {});
+  const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
+  const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
+  const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
+  if (sharedGoal && sharedGoal.state === 'missing') return 'baseline';
+  if (sharedGoal && (sharedGoal.state === 'incoming_pending' || sharedGoal.state === 'partial' || sharedGoal.state === 'declined')) return 'confirm-baseline';
+  if (confirmedPeerCount === 0) return 'invite';
+  if (pendingByState.return > 0 || pendingByState.clarify_goal > 0 || blockers.length > 0) return 'receiver-work';
+  if (pendingItems.length > 0) return 'receiver-work';
+  if (declinedOutgoing.length > 0) return 'close';
+  if (waitingOutgoing.length > 0) return 'receiver-work';
+  return 'formal-handoff';
+}
+
+function checkApsJourneyStageRows({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], agentId = '', liveRoutingLines = [] }) {
+  const current = checkApsCurrentJourneyStage({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId });
+  const confirmedPeerCount = peers.filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive').length;
+  const hasLiveCandidate = liveRoutingLines.some((line) => /^建議開 APS Live/.test(line));
+  const workOutgoingPackets = outgoingPackets.filter((item) => packetTopic(item.packetId) !== 'shared_goal_and_roles');
+  const waitingOutgoing = workOutgoingPackets.filter((item) => item.state === 'waiting');
+  const pendingByState = pendingItems.reduce((map, item) => {
+    const state = item.actionability ? item.actionability.state : 'actionable';
+    map[state] = (map[state] || 0) + 1;
+    return map;
+  }, {});
+  const done = '✅ 完成';
+  const currentLabel = '👉 目前位置';
+  const nextRoundStart = '📌 下一輪起點';
+  const blocked = '⚠️ 需處理';
+  const waiting = '⏳ 等待';
+  const notStarted = '○ 未開始';
+  const isIdleNextRound = current === 'formal-handoff' && pendingItems.length === 0 && waitingOutgoing.length === 0;
+  const statusFor = (id) => {
+    if (id === 'formal-handoff' && isIdleNextRound) return nextRoundStart;
+    if (id === current) return currentLabel;
+    if (id === 'connect') return done;
+    if (id === 'baseline') return sharedGoal && sharedGoal.state !== 'missing' ? done : (current === 'baseline' ? currentLabel : notStarted);
+    if (id === 'confirm-baseline') {
+      if (!sharedGoal || sharedGoal.state === 'missing') return notStarted;
+      if (sharedGoal.state === 'confirmed') return done;
+      return current === 'confirm-baseline' ? currentLabel : blocked;
+    }
+    if (id === 'formal-handoff') {
+      if (sharedGoal && sharedGoal.state !== 'confirmed') return notStarted;
+      if (pendingItems.some((item) => packetTopic(item.packetId) !== 'shared_goal_and_roles') || workOutgoingPackets.length > 0) return done;
+      return current === 'formal-handoff' ? currentLabel : notStarted;
+    }
+    if (id === 'receiver-work') {
+      if (pendingByState.return > 0 || pendingByState.clarify_goal > 0) return blocked;
+      if (pendingItems.length > 0 || waitingOutgoing.length > 0) return current === 'receiver-work' ? currentLabel : waiting;
+      return notStarted;
+    }
+    if (id === 'close') return current === 'close' ? currentLabel : notStarted;
+    return notStarted;
+  };
+  const peerText = confirmedPeerCount > 0 ? `${confirmedPeerCount} 位 confirmed peer` : '尚未有 confirmed peer';
+  const receiverWorkNext = (() => {
+    if (pendingItems.length > 0) return '先用 check Drive 判斷可開工、退回或確認。';
+    if (waitingOutgoing.length > 0 && hasLiveCandidate) {
+      return '正式路徑：提醒對方在自己項目資料夾 check Drive；即時核對：雙方各自 Check APS 打開 Live。';
+    }
+    if (waitingOutgoing.length > 0) return '提醒對方在自己項目資料夾 check Drive，或等待對方回覆。';
+    return '需要時用 check Drive 或等待對方回覆。';
+  })();
+  const formalHandoffMeaning = isIdleNextRound
+    ? '目前沒有進行中的正式工作包；如要再合作，下一輪由這一步開始。'
+    : '正式工作包要包含任務、真源、禁區、開工條件與交回物。';
+  const formalHandoffNext = isIdleNextRound
+    ? '先說明下一輪目標、收件人與交回物，再看草稿。'
+    : '先看草稿，確認後才寫入共用 Drive。';
+  return [
+    { id: 'connect', stage: '1. 接好 APS 工作目錄', status: statusFor('connect'), userMeaning: `本機是 ${agentId}，已可讀取這個 APS 合作目錄。`, next: '用 Check APS 看整體狀態。' },
+    { id: 'baseline', stage: '2. 建立共同目標與分工', status: statusFor('baseline'), userMeaning: sharedGoalProgressText(sharedGoal), next: sharedGoal && sharedGoal.state === 'missing' ? '先建立共同基準，不發普通任務。' : '以目前基準推進。' },
+    { id: 'confirm-baseline', stage: '3. 協作者確認共同基準', status: statusFor('confirm-baseline'), userMeaning: peerText, next: sharedGoal && sharedGoal.state === 'confirmed' ? '可以準備第一份正式工作包。' : '先讓受影響協作者同意、修訂或提出異議。' },
+    { id: 'formal-handoff', stage: '4. 發正式工作包', status: statusFor('formal-handoff'), userMeaning: formalHandoffMeaning, next: formalHandoffNext },
+    { id: 'receiver-work', stage: '5. 對方處理 / 退回 / 回覆', status: statusFor('receiver-work'), userMeaning: pendingItems.length > 0 ? `${pendingItems.length} 件待判斷。` : waitingOutgoing.length > 0 ? `${waitingOutgoing.length} 件正式工作包等對方處理。` : '目前沒有進行中的正式工作包。', next: receiverWorkNext },
+    { id: 'close', stage: '6. 檢查回覆並收結', status: statusFor('close'), userMeaning: '只有確認對方已處理或退回原因後，才收結交接線。', next: '由原發包方 close。' },
+    { id: 'live', stage: 'APS Live 何時用', status: hasLiveCandidate ? '📡 建議打開' : '○ 此刻不用', userMeaning: hasLiveCandidate ? '有共同基準、補資料、退回或狀態需要即時核對。' : '目前可留在 CLI AI 內推進。', next: hasLiveCandidate ? '打開 Check APS 顯示的 APS Live 路徑。' : '不需要為了使用 Live 而中斷流程。' },
+  ];
+}
+
+function renderCheckApsJourneyTable({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], agentId = '', liveRoutingLines = [] }) {
+  const rows = checkApsJourneyStageRows({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId, liveRoutingLines });
+  return [
+    '| 階段 | 狀態 | 現在代表 | 下一步 |',
+    '|---|---|---|---|',
+    ...rows.map((row) => `| ${row.stage} | ${row.status} | ${row.userMeaning} | ${row.next} |`),
+  ];
 }
 
 function renderProjectDashboardSummary(dashboard, options = {}) {
@@ -3170,11 +3552,16 @@ function renderProjectDashboardSummary(dashboard, options = {}) {
     livePath: options.livePath,
     liveGenerated: Boolean(options.liveGenerated),
     demoPreview: Boolean(options.demoPreview),
+    liveError: options.liveGenerationError || null,
   });
+  const journeyTableLines = renderCheckApsJourneyTable({ pendingItems, outgoingPackets, riskRecords, sharedGoal, peers, agentId, liveRoutingLines });
   const lines = [
     '🧭 APS 整體狀態',
     `📁 項目: ${projectSlug}`,
     `👤 本機代理: ${agentId}`,
+    '',
+    '🗺️ APS 流程位置',
+    ...journeyTableLines,
     '',
     '🔎 結論',
     `- ${primaryOutcome.decision}`,
@@ -3425,6 +3812,10 @@ function safeLiveDiagnosticText(value, fallback = 'unknown') {
     .slice(0, 240);
 }
 
+function trimTrailingSentencePunctuation(value) {
+  return String(value || '').trim().replace(/[。.!！?？]+$/u, '');
+}
+
 function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker }) {
   if (isMissingSharedGoalFlow) {
     return {
@@ -3500,10 +3891,10 @@ function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPen
     };
   }
   return {
-    station: '未指定交接鏈',
+    station: '沒有進行中交接',
     canStart: '未適用',
     waitingFor: agentId,
-    nextAction: '回本機 AI 決定下一個正式 APS 動作',
+    nextAction: '如要再合作，先說明下一輪目標、收件人與交回物',
     blocker: blocker || '目前沒有明確交接卡點',
     chatMode: '暫不需要',
     impact: '未見阻塞',
@@ -3516,10 +3907,24 @@ function liveTrackingSteps(tracking, context = {}) {
   const sharedGoal = context.sharedGoal || null;
   const blocked = /需補資料|不可|釐清|共同目標/.test(`${station} ${tracking && tracking.canStart || ''}`);
   const hasSharedGoalPacket = Boolean(sharedGoal && sharedGoal.latest);
+  const steps = ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'];
+  if (/沒有進行中交接|未指定交接鏈/.test(station)) {
+    const commonBaselineDone = hasSharedGoalPacket && sharedGoal && sharedGoal.state === 'confirmed';
+    return steps.map((label, index) => {
+      const state = index === 0 && commonBaselineDone ? 'done' : 'todo';
+      const meta = liveStepStatusMeta(state);
+      return {
+        label,
+        state,
+        icon: meta.icon,
+        status_label: meta.label,
+      };
+    });
+  }
   if (station.includes('共同目標')) {
     const sharedGoalState = sharedGoal && sharedGoal.state ? sharedGoal.state : 'missing';
     if (!hasSharedGoalPacket || sharedGoalState === 'missing') {
-      return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+      return steps.map((label, index) => {
         const state = index === 0 ? 'blocked' : 'todo';
         const meta = liveStepStatusMeta(state);
         return {
@@ -3531,7 +3936,7 @@ function liveTrackingSteps(tracking, context = {}) {
       });
     }
     if (sharedGoalState === 'confirmed') {
-      return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+      return steps.map((label, index) => {
         const state = index < 3 ? 'done' : index === 3 ? 'active' : 'todo';
         const meta = liveStepStatusMeta(state);
         return {
@@ -3543,7 +3948,7 @@ function liveTrackingSteps(tracking, context = {}) {
       });
     }
     if (sharedGoalState === 'declined') {
-      return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+      return steps.map((label, index) => {
         const state = index === 1 ? 'done' : index === 0 ? 'blocked' : 'todo';
         const meta = liveStepStatusMeta(state);
         return {
@@ -3554,7 +3959,7 @@ function liveTrackingSteps(tracking, context = {}) {
         };
       });
     }
-    return ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'].map((label, index) => {
+    return steps.map((label, index) => {
       const state = index === 1 ? 'done' : index === 0 ? 'active' : 'todo';
       const meta = liveStepStatusMeta(state);
       return {
@@ -3569,7 +3974,6 @@ function liveTrackingSteps(tracking, context = {}) {
     : station.includes('已發出') ? 1
       : station.includes('可開工') || station.includes('需補') || station.includes('釐清') ? 3
         : 1;
-  const steps = ['共同基準', '已發出', '對方查看', '可開工判斷', '處理 / 補資料', '正式更新'];
   return steps.map((label, index) => {
     const state = index < activeIndex ? 'done' : index === activeIndex ? (blocked ? 'blocked' : 'active') : 'todo';
     const meta = liveStepStatusMeta(state);
@@ -3661,7 +4065,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
       ? '共同目標與分工仍在確認中；需要對方回饋同意、補充、修正或提出異議，才適合寫成正式基準。'
       : waitingOutgoing.length > 0
       ? '有交接等待對方處理；Live 用來即時核對雙方看到的狀態、回饋和分歧，不代表對方已正式確認。'
-      : '目前沒有明確交接卡點；可先回到本機 AI 推進正式 APS 動作，需要核對狀態時才開 APS Live。';
+      : '目前沒有明確交接卡點；可先回到你的 AI 對話推進下一步，需要即時核對時才開 APS Live。';
   const sharedGoalSummary = sharedGoal && sharedGoal.summary ? sharedGoal.summary : {};
   const firstTopic = firstPending
     ? packetTopic(firstPending.packetId)
@@ -3678,32 +4082,32 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         ? `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} 正在等待回覆`
         : '交接狀態核對';
   const caseSummary = isMissingSharedGoalFlow
-    ? '本機 AI 未見目前有效共同目標與分工基準。第一輪普通任務不得先開始，需先建立共同目標、角色分工、第一輪範圍與驗收標準。'
+    ? 'AI 未見目前有效共同目標與分工基準。第一輪普通任務不得先開始，需先建立共同目標、角色分工、第一輪範圍與驗收標準。'
     : isSharedGoalFlow
-    ? `本機 AI 看到共同目標與分工仍未完全確認：${sharedGoalProgressText(sharedGoal)}。這頁要讓協作者確認、補充或提出異議。`
+    ? `AI 看到共同目標與分工仍未完全確認：${sharedGoalProgressText(sharedGoal)}。這頁要讓協作者確認、補充或提出異議。`
     : firstPending
-      ? `本機 AI 看到 ${targetPeer} 有一件待處理交接：${humanizeTopicForUser(firstTopic)} v${firstPending.version}。目前判斷是：${safeLiveDiagnosticText(blocker)}`
+      ? `AI 看到 ${targetPeer} 有一件待處理交接：${humanizeTopicForUser(firstTopic)} v${firstPending.version}。目前判斷是：${safeLiveDiagnosticText(blocker)}`
       : firstWaiting
-        ? `本機 AI 看到你已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給 ${targetPeer}，但仍在等待對方處理或回覆。`
+        ? `AI 看到你已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給 ${targetPeer}，但仍在等待對方處理或回覆。`
         : '目前沒有明確阻塞交接；這頁可用來把會影響 APS 交接的共識、分歧和待決定事項留下來。';
   const currentQuestion = isMissingSharedGoalFlow
-    ? '目前尚未有共同目標與分工基準。是否要先請本機 AI 起草共同目標、角色分工、第一輪範圍與驗收標準？'
+    ? '目前尚未有共同目標與分工基準。是否要先請你的 AI 起草共同目標、角色分工、第一輪範圍與驗收標準？'
     : isSharedGoalFlow
     ? `${targetPeer} 是否同意目前共同目標、角色、第一輪分工和驗收標準？如不同意，需要改哪裏？`
     : firstPending
       ? `這件交接是否資料足夠？若不足，${targetPeer} 要補充哪些檔案位置、範圍或驗收標準？`
       : firstWaiting
         ? `${targetPeer} 那邊是否已同步到同一件交接包？目前是未讀、處理中、需要補資料，還是已完成？`
-        : '這段討論是否會影響共同目標、分工、交接範圍、驗收標準或下一個正式 APS 動作？';
+        : '這段討論是否會影響共同目標、分工、交接範圍、驗收標準或下一個正式決策？';
   const suggestedMessage = isMissingSharedGoalFlow
-    ? '請先回本機 AI：請幫我建立 APS 共同目標與角色分工草稿，列出共同目標、參與者、第一輪範圍、驗收標準與待確認項，再逐一發給協作者確認。'
+    ? '請先回到你的 AI 對話：請用 APS 建立共同目標與分工草稿，列出共同目標、參與者、角色分工、第一輪範圍、驗收標準與待確認項，再逐一發給協作者確認。'
     : isSharedGoalFlow
-    ? `${targetPeer}，本機 AI 帶我來 APS Live，是想確認共同目標與分工是否一致。我看到：${sharedGoalProgressText(sharedGoal)}。請你確認三件事：一、共同目標是否正確；二、你的角色與第一輪分工是否正確；三、驗收標準有沒有需要補充或反對的地方。`
+    ? `${targetPeer}，我在 APS Live 看到共同目標與分工仍需要確認：${sharedGoalProgressText(sharedGoal)}。請你確認三件事：一、共同目標是否正確；二、你的角色與第一輪分工是否正確；三、驗收標準有沒有需要補充或反對的地方。`
     : firstPending
-      ? `${targetPeer}，我這邊收到你交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。本機 AI 判斷目前可能未足夠直接開工，原因是：${safeLiveDiagnosticText(blocker)}。請你補充要處理的具體位置、依據檔案或版本，以及怎樣才算完成。`
+      ? `${targetPeer}，我這邊收到你交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。AI 判斷目前可能未足夠直接開工，原因是：${trimTrailingSentencePunctuation(safeLiveDiagnosticText(blocker))}。請你補充要處理的具體位置、依據檔案或版本，以及怎樣才算完成。`
       : firstWaiting
         ? `${targetPeer}，我已發出 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version} 給你，但仍在等回覆。請你確認是否看到同一件交接包，以及現在是未讀、處理中、需要補資料，還是已完成。`
-        : `${targetPeer}，我想把這段項目討論留在 APS Live，避免之後交接時目標或分工漂移。請你補充目前已同意甚麼、仍有甚麼分歧、下一步誰要做甚麼，以及哪些內容不應寫入正式 APS 紀錄。`;
+        : `${targetPeer}，我想把這段項目討論留在 APS Live，避免之後交接時目標或分工漂移。請你補充目前已同意甚麼、仍有甚麼分歧、下一步誰要做甚麼，以及哪些內容不應寫入正式紀錄。`;
   const trackingState = liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPending, firstWaiting, targetPeer, agentId, blocker });
   const trackingSteps = liveTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, isMissingSharedGoalFlow, isSharedGoalFlow });
   const chainTitle = isMissingSharedGoalFlow
@@ -3729,7 +4133,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         status: '已發出，等對方處理',
         waiting_for: safeLiveDiagnosticText(item.toId || (item.summary && item.summary.to) || '協作者'),
         can_start: '等待對方',
-        dependency: '等對方 check Drive',
+        dependency: '等對方確認最新內容',
         impact: '普通交接',
       })),
   ];
@@ -3791,7 +4195,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
       : firstPending
         ? '等待本機判斷是否可處理、需補資料或退回。'
         : waitingOutgoing.length > 0
-          ? '等待對方 check Drive、標記處理或另發回覆。'
+          ? '等待對方查看、處理或回覆。'
           : '目前沒有明確待回饋事項。',
     pending_decision: isMissingSharedGoalFlow
       ? '先建立共同目標與分工草稿；在協作者確認前，不應把普通任務視為可開工。'
@@ -3805,12 +4209,14 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
       : '本頁按開啟時本機已同步資料生成；不是背景監察，也不代表對方已同步。',
     blocker: safeLiveDiagnosticText(blocker, 'unknown'),
     proposed_terminal_action: isMissingSharedGoalFlow
-      ? '請回到本機 AI：請用 APS 建立共同目標與分工草稿，確認後才發普通任務包。'
+      ? '請回到你的 AI 對話：請建立共同目標與分工草稿，確認後才發普通任務。'
       : isSharedGoalFlow
-      ? '請回到本機 AI：請用 APS 根據對方對共同目標與分工的回饋，整理共識、分歧與下一步。'
+      ? '請回到你的 AI 對話：請根據對方對共同目標與分工的回饋，整理共識、分歧與下一步。'
       : firstPending
-        ? '請回到本機 AI：請用 APS 根據雙方核對結果，判斷要等待同步、請對方補資料、退回不能處理，還是繼續交接。'
-        : '請回到本機 AI：請用 APS 根據雙方核對結果，判斷應等待同步、要求補資料、修訂，還是繼續交接。',
+      ? '請回到你的 AI 對話：請根據雙方核對結果，判斷要等待同步、請對方補資料、退回不能處理，還是繼續交接。'
+      : '請回到你的 AI 對話：請根據雙方核對結果，判斷應等待同步、要求補資料、修訂，還是繼續交接。',
+    formal_actions: buildLiveFormalActions(dashboard),
+    formal_state_loaded_at: safeLiveDiagnosticText(snapshotGeneratedAt),
   };
 }
 
@@ -3853,6 +4259,14 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     const meta = liveStepStatusMeta(state);
     return `<span class="tracking-legend-item ${htmlEscape(state)}"><span aria-hidden="true">${htmlEscape(meta.icon)}</span>${htmlEscape(meta.label)}</span>`;
   }).join('');
+  const collaborationStageHtml = (snapshot.tracking_steps || []).map((step) => {
+    const meta = liveStepStatusMeta(step.state || 'todo');
+    return `
+          <span class="collab-stage-step ${htmlEscape(step.state || 'todo')}">
+            <strong>${htmlEscape(step.icon || meta.icon)} ${htmlEscape(step.label)}</strong>
+            <small>${htmlEscape(step.status_label || meta.label)}</small>
+          </span>`;
+  }).join('');
   const targetPeerText = snapshot.target_peer && snapshot.target_peer !== 'none'
     ? snapshot.target_peer
     : '協作者';
@@ -3865,18 +4279,18 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
   const ticketOrdinalText = '交接單 1/1';
   const evidenceText = (snapshot.evidence_labels || []).slice(0, 3).join('、') || '目前未指定正式交接；只作交接狀態核對。';
   const taskText = snapshot.current_question || snapshot.current_case_summary || snapshot.current_case_title;
-  const startConditionText = `${snapshot.can_start_label || '未確認'}；${snapshot.next_formal_action || snapshot.proposed_terminal_action || '等待本機 AI 判斷下一步'}`;
+  const startConditionText = `${snapshot.can_start_label || '未確認'}；${snapshot.next_formal_action || snapshot.proposed_terminal_action || '等待 AI 判斷下一步'}`;
   const stageActionMap = new Map([
-    ['共同基準', ['本機 AI / Terminal', '已見共同目標與分工包時，此步代表基準包存在；若仍未確認，下一步是請接收方明確同意、部分同意、有異議或稍後。']],
-    ['已發出', ['本機 AI / Terminal', '請用 APS 檢查這張交接單是否已正式發出；如內容錯誤，先草擬修訂或撤回。']],
-    ['對方查看', ['對方本機 AI / Terminal', '請對方執行 Check APS 或 check Drive；若看不到同一張單，在 Live 留言說明版本或同步差異。']],
-    ['可開工判斷', ['APS Live + 本機 AI', '若同意就回「已收到」；若資料不足就回「需補資料」；若不同意就回「不同意」。']],
-    ['處理 / 補資料', ['APS Live + 本機 AI', '把缺口、補充位置或反對理由講清楚，再交給本機 AI 草擬正式補資料、退回或修訂。']],
-    ['正式更新', ['本機 AI / Terminal', '回到本機 AI，要求它根據 Live 討論草擬正式下一步；使用者確認後才寫入 APS。']],
+    ['共同基準', ['正式推進決定', '確認或退回共同基準；如沒有可用決定，先補充討論。']],
+    ['已發出', ['正式推進決定', '核對這張交接單是否已正式發出；如內容錯誤，先要求修訂或退回。']],
+    ['對方查看', ['正式推進決定', '核對是否看到同一張單；若看不到，在補充討論說明版本或同步差異。']],
+    ['可開工判斷', ['正式推進決定', '先判斷可否處理：可處理就確認；資料不足就退回補資料；分工不一致就不同意。']],
+    ['處理 / 補資料', ['補充討論 + AI 整理', '把缺口、補充位置或反對理由講清楚，再交給你的 AI 草擬下一步。']],
+    ['正式更新', ['正式推進決定', '按正式決策卡執行確認、退回或收結；每次都會核對結果。']],
   ]);
   const stageGuideRowsHtml = (snapshot.tracking_steps || []).map((step) => {
     const meta = liveStepStatusMeta(step.state || 'todo');
-    const [where, nextLine] = stageActionMap.get(step.label) || ['本機 AI / Terminal', '請回到本機 AI 檢查正式 APS 下一步。'];
+    const [where, nextLine] = stageActionMap.get(step.label) || ['你的 AI 對話', '請回到你的 AI 對話檢查下一步。'];
     return `
           <div class="stage-guide-row">
             <strong>${htmlEscape(step.label)}</strong>
@@ -3890,7 +4304,7 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     { key: 'start', icon: '✓', title: '開始', time: liveEventTimeLabel(snapshot.ticket_started_at || snapshot.generated_at || generatedAt, '本頁生成時'), detail: `${snapshot.agent_id} 建立交接追蹤；已帶入任務、依據與開工條件。`, state: 'done' },
     { key: 'sent', icon: '✓', title: '正式包 / 查看', time: liveEventTimeLabel(snapshot.ticket_sent_at, '等待正式包或對方查看紀錄'), detail: snapshot.current_case_title, state: snapshot.ticket_sent_at ? 'done' : 'active' },
     { key: 'comment', icon: isBlockedStatus ? '!' : '…', title: isBlockedStatus ? '留言 / Comment：未通過' : '留言 / Comment', time: liveEventTimeLabel(snapshot.ticket_comment_at, '等待 Live 留言'), detail: `${snapshot.current_station} / ${snapshot.waiting_for}`, state: isBlockedStatus ? 'blocked' : 'active' },
-    { key: 'close', icon: snapshot.ticket_closed_at ? '✓' : '○', title: '收結 / Close', time: liveEventTimeLabel(snapshot.ticket_closed_at || snapshot.ticket_returned_at, snapshot.ticket_returned_at ? '已退回，等待正式處理' : '尚未正式 close'), detail: snapshot.next_formal_action || '由本機 AI 整理正式下一步。', state: snapshot.ticket_closed_at ? 'done' : (snapshot.ticket_returned_at ? 'blocked' : 'todo') },
+    { key: 'close', icon: snapshot.ticket_closed_at ? '✓' : '○', title: '收結', time: liveEventTimeLabel(snapshot.ticket_closed_at || snapshot.ticket_returned_at, snapshot.ticket_returned_at ? '已退回，等待正式處理' : '尚未正式 close'), detail: snapshot.next_formal_action || '由你的 AI 整理下一步。', state: snapshot.ticket_closed_at ? 'done' : (snapshot.ticket_returned_at ? 'blocked' : 'todo') },
   ];
   const renderEventRow = (item, suffix = '') => `
           <div class="event-row ${htmlEscape(item.state)}">
@@ -3899,21 +4313,28 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
             <span class="event-time" id="${htmlEscape(`live${item.key}Time${suffix}`)}">${htmlEscape(item.time)}</span>
             <span>${htmlEscape(item.detail)}</span>
           </div>`;
-  const eventPreviewHtml = eventRows.slice(0, 3).map((item) => renderEventRow(item, 'Preview')).join('');
+  const eventPreviewHtml = eventRows.slice(-3).reverse().map((item) => renderEventRow(item, 'Preview')).join('');
   const eventRowsHtml = eventRows.map((item) => renderEventRow(item, 'Full')).join('');
   const terminalActions = [
-    ['確認 / 同意', '請用 APS 根據這次 Live 討論，草擬確認這份共同目標與分工或交接單的正式記錄，等我確認。'],
-    ['提出異議', '請用 APS 根據這次 Live 討論，整理分歧、風險與需要修訂的位置，先給我草稿。'],
-    ['退回 / 補資料', '請用 APS 根據這次 Live 討論，草擬補資料請求或 APS decline 退回理由；正式送出前先問我。'],
-    ['收結 / close', '請用 APS 檢查是否已有足夠證據 close 這條交接；只草擬，不要直接寫入。'],
+    ['確認 / 同意', '請根據這次討論，草擬確認這份共同目標與分工或交接單的正式記錄，等我確認。'],
+    ['提出異議', '請根據這次討論，整理分歧、風險與需要修訂的位置，先給我草稿。'],
+    ['退回 / 補資料', 'APS decline：請根據這次討論，草擬補資料請求或退回理由；正式送出前先問我。'],
+    ['收結 / close', '請檢查是否已有足夠證據收結這條交接；只草擬，不要直接記錄。'],
   ];
   const terminalActionsHtml = terminalActions.map(([label, line]) => `
           <div class="terminal-action">
             <strong>${htmlEscape(label)}</strong>
             <span>${htmlEscape(line)}</span>
           </div>`).join('');
-  const messagePlaceholder = `${targetPeerText}，請核對這一版 ${snapshot.live_focus || '交接狀態'}：你是否看到同一版？如同意，請補一句驗收標準或下一步。`;
-  const refreshFormalPrompt = '請用 APS 執行 Check APS，重新讀取 Drive 最新狀態，並刷新 APS Live 交接追蹤頁。';
+  const formalActionCount = Array.isArray(snapshot.formal_actions) ? snapshot.formal_actions.length : 0;
+  const discussionFocusOptions = liveDiscussionFocusOptions(snapshot);
+  const discussionFocusOptionsHtml = discussionFocusOptions.map((option, index) => `
+            <option value="${htmlEscape(option.value)}" data-label="${htmlEscape(option.label)}" data-detail="${htmlEscape(option.detail)}" data-task-mode="${htmlEscape(option.taskMode)}" data-placeholder="${htmlEscape(option.placeholder)}"${index === 0 ? ' selected' : ''}>${htmlEscape(option.label)}</option>`).join('');
+  const initialDecisionInstruction = liveDecisionInstruction(snapshot.formal_actions);
+  const messagePlaceholder = discussionFocusOptions[0] && discussionFocusOptions[0].placeholder
+    ? discussionFocusOptions[0].placeholder
+    : `${targetPeerText}，請核對這一版 ${snapshot.live_focus || '交接狀態'}：你是否看到同一版？如同意，請補一句驗收標準或下一步。`;
+  const refreshFormalPrompt = '請用 APS 同步最新交接進度，並刷新 APS Live 交接追蹤頁。';
   return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -3938,8 +4359,15 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
     .identity-pair { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .agent-pill { display: inline-flex; align-items: center; gap: 8px; border: 3px solid var(--line); border-radius: 16px; background: #fffefa; padding: 8px 14px; font-weight: 900; box-shadow: 0 3px 0 rgba(30,27,22,.13); }
+    .agent-pill.online { background: #f0fbf4; border-color: #1f6b3e; }
+    .agent-pill.waiting { background: #fffefa; border-color: var(--line); }
+    .agent-pill.offline { background: #fff4f2; border-color: #8a2f1e; }
     .agent-dot { width: 11px; height: 11px; border: 2px solid var(--line); border-radius: 50%; background: var(--green); }
     .agent-dot.blue { background: var(--blue); }
+    .agent-status { display: inline-flex; align-items: center; gap: 4px; border: 2px solid rgba(34,31,26,.22); border-radius: 999px; padding: 2px 7px; font-size: 12px; line-height: 1.2; color: var(--muted); background: #fffdf4; white-space: nowrap; }
+    .agent-status.online { color: #155e3b; background: #eaf8ee; border-color: #1f6b3e; }
+    .agent-status.waiting { color: #5f3a00; background: #fff0c9; border-color: #d9a441; }
+    .agent-status.offline { color: #8a2f1e; background: #fff4f2; border-color: #d98a82; }
     .boundary-line { width: 100%; flex-basis: 100%; color: var(--muted); font-size: 13px; text-align: right; }
     .ticket-card { border: 3px solid var(--line); border-radius: 18px; background: rgba(255,253,244,.95); padding: 18px; box-shadow: 0 8px 0 rgba(30,27,22,.10); }
     .ticket-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 12px; }
@@ -4042,7 +4470,7 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     .span-12 { grid-column: span 12; }
     .note { background: var(--soft); border-color: #cdd6e2; }
     .warn { border-color: #d9a441; background: #fff8e8; color: #5f3a00; }
-    .danger { border-color: #d98a82; background: #fff4f2; color: var(--danger); }
+    .danger { border-color: #d98a82; background: #fff4f2; color: #8a2f1e; }
     .muted { color: var(--muted); }
     .pill { display: inline-flex; align-items: center; padding: 4px 9px; border: 2px solid var(--line); border-radius: 999px; font-size: 13px; color: var(--muted); background: #fffefa; }
     ul { padding-left: 20px; margin: 8px 0 0; }
@@ -4053,30 +4481,89 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     button { border: 3px solid var(--line); background: var(--blue); color: #fff; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 rgba(30,27,22,.16); }
     button:disabled { border-color: #c7d2df; background: #e2e8f0; color: #64748b; cursor: not-allowed; }
     button.secondary { background: #fffefa; color: var(--blue); }
+    button.danger-action { background: var(--red); color: #fff; }
+    .tab-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+    .tab-button { background: #fffefa; color: var(--blue); min-width: 180px; }
+    .tab-button.active { background: var(--blue); color: #fff; }
+    .tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; margin-left: 6px; border-radius: 999px; background: #d9a441; color: #1e1b16; font-size: 13px; font-weight: 900; }
+    .tab-button.active .tab-badge { background: #fffefa; color: var(--blue); }
+    .tab-badge.hidden { display: none; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
     .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     .handoff-ai-panel { margin-top: 14px; border: 2px solid rgba(35,104,179,.28); border-radius: 12px; padding: 12px; background: #f4fbff; }
     .handoff-ai-panel h3 { margin-top: 0; }
     .handoff-ai-panel button { margin-top: 8px; width: 100%; }
-    .reply-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
-    .reply-button { min-height: 86px; text-align: left; background: #fffefa; color: var(--ink); }
-    .reply-button strong { display: block; font-size: 17px; margin-bottom: 3px; }
-    .reply-button span { display: block; color: var(--muted); font-size: 13px; font-weight: 650; }
-    .reply-button.ok { background: #eaf8ee; }
-    .reply-button.warn { background: #fff0c9; }
-    .reply-button.danger { background: #fff4f2; }
+    .clarification-panel { border: 3px solid #b7d7ea; border-radius: 14px; background: #f4fbff; padding: 14px; margin-bottom: 14px; }
+    .clarification-panel h2 { margin-top: 0; }
+    .clarification-list { display: grid; gap: 10px; margin-top: 12px; }
+    .clarification-card { border: 2px solid rgba(34,31,26,.22); border-radius: 12px; background: #fffefa; padding: 12px; display: grid; gap: 8px; }
+    .clarification-card.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(35,104,179,.14); }
+    .clarification-card.warn { background: #fff8e8; border-color: #d9a441; }
+    .clarification-card.danger { background: #fff4f2; border-color: #d98a82; }
+    .clarification-card.ok { background: #f2fbf6; border-color: #8bc8a9; }
+    .clarification-card strong { color: #164e63; font-size: 17px; }
+    .clarification-card.danger strong { color: #8a2f1e; }
+    .clarification-card p { margin: 0; }
+    .clarification-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .clarification-meta span { border: 1px solid rgba(34,31,26,.18); border-radius: 999px; padding: 3px 8px; background: #fff; color: var(--muted); font-size: 12px; font-weight: 800; }
+    .clarification-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+    .clarification-actions button { box-shadow: none; padding: 7px 10px; }
+    .inline-feedback { display: none; width: 100%; border: 2px solid rgba(35,104,179,.24); border-radius: 10px; background: #f4fbff; color: var(--ink); padding: 8px 10px; font-size: 14px; font-weight: 800; }
+    .inline-feedback.active { display: block; }
+    .inline-feedback.warn { border-color: #d9a441; background: #fff8df; }
+    .inline-feedback.ok { border-color: #8bc8a9; background: #f2fbf6; }
+    .inline-feedback textarea { margin-top: 8px; min-height: 110px; font-size: 13px; font-weight: 600; background: #fff; }
+    .inline-feedback .feedback-title { display: block; margin-bottom: 4px; }
+    .compact-details { margin: 10px 0; }
+    .compact-details summary { color: var(--muted); }
     .core-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .step { border: 1px solid #dce7df; border-radius: 8px; padding: 12px; background: #fff; }
     .step strong { display: block; margin-bottom: 4px; }
     .compact-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; }
     .advanced-panel { margin-top: 14px; border-top: 1px solid #dce7df; padding-top: 10px; }
+    .collab-stage { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 8px 0 14px; }
+    .collab-stage-step { border: 2px solid rgba(34,31,26,.22); border-radius: 10px; background: #fffdf4; padding: 8px; min-width: 0; }
+    .collab-stage-step strong, .collab-stage-step small { display: block; overflow-wrap: anywhere; }
+    .collab-stage-step strong { font-size: 13px; }
+    .collab-stage-step small { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .collab-stage-step.done { background: #eaf8ee; color: #155e3b; }
+    .collab-stage-step.active { background: #e5f2ff; color: #164e63; }
+    .collab-stage-step.blocked { background: #fff4f2; color: #8a2f1e; }
     .messages { display: grid; gap: 8px; margin-top: 10px; }
     .message { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fbfcfe; }
     .message strong { display: block; margin-bottom: 4px; }
+    .message-meta { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; margin-bottom: 5px; }
+    .message p { margin: 0; }
+    .notice-banner { display: none; border: 3px solid #d9a441; border-radius: 12px; background: #fff0c9; padding: 12px 14px; margin: 12px 0; font-weight: 850; }
+    .notice-banner.active { display: block; }
+    .message.chat { border-color: #8bb7d9; background: #f4fbff; }
+    .message.pending { border-color: #d9a441; background: #fff8df; }
+    .message.system { border-color: rgba(34,31,26,.18); background: #f7f7f5; color: var(--muted); }
+    .message-select { display: flex; gap: 8px; align-items: flex-start; }
+    .message-select input { width: auto; margin-top: 3px; }
+    .system-log { margin-top: 12px; }
+    .system-log summary { color: var(--muted); }
     .terminal { border: 3px solid var(--line); background: #fffefa; padding: 12px; border-radius: 10px; font-weight: 850; }
     .terminal-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .terminal-action { border: 2px solid rgba(34,31,26,.22); border-radius: 10px; background: #fffdf4; padding: 10px; }
     .terminal-action strong { display: block; color: #164e63; margin-bottom: 5px; }
     .terminal-action span { display: block; color: var(--muted); font-size: 14px; }
+    .terminal-action ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .terminal-action li { margin: 3px 0; }
+    .terminal-action textarea { min-height: 82px; margin-top: 8px; font-size: 14px; }
+    .terminal-action button { width: 100%; margin-top: 8px; }
+    #formalActions.terminal-actions { grid-template-columns: 1fr; }
+    .formal-action-card { display: grid; grid-template-columns: minmax(280px, .95fr) minmax(300px, 1.25fr); gap: 14px; padding: 14px; }
+    .formal-action-card.danger { border-color: #d98a82; background: #fff4f2; }
+    .formal-action-main, .formal-action-report { min-width: 0; }
+    .formal-action-report { border-left: 3px dashed rgba(34,31,26,.22); padding-left: 14px; }
+    .formal-action-report h4 { margin: 0 0 8px; font-size: 16px; color: #164e63; }
+    .formal-action-card.danger .formal-action-report h4 { color: #8a2f1e; }
+    .formal-action-report ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+    .formal-action-report li { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); background: #fffefa; border: 1px solid #dce7df; border-radius: 8px; padding: 7px 8px; }
+    .formal-action-report li::before { content: "✓"; color: var(--ok); font-weight: 900; }
+    .decision-route-note { margin-top: 8px; color: var(--muted); font-size: 14px; }
     .decision { border-color: #b7d7ea; background: #f4fbff; }
     .live { border-color: #a7d7bd; background: #f2fbf6; }
     .live-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
@@ -4084,6 +4571,13 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     .status-dot.online { background: var(--ok); }
     .status-dot.warn { background: #d9a441; }
     .status-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+    .bridge-repair { display: none; gap: 8px; margin-top: 12px; padding: 12px; border: 2px solid #d9a441; border-radius: 8px; background: #fff8df; }
+    .bridge-repair.active { display: grid; }
+    .bridge-repair strong { color: #5f3a00; }
+    .bridge-repair p { margin: 0; color: var(--ink); }
+    .bridge-repair textarea { min-height: 108px; font-size: 14px; background: #fffefa; }
+    .bridge-repair-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .bridge-repair-actions button { flex: 1 1 180px; }
     .section-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
     .event-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .event-box { border: 1px solid #dce7df; border-radius: 8px; padding: 10px; background: #fff; min-height: 130px; }
@@ -4096,9 +4590,9 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
     summary { cursor: pointer; color: var(--accent); font-weight: 650; }
     @media (max-width: 920px) { .scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 1040px) { .topbar, .ticket-head { flex-direction: column; } .identity-pair { justify-content: flex-start; } .boundary-line { text-align: left; } .ticket-layout { grid-template-columns: 1fr; } .action-panel { border-left: 0; border-top: 3px dashed rgba(34,31,26,.26); padding-left: 0; padding-top: 16px; } .scene { grid-template-columns: 1fr; } .actor { min-height: auto; flex-direction: row; justify-content: flex-start; } .board-title { margin-top: 0; } }
-    @media (max-width: 920px) { .tracking-map, .data-board .tracking-map { grid-template-columns: repeat(3, minmax(0, 1fr)); } .chain-list, .tracking-summary, .data-row, .data-lists, .reply-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .board-lane { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 920px) { .terminal-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 760px) { main { width: min(100% - 20px, 1080px); padding-top: 18px; } .span-7, .span-5 { grid-column: span 12; } .peers li { display: block; } .event-row, .detail-row, .event-grid, .core-steps, .journey, .scenario-grid, .context-grid, .tracking-map, .stage-guide-row, .chain-list, .tracking-summary, .board-lane, .terminal-actions { grid-template-columns: 1fr; } .actor { align-items: flex-start; } }
+    @media (max-width: 920px) { .tracking-map, .data-board .tracking-map, .collab-stage { grid-template-columns: repeat(3, minmax(0, 1fr)); } .chain-list, .tracking-summary, .data-row, .data-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); } .board-lane { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 920px) { .terminal-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } .formal-action-card { grid-template-columns: 1fr; } .formal-action-report { border-left: 0; border-top: 3px dashed rgba(34,31,26,.22); padding-left: 0; padding-top: 12px; } }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1080px); padding-top: 18px; } .span-7, .span-5 { grid-column: span 12; } .peers li { display: block; } .event-row, .detail-row, .event-grid, .core-steps, .journey, .scenario-grid, .context-grid, .tracking-map, .stage-guide-row, .chain-list, .tracking-summary, .board-lane, .terminal-actions, .collab-stage { grid-template-columns: 1fr; } .actor { align-items: flex-start; } }
   </style>
 </head>
 <body>
@@ -4110,20 +4604,26 @@ function renderApsLiveHtml({ dashboard, snapshot, demo = false, generatedAt = is
         <p class="muted">📁 專案：<strong>${htmlEscape(snapshot.project)}</strong></p>
       </div>
       <div class="identity-pair" aria-label="參與者">
-        <span class="agent-pill"><span class="agent-dot"></span>${htmlEscape(snapshot.agent_id)}</span>
+        <span class="agent-pill online" id="localAgentPill"><span class="agent-dot"></span>${htmlEscape(snapshot.agent_id)}<span class="agent-status online" id="localAgentStatus">✓ 本機已連線</span></span>
         <span class="muted">×</span>
-        <span class="agent-pill"><span class="agent-dot blue"></span>${htmlEscape(targetPeerText)}</span>
+        <span class="agent-pill waiting" id="peerAgentPill"><span class="agent-dot blue"></span>${htmlEscape(targetPeerText)}<span class="agent-status waiting" id="peerAgentStatus">○ 等待協作者</span></span>
         <span class="boundary-line">${htmlEscape(participantBoundaryText)}</span>
       </div>
     </div>
 
+    <nav class="tab-nav" aria-label="APS Live 工作模式">
+      <button class="tab-button active" type="button" data-tab-target="progressTab">進度與決策</button>
+      <button class="tab-button" type="button" data-tab-target="collaborationTab">釐清問題與求助 AI<span id="clarificationTabBadge" class="tab-badge hidden"></span></button>
+    </nav>
+
+    <div id="progressTab" class="tab-panel active" role="region" aria-label="進度與決策">
     <section class="ticket-card" aria-label="交接單">
       <div class="ticket-head">
         <div>
           <p class="muted">${htmlEscape(ticketOrdinalText)} · 目前只顯示主要交接單</p>
-          <h2 class="ticket-title"><mark>${htmlEscape(snapshot.current_case_title)}</mark></h2>
+          <h2 class="ticket-title"><mark id="currentCaseTitle">${htmlEscape(snapshot.current_case_title)}</mark></h2>
         </div>
-        <div class="stamp">${htmlEscape(snapshot.current_station)}</div>
+        <div class="stamp" id="currentStation">${htmlEscape(snapshot.current_station)}</div>
       </div>
       <div class="tracking-map" aria-label="交接進度">
 ${trackingStepsHtml}
@@ -4133,18 +4633,32 @@ ${trackingLegendHtml}
       </div>
       <div class="ticket-layout">
         <div class="ticket-details">
-          <div class="detail-row"><strong>任務</strong><span>${htmlEscape(taskText)}</span></div>
-          <div class="detail-row"><strong>真源</strong><span>${htmlEscape(evidenceText)}</span></div>
-          <div class="detail-row"><strong>開工條件</strong><span>${htmlEscape(startConditionText)}</span></div>
+          <div class="detail-row"><strong>任務</strong><span id="taskText">${htmlEscape(taskText)}</span></div>
+          <div class="detail-row"><strong>真源</strong><span id="evidenceText">${htmlEscape(evidenceText)}</span></div>
+          <div class="detail-row"><strong>開工條件</strong><span id="startConditionText">${htmlEscape(startConditionText)}</span></div>
         </div>
         <div class="action-panel">
-          <button id="connectLive" class="secondary" type="button">連接 APS Live</button>
+          <button id="connectLive" class="secondary" type="button">連接對方即時狀態</button>
           <button id="refreshFormalState" class="secondary" type="button">重新讀取正式狀態</button>
           <div class="compact-status">
-            <span><span id="liveDot" class="status-dot"></span> <strong id="liveState">⏳ 未連接</strong></span>
+            <span><span id="liveDot" class="status-dot"></span> <strong id="liveState">即時對方：⏳ 未連接</strong></span>
           </div>
-          <div id="onlinePeers" class="status-row">目前在線：等待對方進入</div>
-          <p class="hint">頁面打開後會自動連接；完成協商後再把內容交給本機 AI 草擬正式下一步。頁面資料來自生成時的 APS 快照，如對方剛確認或 Drive 剛同步，請重新讀取正式狀態。</p>
+          <div id="bridgeStatus" class="status-row">本機 APS：正在檢查能否同步正式進度</div>
+          <div id="onlinePeers" class="status-row">即時對方：等待對方進入</div>
+          <div id="formalStateStatus" class="status-row">正式狀態：本頁生成時快照；本頁會嘗試同步，你也可以手動按「重新讀取正式狀態」。</div>
+          <div id="bridgeHelp" class="status-row">若本機 APS 未連上，請回到本機 AI 對話說：「請用 APS 開啟本機 APS 同步服務，然後叫我回來按重新讀取正式狀態。」</div>
+          <button id="showBridgeRepair" class="secondary" type="button">修復本機 APS 連線</button>
+          <div id="bridgeRepairPanel" class="bridge-repair" aria-live="polite">
+            <strong id="bridgeRepairTitle">本機 APS 未連上</strong>
+            <p id="bridgeRepairBody">這不是對方未上線；是本機 APS 同步服務未開啟，這頁暫時不能讀取最新正式進度。按下方按鈕，把指令交給你的本機 AI，完成後回來重新同步。</p>
+            <textarea id="bridgeRepairPrompt" readonly></textarea>
+            <div id="bridgeRepairActions" class="bridge-repair-actions">
+              <button id="copyBridgeRepairPrompt" class="secondary" type="button">複製給本機 AI</button>
+              <button id="retryBridgeAfterRepair" class="secondary" type="button">已開啟，重新同步</button>
+            </div>
+            <div id="bridgeRepairFeedback" class="status-row"></div>
+          </div>
+          <p class="hint">頁面打開後會自動連接。Trystero 訊息不會觸發正式寫入；本機 APS 負責讀正式進度，即時對方只代表對方頁面在線。</p>
         </div>
       </div>
     </section>
@@ -4170,55 +4684,105 @@ ${stageGuideRowsHtml}
       </details>
     </section>
 
+    <section class="decision span-12" aria-label="目前要處理">
+      <h2>目前要你決定</h2>
+      <p class="terminal" id="terminalLine">${htmlEscape(initialDecisionInstruction)}</p>
+      <h3>正式推進決定</h3>
+      <p class="muted">APS Live 可推進的正式狀態會列在這裏；正式寫入前仍要本機 APS 預檢與你確認。</p>
+      <p class="muted">這裏是當前階段的正式決策。按下後會先同步最新進度，確認這個動作仍然適用；真正記錄前會再問你一次，完成後會立即核對結果。</p>
+      <p class="decision-route-note">這不是單程路：資料足夠時顯示接受；資料不足時顯示退回補資料；共同基準未確認時顯示確認或要求修訂；自己發出的交接已有回覆時顯示收結。</p>
+      <div id="formalActions" class="terminal-actions" aria-live="polite" data-initial-count="${formalActionCount}"></div>
+      <div id="formalActionPreview" class="status-row">尚未作出正式決策。若頁面未能連上你的 AI 工具，這裏只會保留建議，不會更新正式進度。</div>
+    </section>
+    </div>
+
+    <div id="collaborationTab" class="tab-panel" role="region" aria-label="釐清問題與求助 AI">
     <div class="grid">
       <section class="span-12">
+        <div class="clarification-panel">
+          <div class="section-head">
+            <h2 id="clarificationHeading">協調與回應</h2>
+            <p class="muted">AI 預檢與釐清事項</p>
+            <span class="muted">只作協調，不是正式紀錄</span>
+          </div>
+          <p id="clarificationIntro" class="muted">這裏只列需要補資料、不同意、同步差異或收結前核對的事項。沒有必須釐清時，可回到「進度與決策」或交給你的 AI 草擬下一步。</p>
+          <div id="clarificationCards" class="clarification-list" aria-live="polite"></div>
+        </div>
         <div class="section-head">
-          <h2>協調與回應</h2>
-          <span class="muted">本次 Live session</span>
+          <h2 id="selectedClarificationHeading">針對選中事項補充</h2>
+          <span id="selectedClarificationScope" class="muted">只針對目前這張交接單</span>
         </div>
-        <h3>接收方快速回應</h3>
-        <p class="muted">${htmlEscape(targetPeerText)} 可先用一個狀態回覆，讓雙方 AI 立即知道交接單是否可以繼續推進；其他在線成員只作協調。</p>
-        <div class="reply-grid" aria-label="接收方快速回應">
-          <button class="reply-button ok" data-live-reply="received" type="button" disabled><strong>✅ 已收到</strong><span>我看到同一張交接單，可以進入開工判斷。</span></button>
-          <button class="reply-button warn" data-live-reply="need-info" type="button" disabled><strong>⚠️ 需補資料</strong><span>來源、版本、範圍或驗收標準不足。</span></button>
-          <button class="reply-button danger" data-live-reply="disagree" type="button" disabled><strong>❌ 不同意</strong><span>共同目標、角色或分工需要先修正。</span></button>
+        <div id="collabStage" class="collab-stage" aria-label="目前交接進度">
+${collaborationStageHtml}
         </div>
-        <p class="muted">這是給對方看的訊息草稿，可以直接發，也可以先修改。</p>
+        <p id="selectedClarificationIntro" class="muted">目前階段：<strong id="collabCurrentStage">${htmlEscape(snapshot.current_station || '未確認')}</strong>。有待釐清事項時，先選上方事項，再補充要對方回覆的內容；若沒有問題，回到「進度與決策」處理。</p>
+        <details class="compact-details">
+          <summary>補充類型（通常不用改）</summary>
+          <label class="mode-picker">
+            <span>補充類型</span>
+            <select id="discussionFocus" aria-label="補充討論焦點">
+${discussionFocusOptionsHtml}
+            </select>
+          </label>
+        </details>
+        <div id="discussionFocusHint" class="status-row">系統已按目前階段預選；只有補充目的不同時才需要改。這段補充會對照「${htmlEscape(snapshot.current_station || '目前階段')}」。</div>
+                <h3>接收方快速回應</h3>
+        <p class="muted">這是給對方看的訊息草稿。快速回應只協調，不會自動改正式 APS 狀態；可交給本機 AI 整理正式下一步。</p>
+        <div class="toolbar handoff-reply" aria-label="接收方快速回應">
+          <button type="button" class="secondary" data-live-reply="received" data-reply-label="✅ 已收到" data-reply-detail="已收到，會先看資料是否足夠。">✅ 已收到</button>
+          <button type="button" class="secondary" data-live-reply="need-info" data-reply-label="⚠️ 需補資料" data-reply-detail="資料不足，請補真源、範圍或驗收標準。">⚠️ 需補資料</button>
+          <button type="button" class="secondary" data-live-reply="disagree" data-reply-label="❌ 不同意" data-reply-detail="不同意目前共同目標、分工或交接判斷。">❌ 不同意</button>
+          <button type="button" disabled>等待對方進入後才能發送核對訊息</button>
+        </div>
+        <p class="muted">已送出快速回應後，可交給本機 AI 整理正式下一步；若未連接，請先用上方按鈕連接，對方尚未進入 APS Live。請等對方進入後再發送。</p>
+        <h3>補充訊息草稿</h3>
+        <p class="muted">這裏只用來補充說明、要求對方澄清，或記錄雙方看到的差異。這些訊息不會改變正式交接進度；要接受、退回或收結，請回到「進度與決策」處理。</p>
         <textarea id="projectMessage" placeholder="${htmlEscape(messagePlaceholder)}">${htmlEscape(snapshot.suggested_message || '')}</textarea>
         <div class="toolbar">
           <button id="sendProjectMessageInline" type="button" disabled>等待對方進入後才能發送核對訊息</button>
+          <button id="correctLastMessage" class="secondary" type="button">更正上一條</button>
           <button id="clearMessages" class="secondary" type="button">清空紀錄</button>
         </div>
-        <div id="discussionStatus" class="status-row">⏳ 本次 session 尚未發送核對訊息。發出或收到回覆後，訊息會顯示在下面。</div>
+        <div id="liveNotice" class="notice-banner" role="status" aria-live="polite"></div>
+        <div id="discussionStatus" class="status-row">⏳ 本次 session 尚未發送核對訊息。本次 Live session 已載入本次頁面 session 記錄；發出或收到回覆後，訊息會顯示在下面。</div>
+        <h3>對話記錄</h3>
+        <p class="muted">只有你勾選的對話會交給你的 AI；頁面狀態不會自動混入。</p>
         <div id="messages" class="messages" aria-live="polite"></div>
+        <details class="system-log">
+          <summary>進階記錄</summary>
+          <div id="systemMessages" class="messages" aria-live="polite"></div>
+        </details>
         <div class="handoff-ai-panel">
-          <h3>完成協商後交給本機 AI</h3>
-          <p class="muted">有對方回覆、補資料、不同意或同步狀態後，才使用這一步；它只草擬下一步，不會直接寫入 APS 正式紀錄。</p>
+          <h3 id="agentForwardHeading">本機 AI 帶我來 APS Live</h3>
+          <p class="muted">完成協商後交給本機 AI；它只草擬下一步，不會直接寫入 APS 正式紀錄。AI 整理方式可選，回到本機 AI 對話繼續 APS 流程。</p>
+          <h3>交給本機 AI 草擬下一步</h3>
+          <p class="muted">本機 AI 已知的項目背景會連同今次 APS Live 已帶入的交接貨單、目前追蹤狀態與依據摘要一起送出。</p>
+          <p id="agentForwardIntro" class="muted">會帶入選中的問題、目前進度和你勾選的對話；只會草擬下一步，不會自動改正式交接紀錄。</p>
           <label class="mode-picker">
-            <span>AI 整理方式</span>
-            <select id="agentTaskMode" aria-label="本機 AI 跟進方式">
+            <span>整理方式</span>
+            <select id="agentTaskMode" aria-label="AI 跟進方式">
               <option value="整理共識 / 分歧 / 待決定事項">整理共識 / 分歧 / 待決定事項</option>
               <option value="產生補資料請求">產生補資料請求</option>
               <option value="草擬退回理由">草擬退回理由</option>
               <option value="判斷可否開工">判斷可否開工</option>
             </select>
           </label>
-          <button id="forwardToAgentAfterDiscussion" type="button">交給本機 AI 草擬下一步</button>
+          <button id="forwardToAgentAfterDiscussion" type="button">把勾選對話交給 AI 整理</button>
+          <div id="agentForwardStatus" class="inline-feedback" role="status" aria-live="polite"></div>
         </div>
       </section>
-      <section class="span-12">
-        <h2>回到本機 AI 對話繼續 APS 流程</h2>
-        <p class="terminal" id="terminalLine">${htmlEscape(snapshot.proposed_terminal_action)}</p>
-        <h3>Terminal 可做的正式選項</h3>
-        <p class="muted">以下句子只用來請本機 AI 草擬正式動作；正式寫入、退回、修訂或 close 前仍要使用者確認。</p>
-        <div class="terminal-actions" aria-label="Terminal 可做的正式選項">
+      <details class="span-12 advanced-panel">
+        <summary>Terminal 可做的正式選項</summary>
+        <p class="muted">正常情況直接用本頁決策卡。只有頁面不能完成決策時，才回到你的 AI 對話處理。</p>
+        <div class="terminal-actions" aria-label="進階備用選項">
 ${terminalActionsHtml}
         </div>
-      </section>
+      </details>
+    </div>
     </div>
   </main>
   <script type="module">
-    const snapshot = ${safeSnapshotJson};
+    let snapshot = ${safeSnapshotJson};
     const bridge = ${safeBridgeJson};
     const roomId = ${JSON.stringify(roomId)};
     const refreshFormalPrompt = ${JSON.stringify(refreshFormalPrompt)};
@@ -4233,6 +4797,10 @@ ${terminalActionsHtml}
     let receiveProjectMessage = null;
     let receiveFeedback = null;
     let receiveConsensus = null;
+    let pendingFormalAction = null;
+    let pendingCorrectionOf = null;
+    let selectedClarificationCardId = null;
+    let currentBridgeMode = 'checking';
     const connectedPeers = new Set();
     const peerAgents = new Map();
     const receivedLiveMessageIds = new Set();
@@ -4240,13 +4808,41 @@ ${terminalActionsHtml}
     let lastPeerJoinAt = 0;
     const channel = 'BroadcastChannel' in window ? new BroadcastChannel('aps-live-local-preview:' + roomId) : null;
     const messages = document.getElementById('messages');
+    const systemMessages = document.getElementById('systemMessages');
+    const liveNotice = document.getElementById('liveNotice');
     const liveDot = document.getElementById('liveDot');
     const liveState = document.getElementById('liveState');
     const connectLiveButton = document.getElementById('connectLive');
+    const bridgeStatus = document.getElementById('bridgeStatus');
+    const bridgeHelp = document.getElementById('bridgeHelp');
+    const showBridgeRepairButton = document.getElementById('showBridgeRepair');
+    const bridgeRepairPanel = document.getElementById('bridgeRepairPanel');
+    const bridgeRepairTitle = document.getElementById('bridgeRepairTitle');
+    const bridgeRepairBody = document.getElementById('bridgeRepairBody');
+    const bridgeRepairPrompt = document.getElementById('bridgeRepairPrompt');
+    const bridgeRepairActions = document.getElementById('bridgeRepairActions');
+    const bridgeRepairFeedback = document.getElementById('bridgeRepairFeedback');
+    const formalStateStatus = document.getElementById('formalStateStatus');
+    const formalActionsNode = document.getElementById('formalActions');
+    const formalActionPreview = document.getElementById('formalActionPreview');
     const discussionStatus = document.getElementById('discussionStatus');
+    const clarificationHeading = document.getElementById('clarificationHeading');
+    const clarificationIntro = document.getElementById('clarificationIntro');
+    const selectedClarificationHeading = document.getElementById('selectedClarificationHeading');
+    const selectedClarificationIntro = document.getElementById('selectedClarificationIntro');
+    const selectedClarificationScope = document.getElementById('selectedClarificationScope');
+    const clarificationCardsNode = document.getElementById('clarificationCards');
+    const clarificationTabBadge = document.getElementById('clarificationTabBadge');
+    const agentForwardHeading = document.getElementById('agentForwardHeading');
+    const agentForwardIntro = document.getElementById('agentForwardIntro');
     const sendProjectMessageButton = document.getElementById('sendProjectMessageInline');
-    const quickReplyButtons = Array.from(document.querySelectorAll('[data-live-reply]'));
+    const discussionFocusSelect = document.getElementById('discussionFocus');
+    const discussionFocusHint = document.getElementById('discussionFocusHint');
+    const collabStage = document.getElementById('collabStage');
+    let collabCurrentStage = document.getElementById('collabCurrentStage');
     const onlinePeers = document.getElementById('onlinePeers');
+    const peerAgentPill = document.getElementById('peerAgentPill');
+    const peerAgentStatus = document.getElementById('peerAgentStatus');
     const latestProjectMessage = document.getElementById('latestProjectMessage');
     const latestFeedback = document.getElementById('latestFeedback');
     const latestConsensus = document.getElementById('latestConsensus');
@@ -4258,23 +4854,176 @@ ${terminalActionsHtml}
       liveState.textContent = label;
       liveDot.className = 'status-dot ' + mode;
     }
+    function bridgeRepairText() {
+      const lines = [
+        '請用 APS 開啟本機 APS 同步服務，讓 APS Live 可以讀取最新正式進度。',
+        '專案：' + (snapshot.project || '未能確認'),
+        '我的用戶名稱：' + (snapshot.agent_id || '未能確認'),
+      ];
+      if (bridge && bridge.url) {
+        lines.push('這頁正在等待的本機同步位址：' + bridge.url);
+      } else {
+        lines.push('這頁沒有可用的本機同步位址；請重新執行 Check APS，重新打開最新 APS Live 頁。');
+      }
+      lines.push('完成後請叫我回到 APS Live，按「已開啟，重新同步」。');
+      return lines.join('\\n');
+    }
+    function updateBridgeRepairPanelContent(mode = currentBridgeMode) {
+      const online = mode === 'online';
+      const mismatch = mode === 'mismatch';
+      if (bridgeRepairTitle) {
+        bridgeRepairTitle.textContent = online
+          ? '本機 APS 已連上'
+          : (mismatch ? '本機 APS 連到其他合作目錄' : '本機 APS 未連上');
+      }
+      if (bridgeRepairBody) {
+        bridgeRepairBody.textContent = online
+          ? '這代表這頁可以讀取最新正式進度。即時對方在線只代表對方頁面開着；正式進度仍以本機 APS 同步結果為準。'
+          : mismatch
+          ? '這不是對方未上線；是本機 APS 同步服務正在服務另一個 APS 合作目錄。請先關閉舊 bridge，再用本項目重新開啟本機 APS 同步服務。'
+          : '這不是對方未上線；是本機 APS 同步服務未開啟，這頁暫時不能讀取最新正式進度。按下方按鈕，把指令交給你的本機 AI，完成後回來重新同步。';
+      }
+      if (bridgeRepairPrompt) {
+        bridgeRepairPrompt.hidden = online;
+        bridgeRepairPrompt.value = online ? '' : bridgeRepairText();
+      }
+      if (bridgeRepairActions) bridgeRepairActions.hidden = online;
+    }
+    function setBridgeRepairPanel(visible, feedback = '') {
+      updateBridgeRepairPanelContent();
+      if (bridgeRepairPanel) bridgeRepairPanel.classList.toggle('active', Boolean(visible));
+      if (bridgeRepairFeedback) bridgeRepairFeedback.textContent = feedback;
+    }
+    function setBridgeRepairButton(label) {
+      if (showBridgeRepairButton) showBridgeRepairButton.textContent = label;
+    }
+    function setBridgeState(mode, detail = '') {
+      if (!bridgeStatus) return;
+      currentBridgeMode = mode;
+      if (mode === 'online') {
+        bridgeStatus.textContent = '本機 APS：✅ 已連上，可以同步正式進度' + (detail ? '（' + detail + '）' : '');
+        bridgeStatus.className = 'status-row ok';
+        if (bridgeHelp) bridgeHelp.textContent = '你現在可以按「同步最新進度」，或使用下方正式決定按鈕推進。';
+        setBridgeRepairButton('本機 APS 說明');
+        setBridgeRepairPanel(false, '');
+        return;
+      }
+      if (mode === 'checking') {
+        bridgeStatus.textContent = '本機 APS：正在連接，準備同步正式進度';
+        bridgeStatus.className = 'status-row';
+        if (bridgeHelp) bridgeHelp.textContent = '請稍等；如果未能連上，這頁會顯示修復入口。';
+        setBridgeRepairButton('修復本機 APS 連線');
+        setBridgeRepairPanel(false, '');
+        return;
+      }
+      if (mode === 'missing') {
+        bridgeStatus.textContent = '本機 APS：⚠️ 這頁未連到本機 APS，只能看到頁面快照';
+        bridgeStatus.className = 'status-row warn';
+        if (bridgeHelp) bridgeHelp.textContent = '請用下方修復入口，把指令交給本機 AI；完成後重新打開最新 APS Live 頁。';
+        setBridgeRepairButton('修復本機 APS 連線');
+        setBridgeRepairPanel(true, '這頁需要重新生成或重新開啟本機 APS 同步服務。');
+        return;
+      }
+      if (mode === 'mismatch') {
+        bridgeStatus.textContent = '本機 APS：⚠️ 連到其他 APS 合作目錄' + (detail ? '（' + detail + '）' : '');
+        bridgeStatus.className = 'status-row warn';
+        if (bridgeHelp) bridgeHelp.textContent = '請停止舊的本機 APS 同步服務，再用本項目重新開啟；這不是對方未上線。';
+        setBridgeRepairButton('修復本機 APS 連線');
+        setBridgeRepairPanel(true, detail ? '目前本機 bridge 服務的是其他合作目錄：' + detail : '目前本機 bridge 服務的是其他合作目錄。');
+        return;
+      }
+      bridgeStatus.textContent = '本機 APS：⚠️ 未連上，正式進度可能不是最新';
+      bridgeStatus.className = 'status-row warn';
+      if (bridgeHelp) bridgeHelp.textContent = '請用下方修復入口，把指令交給本機 AI；完成後回來重新同步。';
+      setBridgeRepairButton('修復本機 APS 連線');
+      setBridgeRepairPanel(true, '正式進度暫時不能自動同步；先修復本機 APS 連線。');
+    }
+    async function diagnoseBridgeFailure(error, options = {}) {
+      const logMessage = options.logMessage !== false;
+      if (!bridgeAvailable()) {
+        setBridgeState('missing');
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 3500);
+        const response = await fetch(bridge.url + '/health', { signal: controller.signal });
+        window.clearTimeout(timeoutId);
+        const data = await response.json().catch(() => ({}));
+        const currentProject = data && data.project ? String(data.project) : '';
+        if (response.ok && currentProject && currentProject !== snapshot.project) {
+          setBridgeState('mismatch', currentProject);
+          if (formalStateStatus) formalStateStatus.textContent = '正式進度：本機 bridge 正連到其他 APS 合作目錄，未能同步本項目。';
+          if (logMessage) {
+            addMessage('⚠️ 本機 APS 連到其他合作目錄', {
+              error: '目前 bridge 服務的是 ' + currentProject + '，本頁需要 ' + (snapshot.project || '目前項目') + '。',
+              category: 'system',
+            });
+          }
+          return;
+        }
+      } catch (healthError) {
+        // Keep the normal offline state when the bridge is not reachable at all.
+      }
+      setBridgeState('offline');
+      if (formalStateStatus) formalStateStatus.textContent = '正式進度：背景同步失敗；上次狀態可能已過時。';
+      if (logMessage && error && error.message) addMessage('⚠️ 本機 APS 同步失敗', { error: error.message, category: 'system' });
+    }
+    async function copyBridgeRepairPrompt() {
+      const text = bridgeRepairText();
+      if (bridgeRepairPrompt) {
+        bridgeRepairPrompt.value = text;
+        bridgeRepairPrompt.focus();
+        bridgeRepairPrompt.select();
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          if (bridgeRepairFeedback) bridgeRepairFeedback.textContent = '已複製。請貼到本機 AI 對話，讓它替你開啟本機 APS 同步服務。';
+          return;
+        }
+      } catch (error) {
+        // File URLs may block clipboard; keep the text selected for manual copy.
+      }
+      if (bridgeRepairFeedback) bridgeRepairFeedback.textContent = '瀏覽器不允許自動複製；文字已選取，請複製後貼到本機 AI 對話。';
+    }
+    async function retryBridgeAfterRepair() {
+      if (!bridgeAvailable()) {
+        setBridgeState('missing');
+        return;
+      }
+      setBridgeState('checking');
+      if (bridgeRepairFeedback) bridgeRepairFeedback.textContent = '正在重新同步正式進度...';
+      try {
+        await requestFormalRefresh();
+        if (bridgeRepairFeedback) bridgeRepairFeedback.textContent = '已重新同步正式進度。';
+      } catch (error) {
+        await diagnoseBridgeFailure(error);
+        if (bridgeRepairFeedback) bridgeRepairFeedback.textContent = '仍未連上；請確認本機 AI 已開啟 APS 同步服務後再試。';
+      }
+    }
     function setDiscussionStatus(label) {
       if (discussionStatus) discussionStatus.textContent = label;
     }
     const storageKey = 'aps-live-session-v1:' + roomId + ':' + snapshot.agent_id;
+    const pendingSendKey = 'aps-live-pending-send-v1:' + roomId + ':' + snapshot.agent_id;
+    const pendingProjectMessages = [];
     function remotePeerCount() {
       return Array.from(peerAgents.values()).filter(peer => peer && peer.agent_id && peer.agent_id !== snapshot.agent_id).length;
     }
     function canSendProjectMessage() {
-      return Boolean(sendProjectMessageAction && remotePeerCount() > 0);
+      return Boolean(sendProjectMessageAction);
     }
     function updateSendButtonState() {
       if (!sendProjectMessageButton) return;
-      const canSend = canSendProjectMessage();
-      sendProjectMessageButton.disabled = !canSend;
-      sendProjectMessageButton.textContent = canSend ? '發送核對訊息' : (sendProjectMessageAction ? '等待對方進入後才能發送核對訊息' : '未連接，請先用上方按鈕連接');
-      for (const button of quickReplyButtons) {
-        button.disabled = !canSend;
+      const hasRealPeer = remotePeerCount() > 0;
+      sendProjectMessageButton.disabled = !sendProjectMessageAction || !hasRealPeer;
+      if (!sendProjectMessageAction) {
+        sendProjectMessageButton.textContent = '未連接，請先用上方按鈕連接';
+      } else if (hasRealPeer) {
+        sendProjectMessageButton.textContent = pendingProjectMessages.length > 0 ? '發送核對訊息並補送待送草稿' : '發送核對訊息';
+      } else {
+        sendProjectMessageButton.textContent = '等待對方進入後才能發送核對訊息';
       }
     }
     function persistMessages() {
@@ -4282,15 +5031,58 @@ ${terminalActionsHtml}
         sessionStorage.setItem(storageKey, JSON.stringify(messageHistory.slice(-100)));
       } catch (error) { /* current browser session history is best-effort */ }
     }
-    function renderMessage(source, data) {
+    function messageCategory(source, data) {
+      if (data && data.category) return data.category;
+      if (source && (source.includes('核對訊息') || source.includes('已發送') || source.includes('待送草稿') || source.includes('補送待送草稿'))) return 'chat';
+      return 'system';
+    }
+    function showNotice(text, mode = 'status') {
+      if (!liveNotice) return;
+      liveNotice.textContent = text;
+      liveNotice.className = 'notice-banner active ' + mode;
+    }
+    function snapshotSignature(data) {
+      if (!data) return '';
+      const actions = Array.isArray(data.formal_actions) ? data.formal_actions.map(action => action.type + ':' + action.packet_id + ':v' + action.version).join('|') : '';
+      return [data.seen_packet, data.seen_ack, data.current_case_title, data.current_station, data.waiting_for, actions].join('::');
+    }
+    let lastFormalSignature = snapshotSignature(snapshot);
+    function renderMessage(record) {
+      const source = record.source;
+      const data = record.data;
+      const category = record.category || messageCategory(source, data);
+      const target = category === 'system' ? systemMessages : messages;
+      if (!target) return;
       const node = document.createElement('div');
-      node.className = 'message';
+      node.className = 'message ' + (category === 'pending' ? 'pending' : category === 'system' ? 'system' : 'chat');
       const title = document.createElement('strong');
       title.textContent = source;
+      const meta = document.createElement('small');
+      meta.className = 'message-meta';
+      meta.textContent = messageMetaText(record);
       const body = document.createElement('p');
       body.textContent = readableMessage(source, data);
-      node.append(title, body);
-      messages.prepend(node);
+      if (category === 'system') {
+        node.append(title, meta, body);
+      } else {
+        const wrap = document.createElement('label');
+        wrap.className = 'message-select';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = record.selected !== false;
+        checkbox.dataset.messageId = data && data.message_id ? data.message_id : '';
+        checkbox.dataset.localId = record.local_id || '';
+        const content = document.createElement('span');
+        content.append(title, meta, body);
+        wrap.append(checkbox, content);
+        node.append(wrap);
+      }
+      target.prepend(node);
+    }
+    function rerenderMessages() {
+      if (messages) messages.textContent = '';
+      if (systemMessages) systemMessages.textContent = '';
+      for (const record of messageHistory) renderMessage(record);
     }
     function restoreMessages() {
       try {
@@ -4298,25 +5090,83 @@ ${terminalActionsHtml}
         if (!Array.isArray(saved) || saved.length === 0) return;
         for (const item of saved) {
           if (!item || !item.source) continue;
-          messageHistory.push({ source: item.source, data: item.data, recorded_at: item.recorded_at });
-          renderMessage(item.source, item.data);
+          const category = item.category || messageCategory(item.source, item.data);
+          const record = {
+            source: item.source,
+            data: item.data,
+            recorded_at: item.recorded_at,
+            category,
+            selected: item.selected !== false,
+            local_id: item.local_id || ('restored-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)),
+          };
+          messageHistory.push(record);
+          renderMessage(record);
         }
-        setDiscussionStatus('💬 已載入本次頁面 session 記錄。可繼續討論，或交給本機 AI 整理。');
+        setDiscussionStatus('💬 已載入本次頁面記錄。可繼續討論，或交給你的 AI 整理。');
       } catch (error) { /* invalid session cache should not block the page */ }
+    }
+    function persistPendingProjectMessages() {
+      try {
+        sessionStorage.setItem(pendingSendKey, JSON.stringify(pendingProjectMessages.slice(-50)));
+      } catch (error) { /* pending send cache is best-effort */ }
+    }
+    function restorePendingProjectMessages() {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(pendingSendKey) || '[]');
+        if (Array.isArray(saved)) {
+          pendingProjectMessages.push(...saved.filter(item => item && item.text));
+        }
+        if (pendingProjectMessages.length > 0) {
+          setDiscussionStatus('💬 已載入 ' + pendingProjectMessages.length + ' 則待送草稿；對方進入後會補送。');
+        }
+      } catch (error) { /* invalid pending cache should not block */ }
+    }
+    async function flushPendingProjectMessages() {
+      if (!sendProjectMessageAction || remotePeerCount() === 0 || pendingProjectMessages.length === 0) return;
+      const pending = pendingProjectMessages.splice(0, pendingProjectMessages.length);
+      for (const payload of pending) {
+        await sendProjectMessageWithWarmupRetry({ ...payload, resent_from_pending: true });
+        addMessage('✅ 已補送待送草稿', payload);
+      }
+      persistPendingProjectMessages();
+      updateSendButtonState();
+      setDiscussionStatus('✅ 已補送待送草稿。等待對方回覆；回覆會顯示在下面。');
+    }
+    function setPeerPillState(state, label) {
+      if (peerAgentPill) peerAgentPill.className = 'agent-pill ' + state;
+      if (peerAgentStatus) {
+        peerAgentStatus.className = 'agent-status ' + state;
+        peerAgentStatus.textContent = label;
+      }
     }
     function updateOnlinePeers() {
       if (!onlinePeers) return;
       const rows = ['我: ' + snapshot.agent_id];
+      let unidentifiedPeerCount = 0;
+      let targetPeerConnected = false;
+      let otherPeerConnected = null;
       for (const [peerId, peer] of peerAgents.entries()) {
         if (!peer || !peer.agent_id) {
+          unidentifiedPeerCount += 1;
           rows.push('未識別身份的視窗 (' + peerId + ')');
         } else if (peer.agent_id === snapshot.agent_id) {
           rows.push('同一身份另一視窗: ' + peer.agent_id);
         } else {
+          if (peer.agent_id === snapshot.target_peer) targetPeerConnected = true;
+          if (!otherPeerConnected) otherPeerConnected = peer.agent_id;
           rows.push('協作者: ' + peer.agent_id);
         }
       }
-      onlinePeers.textContent = rows.length > 1 ? '目前在線：' + rows.join('；') : '目前在線：等待對方進入';
+      onlinePeers.textContent = rows.length > 1 ? '即時對方：' + rows.join('；') : '即時對方：等待對方進入';
+      if (targetPeerConnected) {
+        setPeerPillState('online', '✓ 協作者已連線');
+      } else if (otherPeerConnected) {
+        setPeerPillState('online', '✓ ' + otherPeerConnected + ' 已連線');
+      } else if (unidentifiedPeerCount > 0) {
+        setPeerPillState('waiting', '… 身份確認中');
+      } else {
+        setPeerPillState('waiting', '○ 等待協作者');
+      }
     }
     function readableMessage(source, data) {
       if (!data) return source;
@@ -4330,11 +5180,107 @@ ${terminalActionsHtml}
       if (data.task_mode) return data.task_mode;
       return source;
     }
+    function formatMessageTime(value) {
+      const date = value ? new Date(value) : new Date();
+      if (Number.isNaN(date.getTime())) return String(value || '');
+      return date.toISOString().replace('T', ' ').slice(0, 16);
+    }
+    function discussionFocusLabel(data) {
+      const focus = data && data.discussion_focus;
+      if (!focus) return '未標記';
+      if (typeof focus === 'string') return focus;
+      return focus.label || focus.value || '未標記';
+    }
+    function messageSpeakerMeta(source, data) {
+      const agent = data && data.agent_id ? String(data.agent_id) : '';
+      if (agent && agent === snapshot.agent_id) {
+        return { speaker: agent, role: '本頁使用者' };
+      }
+      if (agent && agent === snapshot.target_peer) {
+        return { speaker: agent, role: '協作者' };
+      }
+      if (agent) {
+        return { speaker: agent, role: '其他參與者' };
+      }
+      if (source && source.includes('已發送')) {
+        return { speaker: snapshot.agent_id, role: '本頁使用者' };
+      }
+      if (source && source.includes('收到')) {
+        return { speaker: snapshot.target_peer || '對方', role: '協作者' };
+      }
+      return { speaker: source || '頁面', role: '頁面記錄' };
+    }
+    function relatedHandoffLabel(data) {
+      if (data && data.related_packet && data.related_packet !== 'none') return data.related_packet;
+      if (data && data.current_case_title) return data.current_case_title;
+      return snapshot.current_case_title || snapshot.live_focus || '目前交接單';
+    }
+    function messageMetaText(record) {
+      const data = record && record.data ? record.data : {};
+      const speaker = messageSpeakerMeta(record && record.source, data);
+      return [
+        '時間：' + formatMessageTime((record && record.recorded_at) || data.sent_at),
+        '發言人：' + speaker.speaker,
+        '身份：' + speaker.role,
+        '針對：' + discussionFocusLabel(data),
+      ].join('　');
+    }
+    function messageMetaForAi(record) {
+      const data = record && record.data ? record.data : {};
+      const speaker = messageSpeakerMeta(record && record.source, data);
+      const steps = Array.isArray(data.tracking_steps) && data.tracking_steps.length
+        ? data.tracking_steps.map(step => (step.label || '') + '=' + (step.status_label || step.state || '')).filter(Boolean).join('；')
+        : (Array.isArray(snapshot.tracking_steps) ? snapshot.tracking_steps.map(step => (step.label || '') + '=' + (step.status_label || step.state || '')).filter(Boolean).join('；') : '');
+      const lines = [
+        '時間：' + formatMessageTime((record && record.recorded_at) || data.sent_at),
+        '發言人：' + speaker.speaker,
+        '身份：' + speaker.role,
+        '討論針對：' + discussionFocusLabel(data),
+        '關聯交接：' + relatedHandoffLabel(data),
+        '當時階段：' + (data.current_station || snapshot.current_station || '未確認'),
+        '當時判斷：' + (data.can_start_label || snapshot.can_start_label || '未確認'),
+        '等待誰：' + (data.waiting_for || snapshot.waiting_for || '未確認'),
+        '下一正式決策：' + (data.next_formal_action || snapshot.next_formal_action || snapshot.proposed_terminal_action || '未確認'),
+      ];
+      if (steps) lines.push('階段進度：' + steps);
+      if (data.correction_of && data.correction_of.message_id) {
+        lines.push('更正對象：' + data.correction_of.message_id);
+      }
+      return lines.join('；');
+    }
     function addMessage(source, data) {
-      messageHistory.push({ source, data, recorded_at: new Date().toISOString() });
+      const category = messageCategory(source, data);
+      const selected = category !== 'system';
+      const messageId = data && data.message_id ? String(data.message_id) : '';
+      if (messageId && source.includes('已補送待送草稿')) {
+        const existing = messageHistory.find(record =>
+          record && record.data && String(record.data.message_id || '') === messageId &&
+          record.source && record.source.includes('已保存待送草稿')
+        );
+        if (existing) {
+          existing.source = source;
+          existing.data = { ...existing.data, ...data, resent_from_pending: true };
+          existing.recorded_at = new Date().toISOString();
+          existing.category = category;
+          existing.selected = selected;
+          persistMessages();
+          rerenderMessages();
+          if (category !== 'system') updateLiveCommentEvent(source, existing.data);
+          return;
+        }
+      }
+      const record = {
+        source,
+        data,
+        recorded_at: new Date().toISOString(),
+        category,
+        selected,
+        local_id: 'msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      };
+      messageHistory.push(record);
       persistMessages();
-      renderMessage(source, data);
-      updateLiveCommentEvent(source, data);
+      renderMessage(record);
+      if (category !== 'system') updateLiveCommentEvent(source, data);
     }
     function updateLiveCommentEvent(source, data) {
       const recordedAt = data && data.sent_at ? data.sent_at : new Date().toISOString();
@@ -4348,62 +5294,459 @@ ${terminalActionsHtml}
     }
     function projectMessagePayload() {
       const text = document.getElementById('projectMessage').value.trim();
-      return {
+      const focus = selectedDiscussionFocus();
+      const clarificationCard = selectedClarificationCard();
+      const payload = {
         kind: 'project-message',
         message_id: 'aps-live-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         project: snapshot.project,
         agent_id: snapshot.agent_id,
+        discussion_focus: focus,
+        clarification_card: clarificationCard,
         text,
         current_case_title: snapshot.current_case_title,
         current_question: snapshot.current_question,
+        current_station: snapshot.current_station,
+        can_start_label: snapshot.can_start_label,
+        waiting_for: snapshot.waiting_for,
+        next_formal_action: snapshot.next_formal_action || snapshot.proposed_terminal_action,
+        tracking_steps: Array.isArray(snapshot.tracking_steps)
+          ? snapshot.tracking_steps.map(step => ({
+            label: step.label || '',
+            state: step.state || '',
+            status_label: step.status_label || '',
+          }))
+          : [],
         related_shared_goal: snapshot.seen_shared_goal,
         related_packet: snapshot.seen_packet,
         proposed_terminal_action: snapshot.proposed_terminal_action,
         sent_at: new Date().toISOString(),
       };
+      if (pendingCorrectionOf) payload.correction_of = pendingCorrectionOf;
+      return payload;
     }
-    function liveReplyPayload(reply) {
-      const replyMap = {
-        received: {
-          reply_label: '已收到',
-          reply_detail: '我看到同一張交接單，可以進入開工判斷。',
-          next_action: '請本機 AI 判斷是否可開工，並在需要時整理正式 ack 或補資料要求。',
-          task_mode: '判斷可否開工',
-        },
-        'need-info': {
-          reply_label: '需補資料',
-          reply_detail: '來源、版本、範圍或驗收標準不足，暫時不適合開工。',
-          next_action: '請本機 AI 整理缺口，生成補資料追問或退回理由草稿。',
-          task_mode: '產生補資料請求',
-        },
-        disagree: {
-          reply_label: '不同意',
-          reply_detail: '共同目標、角色或分工需要先修正，暫時不應推進普通交接。',
-          next_action: '請本機 AI 整理分歧，生成共同目標與分工修訂草稿。',
+    function discussionFocusOptions(snapshotData = snapshot) {
+      const actions = Array.isArray(snapshotData.formal_actions) ? snapshotData.formal_actions : [];
+      const types = new Set(actions.map(action => action && action.type).filter(Boolean));
+      const target = snapshotData.target_peer || '協作者';
+      const options = [];
+      if (types.has('consume-packet')) options.push({
+        value: 'acceptance-note',
+        label: '接受前補充',
+        detail: '補充你同意接受的條件、限制或下一步。',
+        taskMode: '判斷可否開工',
+        placeholder: target + '，我同意目前可進入處理；補充條件是：',
+      });
+      if (types.has('decline-packet')) options.push({
+        value: 'missing-info',
+        label: '退回補資料',
+        detail: '指出缺少哪份資料、版本、範圍或驗收標準。',
+        taskMode: '產生補資料請求',
+        placeholder: target + '，目前未能處理，請補充：',
+      });
+      if (types.has('confirm-shared-goal')) options.push({
+        value: 'shared-goal',
+        label: '共同基準',
+        detail: '討論共同目標、角色分工、第一輪範圍或驗收標準。',
+        taskMode: '整理共識 / 分歧 / 待決定事項',
+        placeholder: target + '，關於共同目標與分工，我想補充：',
+      });
+      if (types.has('close-packet')) options.push({
+        value: 'closeout',
+        label: '收結前核對',
+        detail: '補充為何可收結，或說明仍不應收結的原因。',
+        taskMode: '整理共識 / 分歧 / 待決定事項',
+        placeholder: target + '，關於這條交接是否可收結，我的補充是：',
+      });
+      options.push({
+        value: 'sync-difference',
+        label: '同步差異',
+        detail: '雙方看到的交接單、版本、狀態或在線情況不一致時使用。',
+        taskMode: '整理共識 / 分歧 / 待決定事項',
+        placeholder: target + '，雙方看到的 APS 狀態可能不同，差異是：',
+      });
+      options.push({
+        value: 'other-risk',
+        label: '其他風險',
+        detail: '不屬於上面情況，但會影響交接是否可推進。',
+        taskMode: '整理共識 / 分歧 / 待決定事項',
+        placeholder: target + '，我發現另一個會影響交接的風險：',
+      });
+      const seen = new Set();
+      return options.filter(option => {
+        if (seen.has(option.value)) return false;
+        seen.add(option.value);
+        return true;
+      });
+    }
+    function trimTrailingSentencePunctuation(value) {
+      return String(value || '').trim().replace(/[。.!！?？]+$/u, '');
+    }
+    function checkListText(checks, fallback) {
+      return trimTrailingSentencePunctuation(checks.length ? checks.join('；') : fallback);
+    }
+    function clarificationCards(snapshotData = snapshot) {
+      const actions = Array.isArray(snapshotData.formal_actions) ? snapshotData.formal_actions : [];
+      const cards = [];
+      const target = snapshotData.target_peer || '協作者';
+      const baseRef = snapshotData.seen_packet && snapshotData.seen_packet !== 'none'
+        ? snapshotData.seen_packet
+        : (snapshotData.current_case_title || snapshotData.live_focus || '目前交接');
+      for (const action of actions) {
+        const report = action.report || {};
+        const checks = Array.isArray(report.checks) ? report.checks.filter(Boolean) : [];
+        if (action.type === 'decline-packet') {
+          cards.push({
+            id: 'clarify-' + (action.packet_id || 'packet') + '-missing',
+            tone: 'danger',
+            count_as_issue: true,
+            source_type: 'incoming_packet',
+            confidence: '高',
+            focus_value: 'missing-info',
+            task_mode: '產生補資料請求',
+            title: '不能直接處理，先請對方補資料',
+            question: '對方需要補哪些資料、來源位置、範圍或完成標準？',
+            reason: checkListText(checks, report.summary || action.default_text || 'AI 預檢看到資料不足。'),
+            ask_who: target,
+            reference: baseRef,
+            suggested_text: target + '，這張交接目前未能直接處理。請補充：' + checkListText(checks, '可共享來源、處理範圍和完成標準') + '。補齊前我這邊不會把它標記為已處理。',
+          });
+          continue;
+        }
+        if (action.type === 'confirm-shared-goal') {
+          cards.push({
+            id: 'clarify-' + (action.packet_id || 'shared-goal') + '-shared-goal',
+            tone: 'warn',
+            count_as_issue: true,
+            source_type: 'shared_goal',
+            confidence: '高',
+            focus_value: 'shared-goal',
+            task_mode: '整理共識 / 分歧 / 待決定事項',
+            title: '共同目標與分工需要確認',
+            question: '共同目標、角色分工、第一輪範圍或驗收標準是否一致？',
+            reason: checkListText(checks, report.summary || '普通交接前需要先確認共同目標與分工。'),
+            ask_who: target,
+            reference: baseRef,
+            suggested_text: target + '，請確認共同目標、角色分工、第一輪範圍和驗收標準是否一致；如不同意，請指出要修改的位置。',
+          });
+          continue;
+        }
+        if (action.type === 'consume-packet') {
+          cards.push({
+            id: 'clarify-' + (action.packet_id || 'packet') + '-acceptable',
+            tone: 'ok',
+            count_as_issue: false,
+            source_type: 'incoming_packet',
+            confidence: '中',
+            focus_value: 'acceptance-note',
+            task_mode: '判斷可否開工',
+            title: '沒有必須釐清的問題',
+            question: 'AI 建議可回到「進度與決策」處理；只有你仍有條件、限制或同步差異時才需要補充。',
+            reason: checkListText(checks, report.summary || '目前可回到正式決策處理。'),
+            ask_who: snapshotData.agent_id || '本機',
+            reference: baseRef,
+            suggested_text: target + '，我這邊預檢未見必須退回的缺口。如你那邊看到的版本或狀態不同，請指出差異；否則我會回到正式決策處理。',
+          });
+          continue;
+        }
+        if (action.type === 'close-packet') {
+          cards.push({
+            id: 'clarify-' + (action.packet_id || 'packet') + '-close',
+            tone: 'ok',
+            count_as_issue: false,
+            source_type: 'outgoing_packet',
+            confidence: '中',
+            focus_value: 'closeout',
+            task_mode: '整理共識 / 分歧 / 待決定事項',
+            title: '自己發出的交接已有回覆，收結前可核對',
+            question: '這條交接線是否可以收結，還是需要修訂或重開？',
+            reason: checkListText(checks, report.summary || '對方已有正式回覆。'),
+            ask_who: snapshotData.agent_id || '本機',
+            reference: baseRef,
+            suggested_text: target + '，我看到這條交接已有回覆。請確認是否可以收結；如仍需修訂或重開，請指出原因。',
+          });
+        }
+      }
+      const stationText = String(snapshotData.current_station || '') + ' ' + String(snapshotData.can_start_label || '');
+      if (cards.length === 0 && /已發出|等待|同步/.test(stationText)) {
+        cards.push({
+          id: 'clarify-sync-status',
+          tone: 'warn',
+          count_as_issue: true,
+          source_type: 'sync_status',
+          confidence: '中',
+          focus_value: 'sync-difference',
           task_mode: '整理共識 / 分歧 / 待決定事項',
-        },
-      };
-      const selected = replyMap[reply] || replyMap['need-info'];
+          title: '需要核對雙方是否看到同一件交接',
+          question: '對方是否看到同一張交接單、同一版本和同一狀態？',
+          reason: snapshotData.blocker || snapshotData.pending_decision || '目前正在等待對方查看、同步或回覆。',
+          ask_who: target,
+          reference: baseRef,
+          suggested_text: target + '，我這邊看到的交接狀態是「' + (snapshotData.current_station || '未確認') + '」。請你確認是否看到同一張交接單、同一版本和同一狀態。',
+        });
+      }
+      if (cards.length === 0) {
+        cards.push({
+          id: 'clarify-none',
+          tone: 'ok',
+          count_as_issue: false,
+          source_type: 'general',
+          confidence: '中',
+          focus_value: 'other-risk',
+          task_mode: '整理共識 / 分歧 / 待決定事項',
+          title: '沒有必須釐清的問題',
+          question: '目前沒有需要對方即時回覆的卡點；如你仍有補充、分歧或風險，才需要在這裏寫。',
+          reason: snapshotData.blocker || snapshotData.pending_decision || 'AI 預檢未找到明確待釐清問題。',
+          ask_who: snapshotData.agent_id || '本機',
+          reference: baseRef,
+          suggested_text: '',
+        });
+      }
+      return cards.slice(0, 3);
+    }
+    function selectedClarificationCard() {
+      const cards = clarificationCards();
+      return cards.find(card => card.id === selectedClarificationCardId) || cards[0] || null;
+    }
+    function setInlineFeedback(node, message, tone = 'status') {
+      if (!node) return;
+      node.textContent = message;
+      node.className = 'inline-feedback active' + (tone === 'warn' ? ' warn' : tone === 'ok' ? ' ok' : '');
+    }
+    function setAgentFallbackFeedback(node, prompt, message) {
+      if (!node) return;
+      node.textContent = '';
+      node.className = 'inline-feedback active warn';
+      const title = document.createElement('strong');
+      title.className = 'feedback-title';
+      title.textContent = message || '未能直接交給你的 AI。請複製下面內容，貼回你的 AI 對話。';
+      const hint = document.createElement('span');
+      hint.textContent = '下一步：全選下面文字，回到 AI 工具貼上。這不會自動發給對方，也不會改正式交接紀錄。';
+      const textarea = document.createElement('textarea');
+      textarea.value = prompt || '';
+      textarea.setAttribute('aria-label', '交給 AI 的可複製內容');
+      textarea.addEventListener('focus', () => textarea.select());
+      node.append(title, hint, textarea);
+      window.setTimeout(() => { try { textarea.focus(); textarea.select(); } catch (error) { /* selection is best effort */ } }, 0);
+    }
+    function applyClarificationCard(card, options = {}) {
+      if (!card) return;
+      selectedClarificationCardId = card.id;
+      const textarea = document.getElementById('projectMessage');
+      if (discussionFocusSelect && card.focus_value) {
+        const exists = Array.from(discussionFocusSelect.options).some(option => option.value === card.focus_value);
+        if (exists) discussionFocusSelect.value = card.focus_value;
+      }
+      updateDiscussionFocusUi();
+      const agentMode = document.getElementById('agentTaskMode');
+      if (agentMode && card.task_mode) agentMode.value = card.task_mode;
+      if (textarea && options.fill !== false) textarea.value = card.suggested_text || '';
+      if (textarea && options.focus) textarea.focus();
+      setDiscussionStatus(card.count_as_issue
+        ? '📌 正在處理：「' + card.title + '」。補充訊息只針對這個問題。'
+        : '📌 目前沒有必須處理的問題；下方只作可選補充或交給 AI 整理下一步。');
+      if (options.fill !== false) {
+        showNotice(card.count_as_issue
+          ? '已把「' + card.title + '」的建議訊息放入下方草稿。請檢查文字，再決定是否發給對方。'
+          : '已放入可選補充草稿；如果沒有額外條件或風險，可以不用發給對方。',
+          'status');
+      }
+      renderClarificationCards();
+    }
+    function renderClarificationCards() {
+      if (!clarificationCardsNode) return;
+      const cards = clarificationCards();
+      const actionableCount = cards.filter(card => card && card.count_as_issue === true).length;
+      if (clarificationHeading) {
+        clarificationHeading.textContent = actionableCount > 0
+          ? 'AI 預檢看到的待釐清問題'
+          : '目前沒有必須釐清的問題';
+      }
+      if (clarificationIntro) {
+        clarificationIntro.textContent = actionableCount > 0
+          ? '先處理這裏列出的缺口或同步差異；正式接受、退回或收結仍要回到「進度與決策」完成安全檢查與確認。'
+          : '你可以回到「進度與決策」處理下一步；只有想補充條件、限制、版本差異或風險時，才需要使用這個分頁。';
+      }
+      if (selectedClarificationHeading) {
+        selectedClarificationHeading.textContent = actionableCount > 0
+          ? '針對選中問題補充'
+          : '可選補充或交給 AI';
+      }
+      if (selectedClarificationScope) {
+        selectedClarificationScope.textContent = actionableCount > 0
+          ? '只針對目前這張交接單'
+          : '沒有必須發給對方的訊息';
+      }
+      if (selectedClarificationIntro) {
+        const stage = currentStageLabel();
+        selectedClarificationIntro.textContent = '目前階段：';
+        const stageNode = document.createElement('strong');
+        stageNode.id = 'collabCurrentStage';
+        stageNode.textContent = stage;
+        selectedClarificationIntro.append(stageNode);
+        selectedClarificationIntro.append(actionableCount > 0
+          ? '。先選上方問題，再補充要對方回覆的內容。'
+          : '。沒有必須補充的問題；如要請 AI 幫你整理下一步，只需勾選有用對話後按下方按鈕。');
+        collabCurrentStage = document.getElementById('collabCurrentStage');
+      }
+      if (agentForwardHeading) {
+        agentForwardHeading.textContent = actionableCount > 0
+          ? '請 AI 幫我處理這個問題'
+          : '請 AI 整理下一步';
+      }
+      if (agentForwardIntro) {
+        agentForwardIntro.textContent = actionableCount > 0
+          ? '會帶入選中的問題、目前進度和你勾選的對話；只會草擬下一步，不會自動改正式交接紀錄。'
+          : '會帶入目前進度和你勾選的對話，請 AI 草擬下一步；不會自動發給對方，也不會改正式交接紀錄。';
+      }
+      if (clarificationTabBadge) {
+        clarificationTabBadge.textContent = String(actionableCount);
+        clarificationTabBadge.classList.toggle('hidden', actionableCount === 0);
+        clarificationTabBadge.setAttribute('aria-label', actionableCount + ' 個待釐清問題');
+      }
+      if (!selectedClarificationCardId && cards[0]) selectedClarificationCardId = cards[0].id;
+      clarificationCardsNode.textContent = '';
+      for (const card of cards) {
+        const node = document.createElement('div');
+        node.className = 'clarification-card ' + (card.tone || '') + (card.id === selectedClarificationCardId ? ' selected' : '');
+        const title = document.createElement('strong');
+        title.textContent = card.title;
+        const question = document.createElement('p');
+        question.textContent = card.question;
+        const reason = document.createElement('p');
+        reason.className = 'muted';
+        reason.textContent = '原因：' + card.reason;
+        const meta = document.createElement('div');
+        meta.className = 'clarification-meta';
+        if (card.count_as_issue) {
+          for (const value of ['問：' + card.ask_who, '依據：' + card.reference, '把握：' + card.confidence]) {
+            const item = document.createElement('span');
+            item.textContent = value;
+            meta.append(item);
+          }
+        }
+        const actions = document.createElement('div');
+        actions.className = 'clarification-actions';
+        const draft = document.createElement('button');
+        draft.type = 'button';
+        draft.textContent = card.count_as_issue ? '寫訊息給對方' : '可選：寫補充訊息';
+        draft.addEventListener('click', () => applyClarificationCard(card, { focus: true }));
+        const askAi = document.createElement('button');
+        askAi.type = 'button';
+        askAi.className = 'secondary';
+        askAi.textContent = card.count_as_issue ? '請 AI 判斷這題' : '交給 AI 整理下一步';
+        const cardFeedback = document.createElement('div');
+        cardFeedback.className = 'inline-feedback';
+        cardFeedback.setAttribute('role', 'status');
+        cardFeedback.setAttribute('aria-live', 'polite');
+        askAi.addEventListener('click', () => {
+          applyClarificationCard(card, { fill: false });
+          const activeCardNode = document.querySelector('.clarification-card.selected');
+          const visibleAskButton = activeCardNode
+            ? Array.from(activeCardNode.querySelectorAll('button')).find(button => button.textContent.trim() === askAi.textContent)
+            : null;
+          const visibleFeedback = activeCardNode ? activeCardNode.querySelector('.inline-feedback') : null;
+          forwardToAgentWithOptions({
+            triggerButton: visibleAskButton || askAi,
+            feedbackNode: visibleFeedback || cardFeedback,
+            intentLabel: card.count_as_issue ? '這個待釐清問題' : '目前下一步',
+            includeSelectedMessages: false,
+            nextStepText: card.count_as_issue
+              ? '回到你的 AI 工具說「Check APS」，它會看到這題和目前進度，幫你判斷下一步。'
+              : '回到你的 AI 工具說「Check APS」，它會看到目前進度，幫你整理下一步。'
+          });
+        });
+        actions.append(draft, askAi, cardFeedback);
+        node.append(title, question, reason);
+        if (card.count_as_issue) node.append(meta);
+        node.append(actions);
+        clarificationCardsNode.append(node);
+      }
+    }
+    function renderDiscussionFocusOptions(keepValue = true) {
+      if (!discussionFocusSelect) return;
+      const previous = keepValue ? discussionFocusSelect.value : '';
+      const options = discussionFocusOptions();
+      discussionFocusSelect.textContent = '';
+      for (const option of options) {
+        const node = document.createElement('option');
+        node.value = option.value;
+        node.textContent = option.label;
+        node.dataset.label = option.label;
+        node.dataset.detail = option.detail;
+        node.dataset.taskMode = option.taskMode;
+        node.dataset.placeholder = option.placeholder;
+        discussionFocusSelect.append(node);
+      }
+      if (previous && options.some(option => option.value === previous)) {
+        discussionFocusSelect.value = previous;
+      }
+      updateDiscussionFocusUi();
+    }
+    function selectedDiscussionFocus() {
+      if (!discussionFocusSelect) return null;
+      const selected = discussionFocusSelect.selectedOptions && discussionFocusSelect.selectedOptions[0];
+      if (!selected) return null;
       return {
-        kind: 'handoff-reply',
-        message_id: 'aps-live-reply-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-        project: snapshot.project,
-        agent_id: snapshot.agent_id,
-        reply,
-        ...selected,
-        current_case_title: snapshot.current_case_title,
-        current_question: snapshot.current_question,
-        related_shared_goal: snapshot.seen_shared_goal,
-        related_packet: snapshot.seen_packet,
-        sent_at: new Date().toISOString(),
+        value: selected.value,
+        label: selected.textContent,
+        task_mode: selected.dataset.taskMode || '',
       };
+    }
+    function updateDiscussionFocusUi() {
+      const selected = discussionFocusSelect && discussionFocusSelect.selectedOptions ? discussionFocusSelect.selectedOptions[0] : null;
+      if (!selected) return;
+      const textarea = document.getElementById('projectMessage');
+      if (textarea) textarea.placeholder = selected.dataset.placeholder || textarea.placeholder;
+      const agentMode = document.getElementById('agentTaskMode');
+      if (agentMode && selected.dataset.taskMode) agentMode.value = selected.dataset.taskMode;
+      if (discussionFocusHint) {
+        const label = selected.dataset.label || selected.textContent;
+        const detailText = selected.dataset.detail ? trimTrailingSentencePunctuation(selected.dataset.detail) : '';
+        const detail = detailText ? '：' + detailText : '';
+        discussionFocusHint.textContent = '補充類型：「' + label + '」' + detail + '。通常不用改；它只幫 AI 整理問題，不會改變正式交接進度。';
+      }
+    }
+    function currentStageLabel(snapshotData = snapshot) {
+      const steps = Array.isArray(snapshotData.tracking_steps) ? snapshotData.tracking_steps : [];
+      const activeStep = steps.find(step => step && step.state === 'active');
+      if (activeStep && activeStep.label) return activeStep.label;
+      const blockedStep = steps.find(step => step && step.state === 'blocked');
+      if (blockedStep && blockedStep.label) return blockedStep.label;
+      return snapshotData.current_station || '未確認';
+    }
+    function renderCollabStage() {
+      if (!collabStage) return;
+      collabStage.textContent = '';
+      const steps = Array.isArray(snapshot.tracking_steps) ? snapshot.tracking_steps : [];
+      for (const step of steps) {
+        const item = document.createElement('span');
+        item.className = 'collab-stage-step ' + (step.state || 'todo');
+        const title = document.createElement('strong');
+        title.textContent = (step.icon || '') + ' ' + (step.label || '');
+        const status = document.createElement('small');
+        status.textContent = step.status_label || '';
+        item.append(title, status);
+        collabStage.append(item);
+      }
+      if (collabCurrentStage) collabCurrentStage.textContent = currentStageLabel();
     }
     function selectedAgentTaskMode() {
       const node = document.getElementById('agentTaskMode');
       return node ? node.value : '整理共識 / 分歧 / 待決定事項';
     }
+    function selectedChatMessages() {
+      const checkedIds = new Set(Array.from(document.querySelectorAll('#messages input[type="checkbox"]:checked'))
+        .map(input => input.dataset.localId)
+        .filter(Boolean));
+      return messageHistory
+        .filter(item => item.category !== 'system' && checkedIds.has(item.local_id))
+        .slice(-24);
+    }
     function buildAgentForwardPrompt(taskMode = selectedAgentTaskMode()) {
-      const recentMessages = messageHistory.slice(-12);
+      const recentMessages = selectedChatMessages();
+      const discussionFocus = selectedDiscussionFocus();
+      const clarificationCard = selectedClarificationCard();
       const contextText = (snapshot.context_cards || [])
         .map(card => '- ' + card.label + ': ' + card.value)
         .join('\\n') || '- 未見已帶入資料';
@@ -4413,14 +5756,31 @@ ${terminalActionsHtml}
       const messageText = recentMessages.length
         ? recentMessages.map((item, index) => {
           const text = readableMessage(item.source, item.data);
-          return (index + 1) + '. ' + item.source + ': ' + text;
+          return [
+            (index + 1) + '. ' + text,
+            '   ' + messageMetaForAi(item),
+          ].join('\\n');
         }).join('\\n')
-        : '- 尚未有 Live 訊息；請按目前事件和問題先整理下一步。';
+        : '- 未勾選任何對話；請只根據目前進度提出下一步草稿。';
       return [
         '請用 APS 跟進以下 APS Live 交接追蹤協調內容。',
         '',
-        '今次我想本機 AI 做的事：',
+        '今次我想 AI 做的事：',
         taskMode,
+        '',
+        '這次補充討論針對：',
+        discussionFocus ? discussionFocus.label : '未指定；請先按目前交接進度判斷',
+        '',
+        '這次選中的待釐清問題：',
+        clarificationCard
+          ? [
+            '- 問題: ' + clarificationCard.question,
+            '- 原因: ' + clarificationCard.reason,
+            '- 要問誰: ' + clarificationCard.ask_who,
+            '- 依據: ' + clarificationCard.reference,
+            '- 注意: 這只是 APS Live 協調材料，不是正式 APS 紀錄，也不代表任何一方已批准。',
+          ].join('\\n')
+          : '- 未選中問題；請先按目前交接進度判斷。',
         '',
         '今次 APS Live 已帶入的交接貨單：',
         snapshot.current_case_title || snapshot.live_focus,
@@ -4432,9 +5792,9 @@ ${terminalActionsHtml}
         '- 目前站點: ' + (snapshot.current_station || '未確認'),
         '- 能否開工: ' + (snapshot.can_start_label || '未確認'),
         '- 等誰行動: ' + (snapshot.waiting_for || '未確認'),
-        '- 下一個正式動作: ' + (snapshot.next_formal_action || snapshot.proposed_terminal_action || '未確認'),
+        '- 下一個正式決策: ' + (snapshot.next_formal_action || snapshot.proposed_terminal_action || '未確認'),
         '',
-        '本機 AI 已知的項目背景：',
+        'AI 已知的項目背景：',
         contextText,
         '',
         '依據摘要：',
@@ -4442,10 +5802,10 @@ ${terminalActionsHtml}
         '',
         '請先整理，不要直接套用：',
         '1. 先整理共識、分歧、待決定事項和風險。',
-        '2. 判斷哪些內容只是 Live 討論，不應直接當成正式 APS 紀錄。',
-        '3. 若需要正式 APS 動作，先生成草稿、影響和風險，等我確認後才寫入 Drive。',
+        '2. 判斷哪些內容只是討論，不應直接當成正式紀錄。',
+        '3. 若需要正式決策，先生成草稿、影響和風險，等我確認後才記錄。',
         '',
-        '最近 APS Live 核對訊息：',
+        '已勾選的 APS Live 對話：',
         messageText,
       ].join('\\n');
     }
@@ -4507,13 +5867,267 @@ ${terminalActionsHtml}
       for (const delayMs of [3000, 7000, 12000]) {
         window.setTimeout(() => {
           sendProjectMessageAction({ ...payload, retry_after_warmup: true }).catch(error => {
-            addMessage('訊息補送未完成', { fallback: '對方可能未即時收到。請稍後再按一次發送，或回到本機 AI 對話整理下一步。' });
+            addMessage('訊息補送未完成', { fallback: '對方可能未即時收到。請稍後再按一次發送，或回到你的 AI 對話整理下一步。' });
           });
         }, delayMs);
       }
     }
     function targetPeer(peerId) {
       return peerId ? { target: peerId } : undefined;
+    }
+    function bridgeAvailable() {
+      return Boolean(bridge && bridge.enabled && bridge.url && bridge.token);
+    }
+    async function postBridge(path, payload) {
+      if (!bridgeAvailable()) throw new Error('頁面未能連上你的 AI 工具');
+      const response = await fetch(bridge.url + path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: bridge.token, ...payload }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || '同步未完成，請稍後再試');
+      return data;
+    }
+    function formalActionText(action) {
+      return action && (action.default_text || action.reason || action.result || '');
+    }
+    function liveActionButtonLabel(action) {
+      if (!action || !action.type) return '檢查後繼續';
+      if (action.type === 'consume-packet') return '確認已收到，可處理';
+      if (action.type === 'decline-packet') return '退回，請對方補資料';
+      if (action.type === 'confirm-shared-goal') return '確認共同基準';
+      if (action.type === 'close-packet') return '收結這條交接';
+      return '檢查後繼續';
+    }
+    function liveDecisionInstruction(actions) {
+      const list = Array.isArray(actions) ? actions : [];
+      if (list.length === 0) {
+        return '目前沒有可直接執行的正式決策。請先同步最新進度；若仍沒有動作，再交給你的 AI 整理下一步。';
+      }
+      const types = new Set(list.map(action => action && action.type).filter(Boolean));
+      const hasWarn = list.some(action => action && action.tone === 'warn');
+      if (types.has('consume-packet') && !hasWarn) {
+        return '下一步：AI 建議這張交接單可接受。請先看右方檢查結果；若你同意，按「確認已收到，可處理」。';
+      }
+      if (types.has('decline-packet') && !types.has('consume-packet')) {
+        return '下一步：AI 建議先退回補資料。請先看右方缺口清單；若你同意，按「退回，請對方補資料」。';
+      }
+      if (types.has('confirm-shared-goal')) {
+        return '下一步：這是共同基準確認。請先看 AI 檢查結果；同意就確認共同基準，不同意就退回要求修訂。';
+      }
+      if (types.has('close-packet')) {
+        return '下一步：AI 看到這條交接已有回覆。請先看檢查結果；若你同意，按「收結這條交接」。';
+      }
+      return '下一步：請按目前顯示的決策卡處理；若你不同意 AI 判斷，先到「釐清問題與求助 AI」補充原因。';
+    }
+    function fallbackReportForAction(action) {
+      if (!action || !action.type) {
+        return {
+          verdict: '⚠️ AI 檢查結果：需要人工判斷',
+          summary: '目前沒有足夠資料自動判斷這個正式動作。',
+          checks: ['已同步最新進度', '尚未能判斷完整接收條件'],
+          next: '請先交給你的 AI 整理，再作正式決策。',
+        };
+      }
+      if (action.type === 'consume-packet') {
+        return {
+          verdict: '✅ AI 檢查結果：可接受',
+          summary: action.preview || '這張交接單目前可標記為已收到，並進入後續處理。',
+          checks: [
+            '已同步最新進度',
+            '看到同一張待處理交接單',
+            '這次只記錄你這一方已收到',
+            '寫入前仍會要求你二次確認',
+            '完成後會立即核對結果',
+          ],
+          next: '如你同意，按下方按鈕會先做安全檢查，再確認記錄「已收到」。',
+        };
+      }
+      if (action.type === 'decline-packet') {
+        return {
+          verdict: '⛔ AI 檢查結果：需要退回或補資料',
+          summary: action.preview || '這張交接單目前不適合直接接受，應記錄退回或補資料理由。',
+          checks: [
+            '已同步最新進度',
+            '退回只影響這張交接單的本方回覆',
+            '退回理由會成為正式回覆',
+            '寫入前仍會要求你二次確認',
+            '完成後會立即核對結果',
+          ],
+          next: '請先檢查退回理由是否清楚；同意後再按按鈕。',
+        };
+      }
+      if (action.type === 'confirm-shared-goal') {
+        return {
+          verdict: '🔎 AI 檢查結果：先確認共同基準',
+          summary: action.preview || '這是共同目標與分工基準，不是普通任務，應先確認基準。',
+          checks: [
+            '已同步最新進度',
+            '確認對象是共同目標與分工',
+            '確認後才適合推進普通交接',
+            '寫入前仍會要求你二次確認',
+            '完成後會立即核對結果',
+          ],
+          next: '如共同基準正確，按下方按鈕確認；不正確則使用退回修訂動作。',
+        };
+      }
+      if (action.type === 'close-packet') {
+        return {
+          verdict: '✅ AI 檢查結果：可收結',
+          summary: action.preview || '這條由本方發出的交接已有正式回覆，可收結這條交接線。',
+          checks: [
+            '已同步最新進度',
+            '只收結本方發出的交接線',
+            '不會改變對方的紀錄',
+            '寫入前仍會要求你二次確認',
+            '完成後會立即核對結果',
+          ],
+          next: '如你同意這條交接線已完成，按下方按鈕收結。',
+        };
+      }
+      return {
+        verdict: '⚠️ AI 檢查結果：需要人工判斷',
+        summary: action.preview || '目前不能自動判斷此正式動作。',
+        checks: ['已同步最新進度', '未能判斷應採用哪種決策'],
+        next: '請先交給你的 AI 判斷。',
+      };
+    }
+    function renderFormalActions() {
+      if (!formalActionsNode) return;
+      formalActionsNode.textContent = '';
+      const actions = Array.isArray(snapshot.formal_actions) ? snapshot.formal_actions : [];
+      if (actions.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'terminal-action';
+        const title = document.createElement('strong');
+        title.textContent = '目前沒有可直接執行的正式決策';
+        const body = document.createElement('span');
+        body.textContent = '請先同步最新進度；若仍沒有動作，就回到你的 AI 對話草擬下一步。';
+        empty.append(title, body);
+        formalActionsNode.append(empty);
+        return;
+      }
+      for (const action of actions) {
+        const card = document.createElement('div');
+        card.className = 'terminal-action formal-action-card ' + (action.tone || '');
+        const main = document.createElement('div');
+        main.className = 'formal-action-main';
+        const reportPanel = document.createElement('div');
+        reportPanel.className = 'formal-action-report';
+        const title = document.createElement('strong');
+        title.textContent = action.label || action.type;
+        const body = document.createElement('span');
+        const report = action.report && Array.isArray(action.report.checks) && action.report.checks.length > 0
+          ? action.report
+          : fallbackReportForAction(action);
+        body.textContent = report.summary || action.preview || '系統會先做安全檢查，再等你確認。';
+        const reportTitle = document.createElement('h4');
+        reportTitle.textContent = report.verdict || 'AI 檢查結果';
+        const checks = document.createElement('ul');
+        for (const line of (Array.isArray(report.checks) ? report.checks.slice(0, 6) : [])) {
+          const li = document.createElement('li');
+          li.textContent = line;
+          checks.append(li);
+        }
+        const next = document.createElement('span');
+        next.textContent = report.next || '按下按鈕後，系統會先同步最新進度；真正記錄前仍會再問你確認。';
+        const textarea = document.createElement('textarea');
+        textarea.value = formalActionText(action);
+        textarea.rows = 3;
+        textarea.setAttribute('aria-label', (action.label || action.type) + ' 的正式記錄文字');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = action.tone === 'warn' ? 'secondary' : action.tone === 'danger' ? 'danger-action' : '';
+        button.textContent = action.button_label || liveActionButtonLabel(action);
+        button.addEventListener('click', () => previewFormalAction({ ...action, text: textarea.value }));
+        main.append(title, body, next, textarea, button);
+        reportPanel.append(reportTitle);
+        if (checks.childNodes.length > 0) {
+          reportPanel.append(checks);
+        } else {
+          const noChecks = document.createElement('span');
+          noChecks.textContent = '目前未有足夠檢查資料，請先交給你的 AI 判斷。';
+          reportPanel.append(noChecks);
+        }
+        card.append(main, reportPanel);
+        formalActionsNode.append(card);
+      }
+    }
+    function updateFormalState(snapshotData, loadedAt) {
+      if (!snapshotData) return;
+      const beforeSignature = lastFormalSignature;
+      snapshot = snapshotData;
+      const nextSignature = snapshotSignature(snapshot);
+      const label = loadedAt || snapshot.formal_state_loaded_at || new Date().toISOString();
+      if (formalStateStatus) formalStateStatus.textContent = '正式進度：已同步最新進度 ' + label;
+      setBridgeState('online', label);
+      const currentCaseTitle = document.getElementById('currentCaseTitle');
+      const currentStation = document.getElementById('currentStation');
+      const taskTextNode = document.getElementById('taskText');
+      const evidenceTextNode = document.getElementById('evidenceText');
+      const startConditionTextNode = document.getElementById('startConditionText');
+      if (currentCaseTitle && snapshot.current_case_title) currentCaseTitle.textContent = snapshot.current_case_title;
+      if (currentStation && snapshot.current_station) currentStation.textContent = snapshot.current_station;
+      if (taskTextNode && snapshot.current_question) taskTextNode.textContent = snapshot.current_question;
+      if (evidenceTextNode && Array.isArray(snapshot.evidence_labels)) evidenceTextNode.textContent = snapshot.evidence_labels.join('、') || '未見正式真源';
+      if (startConditionTextNode) startConditionTextNode.textContent = snapshot.blocker || snapshot.can_start_label || '未確認';
+      const terminalLine = document.getElementById('terminalLine');
+      if (terminalLine) {
+        const actions = Array.isArray(snapshot.formal_actions) ? snapshot.formal_actions : [];
+        terminalLine.textContent = liveDecisionInstruction(actions);
+      }
+      const textarea = document.getElementById('projectMessage');
+      if (textarea && !textarea.value.trim() && snapshot.suggested_message) textarea.value = snapshot.suggested_message;
+      renderFormalActions();
+      renderDiscussionFocusOptions(true);
+      renderCollabStage();
+      if (!clarificationCards().some(card => card.id === selectedClarificationCardId)) selectedClarificationCardId = null;
+      renderClarificationCards();
+      if (beforeSignature && nextSignature && beforeSignature !== nextSignature) {
+        showNotice('🔔 交接進度有更新：' + (snapshot.current_case_title || '請查看目前交接單') + '。請檢查任務、開工條件與可執行決定。');
+      }
+      lastFormalSignature = nextSignature;
+    }
+    async function refreshFormalStateFromBridge(options = {}) {
+      const data = await postBridge('/formal-state', { agent_id: snapshot.agent_id });
+      updateFormalState(data.snapshot, data.loaded_at);
+      if (!options.silent) {
+        addMessage('🔎 已同步最新進度', { text: '頁面已按最新進度更新可執行決定。', category: 'system' });
+      }
+      return data;
+    }
+    async function previewFormalAction(action) {
+      try {
+        await refreshFormalStateFromBridge({ silent: true });
+        const data = await postBridge('/formal-action/preview', {
+          agent_id: snapshot.agent_id,
+          action,
+        });
+        pendingFormalAction = data.action;
+        if (formalActionPreview) {
+          formalActionPreview.textContent = '安全檢查通過：' + data.preview + ' 請在彈出視窗再次確認後才會正式記錄。';
+        }
+        addMessage('🔎 安全檢查通過', { text: data.preview, category: 'system' });
+        const confirmed = window.confirm(data.preview + '\\n\\n確認後會正式記錄，並立即核對結果。');
+        if (confirmed) await commitFormalAction();
+      } catch (error) {
+        pendingFormalAction = null;
+        if (formalActionPreview) formalActionPreview.textContent = '未寫入：' + error.message;
+        addMessage('⚠️ 尚未記錄', { error: error.message });
+      }
+    }
+    async function commitFormalAction() {
+      if (!pendingFormalAction) return;
+      const data = await postBridge('/formal-action/commit', {
+        agent_id: snapshot.agent_id,
+        action: pendingFormalAction,
+        confirm: true,
+      });
+      pendingFormalAction = null;
+      updateFormalState(data.snapshot, data.loaded_at);
+      if (formalActionPreview) formalActionPreview.textContent = '已記錄並完成核對：' + (data.summary || '交接進度已更新。');
+      addMessage('✅ 交接進度已更新', { text: data.summary || '已記錄並完成核對。' });
     }
     function recordPeerStatus(peerId, data) {
       const remoteAgentId = data && data.agent_id ? String(data.agent_id) : '';
@@ -4526,6 +6140,9 @@ ${terminalActionsHtml}
       } else {
         setDiscussionStatus('✅ ' + remoteAgentId + ' 已連接。可以發送核對訊息。');
         addMessage('✅ 協作者已確認身份', { text: remoteAgentId + ' 已連接 APS Live，可以開始核對交接狀態。' });
+        flushPendingProjectMessages().catch(error => {
+          addMessage('⚠️ 待送草稿補送失敗', { error: error.message });
+        });
       }
       updateSendButtonState();
     }
@@ -4534,9 +6151,9 @@ ${terminalActionsHtml}
       connectingLive = true;
       if (connectLiveButton) {
         connectLiveButton.disabled = true;
-        connectLiveButton.textContent = '正在連接 APS Live';
+        connectLiveButton.textContent = '正在連接對方即時狀態';
       }
-      setLiveState('⏳ 正在連接 APS Live', 'warn');
+      setLiveState('即時對方：⏳ 正在連接', 'warn');
       try {
         const { joinRoom, selfId } = await import('https://esm.run/trystero');
         room = joinRoom({ appId: liveAppId }, roomId);
@@ -4572,51 +6189,77 @@ ${terminalActionsHtml}
           setDiscussionStatus('⚠️ 對方暫時離開。可先整理訊息，稍後再確認。');
           updateSendButtonState();
         });
-        bindActionMessage(statusAction, (data, peerId) => {
+        bindActionMessage(statusAction, async (data, peerId) => {
+          const knownBefore = peerAgents.has(peerId) && peerAgents.get(peerId) && peerAgents.get(peerId).agent_id;
           recordPeerStatus(peerId, data);
+          if (!knownBefore && sendStatus && peerId && data && data.agent_id && data.agent_id !== snapshot.agent_id) {
+            await sendStatus(livePayload('status'), peerId);
+          }
           addMessage('✅ 收到 APS 狀態 ' + peerId, data);
         });
         bindActionMessage(projectMessageAction, (data, peerId) => {
           if (latestProjectMessage) latestProjectMessage.textContent = data && data.text ? data.text : '收到核對訊息';
           addMessage('💬 收到核對訊息 ' + peerId, data);
+          showNotice('🔔 收到對方 APS Live 訊息，請查看「對話記錄」。');
           updateSendButtonState();
-          setDiscussionStatus('💬 已收到對方訊息。可以回覆，或交給本機 AI 整理。');
+          setDiscussionStatus('💬 已收到對方訊息。可以回覆，或交給你的 AI 整理。');
         });
         bindActionMessage(feedbackAction, (data, peerId) => {
           if (latestFeedback) latestFeedback.textContent = data && data.pending_decision ? data.pending_decision : '收到回覆';
           addMessage('💬 收到回覆 ' + peerId, data);
+          showNotice('🔔 收到對方回覆，請查看「對話記錄」。');
         });
         bindActionMessage(consensusAction, (data, peerId) => {
           if (latestConsensus) latestConsensus.textContent = data && data.proposed_terminal_action ? data.proposed_terminal_action : '收到整理內容';
           addMessage('🤖 收到整理內容 ' + peerId, data);
+          showNotice('🔔 收到對方整理內容，請查看「對話記錄」。');
         });
-        setLiveState('✅ 已連接 APS Live', 'online');
-        setDiscussionStatus('✅ 已連接 APS Live，正在等待對方進入。');
-        if (connectLiveButton) connectLiveButton.textContent = '已連接 APS Live';
+        setLiveState('即時對方：✅ 已連接', 'online');
+        setDiscussionStatus('✅ 即時對方狀態已連接，正在等待對方進入。');
+        if (connectLiveButton) connectLiveButton.textContent = '對方即時狀態已連接';
         updateSendButtonState();
         markJourney('journeyConnect');
         await sendStatus(livePayload('status'));
+        for (const delayMs of [1500, 4000, 8000]) {
+          window.setTimeout(() => {
+            if (!sendStatus) return;
+            sendStatus(livePayload('status')).catch(error => {
+              addMessage('狀態更新未完成', { fallback: 'APS Live 已連接，但對方狀態未完全同步；可重新整理頁面再試。' });
+            });
+          }, delayMs);
+        }
       } catch (error) {
-        setLiveState('⚠️ 暫時未連上對方', 'warn');
+        setLiveState('即時對方：⚠️ 暫時未連上', 'warn');
         setDiscussionStatus('⚠️ 暫時未連上對方。可先保留草稿，連接後再發送。');
         if (connectLiveButton) {
           connectLiveButton.disabled = false;
-          connectLiveButton.textContent = '重新連接 APS Live';
+          connectLiveButton.textContent = '重新連接對方即時狀態';
         }
         updateSendButtonState();
-        addMessage('⚠️ Live 連接未完成', { fallback: '暫時未連上對方。你仍可先寫好訊息，或回到本機 AI 對話請它整理下一步。' });
+        addMessage('⚠️ 連接未完成', { fallback: '暫時未連上對方。你仍可先寫好訊息，或回到你的 AI 對話請它整理下一步。' });
       } finally {
         connectingLive = false;
       }
     }
     async function requestFormalRefresh() {
+      if (bridgeAvailable()) {
+        try {
+          await refreshFormalStateFromBridge();
+          setDiscussionStatus('🔎 已同步最新進度。');
+          return;
+        } catch (error) {
+          await diagnoseBridgeFailure(error);
+        }
+      } else {
+        setBridgeState('missing');
+      }
       try {
         await navigator.clipboard.writeText(refreshFormalPrompt);
-        setDiscussionStatus('🔎 已複製重新讀取正式狀態的句子。請回到本機 AI 對話貼上，讓它重新 Check APS 並刷新這頁。');
-        addMessage('🔎 重新讀取正式狀態', { next_step: refreshFormalPrompt });
+        setDiscussionStatus('🔎 已複製同步指示。請回到你的 AI 對話貼上，讓它更新這頁。');
+        addMessage('🔎 同步最新進度', { next_step: refreshFormalPrompt });
       } catch (error) {
-        setDiscussionStatus('🔎 請回到本機 AI 對話說：「' + refreshFormalPrompt + '」');
-        addMessage('🔎 重新讀取正式狀態', { next_step: refreshFormalPrompt });
+        setDiscussionStatus('🔎 請回到你的 AI 對話說：「' + refreshFormalPrompt + '」');
+        addMessage('🔎 同步最新進度', { next_step: refreshFormalPrompt });
       }
     }
     function autoConnectLive() {
@@ -4628,84 +6271,121 @@ ${terminalActionsHtml}
       const payload = projectMessagePayload();
       if (!payload.text) {
         setDiscussionStatus('⚠️ 請先輸入要發送的核對訊息。');
-        addMessage('⚠️ 本機提示', { blocker: '請先輸入要發送的核對訊息。' });
+        addMessage('⚠️ 提示', { blocker: '請先輸入要發送的核對訊息。' });
         return;
       }
-      if (!canSendProjectMessage()) {
-        setDiscussionStatus(sendProjectMessageAction
-          ? '⚠️ 對方尚未進入 APS Live。請等對方進入後再發送。'
-          : '⚠️ 請先連接 APS Live，並等待對方進入後再發送。');
+      if (!sendProjectMessageAction) {
+        setDiscussionStatus('⚠️ 請先連接 APS Live；連接後可保存待送或即時發送。');
         return;
       }
-      if (sendProjectMessageAction) await sendProjectMessageWithWarmupRetry(payload);
+      if (remotePeerCount() === 0) {
+        pendingProjectMessages.push(payload);
+        persistPendingProjectMessages();
+        markJourney('journeyDiscuss');
+        setDiscussionStatus('💬 對方未在線，已保存為待送草稿；對方進入 APS Live 後會自動補送。');
+        addMessage('💬 已保存待送草稿', payload);
+        pendingCorrectionOf = null;
+        updateSendButtonState();
+        return;
+      }
+      await flushPendingProjectMessages();
+      await sendProjectMessageWithWarmupRetry(payload);
       if (latestProjectMessage) latestProjectMessage.textContent = payload.text;
       markJourney('journeyDiscuss');
       setDiscussionStatus('✅ 已發送。等待對方回覆；回覆會顯示在下面。');
       addMessage('✅ 已發送核對訊息', payload);
+      pendingCorrectionOf = null;
     }
-    async function sendLiveReply(reply) {
-      const payload = liveReplyPayload(reply);
-      if (!canSendProjectMessage()) {
-        setDiscussionStatus(sendFeedback
-          ? '⚠️ 對方尚未進入 APS Live。請等對方進入後再回應。'
-          : '⚠️ 請先連接 APS Live，並等待對方進入後再回應。');
-        return;
-      }
-      if (sendFeedback) await sendFeedback(payload);
-      const agentMode = document.getElementById('agentTaskMode');
-      if (agentMode && payload.task_mode) agentMode.value = payload.task_mode;
-      markJourney('journeyDiscuss');
-      setDiscussionStatus('✅ 已送出「' + payload.reply_label + '」。可交給本機 AI 整理正式下一步。');
-      addMessage('✅ 已送出快速回應', payload);
-    }
-    function buildAgentQueuePayload() {
+    function buildAgentQueuePayload(options = {}) {
       const taskMode = selectedAgentTaskMode();
+      const discussionFocus = selectedDiscussionFocus();
+      const clarificationCard = selectedClarificationCard();
+      const includeSelectedMessages = options.includeSelectedMessages !== false;
       return {
         kind: 'aps-live-agent-queue',
         task_mode: taskMode,
+        discussion_focus: discussionFocus,
+        clarification_card: clarificationCard,
         message_id: 'aps-live-agent-queue-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         project: snapshot.project,
         agent_id: snapshot.agent_id,
         prompt: buildAgentForwardPrompt(taskMode),
         snapshot,
-        recent_messages: messageHistory.slice(-24),
+        recent_messages: includeSelectedMessages ? selectedChatMessages() : [],
+        action_intent: options.intentLabel || (includeSelectedMessages ? '整理已勾選對話' : '判斷選中問題'),
         created_at: new Date().toISOString(),
       };
     }
-    async function forwardToAgent() {
-      const payload = buildAgentQueuePayload();
+    async function forwardToAgent(options = {}) {
+      return forwardToAgentWithOptions(options);
+    }
+    async function forwardToAgentWithOptions(options = {}) {
+      const triggerButton = options.triggerButton || null;
+      const feedbackNode = options.feedbackNode || document.getElementById('agentForwardStatus');
+      const payload = buildAgentQueuePayload(options);
+      const card = payload.clarification_card || {};
+      const intentLabel = options.intentLabel || payload.action_intent || '目前內容';
+      const nextStepText = options.nextStepText || '回到你的 AI 工具說「Check APS」，它會看到你交出的內容，幫你整理下一步。';
+      const originalButtonText = triggerButton ? triggerButton.textContent : '';
+      if (triggerButton) {
+        triggerButton.disabled = true;
+        triggerButton.textContent = '正在交給 AI...';
+      }
+      setInlineFeedback(feedbackNode, '正在交給你的 AI：' + intentLabel + '。完成後會告訴你下一步；不會自動發給對方，也不會改正式交接紀錄。');
+      setDiscussionStatus('🤖 正在把「' + (card.title || intentLabel) + '」交給你的 AI；這不會改正式交接紀錄。');
+      showNotice('正在交給你的 AI 草擬下一步；如未能連上，頁面會改為複製內容給你貼回 AI。', 'status');
       if (!bridge || !bridge.enabled || !bridge.url || !bridge.token) {
-        await navigator.clipboard.writeText(payload.prompt);
-        addMessage('⚠️ 本機 AI 佇列未連接', {
-          fallback: '未能直接交給本機 AI；我已把整理內容複製到剪貼簿。請回到你的 AI 工具貼上，讓它整理下一步。',
+        setAgentFallbackFeedback(feedbackNode, payload.prompt, '本機 AI 佇列未連接。請先整理，不要直接套用；複製下面內容貼回 AI 對話。');
+        try { await navigator.clipboard.writeText(payload.prompt); } catch (clipboardError) { /* file:// may block clipboard; visible fallback is primary */ }
+        addMessage('⚠️ 未能直接交給你的 AI', {
+          fallback: '請使用按鈕旁的可複製內容，貼回你的 AI 工具。',
           task_mode: payload.task_mode,
         });
+        setDiscussionStatus('📋 未能直接連到你的 AI；已在按鈕旁顯示可複製內容。');
+        showNotice('請看剛按的按鈕旁提示；這不會改正式交接紀錄。', 'warn');
         markJourney('journeyReturn');
+        if (triggerButton) {
+          triggerButton.disabled = false;
+          triggerButton.textContent = originalButtonText;
+        }
         return;
       }
       try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 10000);
         const response = await fetch(bridge.url + '/queue', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ token: bridge.token, payload }),
+          signal: controller.signal,
         });
+        window.clearTimeout(timeoutId);
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.ok) throw new Error(data.error || 'queue request failed');
+        if (!response.ok || !data.ok) throw new Error(data.error || '未能交給你的 AI');
         addMessage('✅ 已交給本機 AI 整理下一步', {
-          queued: true,
+          sent: true,
           task_mode: payload.task_mode,
-          next_step: '回到你的 AI 工具說「Check APS」，AI 會看到 APS Live 待處理內容。',
+          next_step: nextStepText,
         });
-        setDiscussionStatus('🤖 已交給本機 AI。回到 AI 工具說「Check APS」。');
+        setDiscussionStatus('🤖 已交給本機 AI。已把「' + (card.title || intentLabel) + '」交給你的 AI。' + nextStepText);
+        setInlineFeedback(feedbackNode, '✅ 已交給本機 AI 整理下一步。下一步：' + nextStepText + ' 這不會自動發給對方，也不會改正式交接紀錄。', 'ok');
+        showNotice('已完成；請看剛按的按鈕旁提示。這不會自動發給對方，也不會改正式交接紀錄。', 'status');
         markJourney('journeyReturn');
       } catch (error) {
-        await navigator.clipboard.writeText(payload.prompt);
-        addMessage('⚠️ 本機 AI 佇列未連接', {
-          fallback: '未能直接交給本機 AI；我已把整理內容複製到剪貼簿。請回到你的 AI 工具貼上，讓它整理下一步。',
+        setAgentFallbackFeedback(feedbackNode, payload.prompt, '未能直接交給你的 AI。請複製下面內容貼回 AI 對話。');
+        try { await navigator.clipboard.writeText(payload.prompt); } catch (clipboardError) { /* file:// may block clipboard; visible fallback is primary */ }
+        addMessage('⚠️ 未能直接交給你的 AI', {
+          fallback: '請使用按鈕旁的可複製內容，貼回你的 AI 工具。',
           task_mode: payload.task_mode,
         });
-        setDiscussionStatus('⚠️ 未能直接交給本機 AI；已複製整理內容，可貼回 AI 工具。');
+        setDiscussionStatus('⚠️ 未能直接交給你的 AI；已在按鈕旁顯示可複製內容。');
+        showNotice('未能直接交給你的 AI。請看剛按的按鈕旁提示。', 'warn');
         markJourney('journeyReturn');
+      } finally {
+        if (triggerButton) {
+          triggerButton.disabled = false;
+          triggerButton.textContent = originalButtonText;
+        }
       }
     }
     function sendSnapshot() {
@@ -4716,30 +6396,103 @@ ${terminalActionsHtml}
     if (channel) {
       channel.onmessage = (event) => addMessage('收到同機頁面訊息', event.data);
     } else {
-      addMessage('⚠️ 本機提示', { blocker: '這個瀏覽器不支援本機頁面互傳；仍可複製狀態摘要回本機 AI 使用。' });
+      addMessage('⚠️ 提示', { blocker: '這個瀏覽器不支援頁面互傳；仍可複製狀態摘要回你的 AI 使用。' });
     }
     function bindClick(id, handler) {
       const node = document.getElementById(id);
       if (node) node.addEventListener('click', handler);
     }
+    function findLastCorrectableMessage() {
+      for (let index = messageHistory.length - 1; index >= 0; index -= 1) {
+        const item = messageHistory[index];
+        const data = item && item.data ? item.data : {};
+        if (!item || item.category === 'system') continue;
+        if (data.agent_id && data.agent_id !== snapshot.agent_id) continue;
+        if (!data.text || data.correction_of) continue;
+        return item;
+      }
+      return null;
+    }
+    function prepareCorrectionDraft() {
+      const last = findLastCorrectableMessage();
+      if (!last) {
+        setDiscussionStatus('⚠️ 暫時找不到可更正的上一則訊息。請直接重新寫一則補充。');
+        return;
+      }
+      const textarea = document.getElementById('projectMessage');
+      if (!textarea) return;
+      const data = last.data || {};
+      pendingCorrectionOf = {
+        message_id: data.message_id || last.local_id || '',
+        sent_at: data.sent_at || last.recorded_at || '',
+      };
+      if (data.discussion_focus && discussionFocusSelect && data.discussion_focus.value) {
+        const exists = Array.from(discussionFocusSelect.options).some(option => option.value === data.discussion_focus.value);
+        if (exists) {
+          discussionFocusSelect.value = data.discussion_focus.value;
+          updateDiscussionFocusUi();
+        }
+      }
+      textarea.value = '更正上一條：上一則訊息有誤。正確內容如下：\\n';
+      textarea.focus();
+      setDiscussionStatus('✍️ 已套入更正草稿；請改好文字後再發送。原訊息會保留，新訊息會標明是更正。');
+    }
     bindClick('connectLive', connectLive);
     bindClick('refreshFormalState', requestFormalRefresh);
+    bindClick('showBridgeRepair', () => setBridgeRepairPanel(!(bridgeRepairPanel && bridgeRepairPanel.classList.contains('active'))));
+    bindClick('copyBridgeRepairPrompt', copyBridgeRepairPrompt);
+    bindClick('retryBridgeAfterRepair', retryBridgeAfterRepair);
     bindClick('sendProjectMessage', sendProjectMessage);
     bindClick('sendProjectMessageInline', sendProjectMessage);
-    for (const button of quickReplyButtons) {
-      button.addEventListener('click', () => sendLiveReply(button.getAttribute('data-live-reply')));
+    bindClick('correctLastMessage', prepareCorrectionDraft);
+    if (discussionFocusSelect) discussionFocusSelect.addEventListener('change', updateDiscussionFocusUi);
+    for (const button of Array.from(document.querySelectorAll('[data-tab-target]'))) {
+      button.addEventListener('click', () => {
+        const targetId = button.getAttribute('data-tab-target');
+        for (const tabButton of Array.from(document.querySelectorAll('[data-tab-target]'))) {
+          tabButton.classList.toggle('active', tabButton === button);
+        }
+        for (const panel of Array.from(document.querySelectorAll('.tab-panel'))) {
+          panel.classList.toggle('active', panel.id === targetId);
+        }
+      });
     }
     bindClick('forwardToAgent', forwardToAgent);
     bindClick('forwardToAgentAfterDiscussion', forwardToAgent);
     document.getElementById('clearMessages').addEventListener('click', () => {
-      messages.textContent = '';
+      const confirmed = window.confirm('只清除本頁顯示的對話記錄，不會刪除正式 APS 紀錄。確定要清除嗎？');
+      if (!confirmed) return;
+      if (messages) messages.textContent = '';
+      if (systemMessages) systemMessages.textContent = '';
+      if (liveNotice) liveNotice.className = 'notice-banner';
       messageHistory.length = 0;
       try { sessionStorage.removeItem(storageKey); } catch (error) { /* session cache clear is best-effort */ }
-      setDiscussionStatus('⏳ 本次 session 記錄已清空。可繼續發送新的核對訊息。');
+      setDiscussionStatus('⏳ 本次 session 記錄已清空。正式 APS 紀錄沒有改變。');
     });
     restoreMessages();
+    restorePendingProjectMessages();
+    renderFormalActions();
+    renderDiscussionFocusOptions(false);
+    renderCollabStage();
+    renderClarificationCards();
     updateSendButtonState();
     autoConnectLive();
+    if (bridgeAvailable()) {
+      setBridgeState('checking');
+      if (formalStateStatus) formalStateStatus.textContent = '正式進度：正在同步最新進度...';
+      if (formalActionPreview) formalActionPreview.textContent = '正在同步最新進度；同步完成後，這裏會顯示可用決策。';
+      window.setTimeout(() => {
+        refreshFormalStateFromBridge({ silent: true })
+          .then(() => setDiscussionStatus('🔎 已自動同步最新進度。'))
+          .catch(error => diagnoseBridgeFailure(error));
+      }, 450);
+      window.setInterval(() => {
+        refreshFormalStateFromBridge({ silent: true }).catch(error => diagnoseBridgeFailure(error, { logMessage: false }));
+      }, 30000);
+    } else {
+      setBridgeState('missing');
+      if (formalStateStatus) formalStateStatus.textContent = '正式進度：尚未同步；目前只顯示這頁生成時的快照。';
+    }
   </script>
 </body>
 </html>
@@ -4752,7 +6505,7 @@ function apsLiveHasClearBlocker(snapshot) {
     && !String(snapshot.blocker || '').startsWith('目前沒有明確交接卡點');
 }
 
-function writeApsLiveHtml({ hubRoot, projectSlug, agentId, config, demo = false, outputPath = null, dryRun = false, dashboard: providedDashboard = null, bridgePort = 47879 }) {
+function writeApsLiveHtml({ hubRoot, projectSlug, agentId, config, demo = false, outputPath = null, dryRun = false, dashboard: providedDashboard = null, bridgePort = null }) {
   const dashboard = providedDashboard || (demo
     ? buildCheckApsDemoDashboard()
     : buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, agentId } }));
@@ -4765,7 +6518,7 @@ function writeApsLiveHtml({ hubRoot, projectSlug, agentId, config, demo = false,
     ? { enabled: false, url: null, token: null }
     : {
       enabled: true,
-      url: `http://127.0.0.1:${bridgePort}`,
+      url: `http://127.0.0.1:${bridgePort || defaultApsLiveBridgePort({ hubRoot, projectSlug })}`,
       token: readOrCreateApsLiveBridgeToken({ hubRoot, projectSlug }),
     };
   const html = renderApsLiveHtml({ dashboard, snapshot, demo, bridge });
@@ -4799,7 +6552,102 @@ function renderApsLiveQueueReport(items) {
   return lines.join('\n');
 }
 
-function startApsLiveBridge({ hubRoot, projectSlug, port }) {
+function bridgeDashboard({ hubRoot, projectSlug, agentId, config }) {
+  const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, hubRoot, projectSlug, agentId } });
+  const snapshot = buildApsLiveDiagnosticSnapshot(dashboard, { project: projectSlug, agentId });
+  return { dashboard, snapshot, loaded_at: isoNow() };
+}
+
+function normalizeLiveFormalAction({ dashboard, action }) {
+  if (!action || typeof action !== 'object') throw new Error('missing action');
+  const type = String(action.type || '').trim();
+  const packetId = String(action.packet_id || action.packetId || '').trim();
+  const version = Number(action.version || 0);
+  const text = String(action.text || action.result || action.reason || action.default_text || '').trim();
+  if (!type) throw new Error('missing action type');
+  if (!packetId || !Number.isInteger(version) || version < 1) throw new Error('missing packet id or version');
+  if (!text) throw new Error('正式動作需要具體記錄文字。');
+  const available = buildLiveFormalActions(dashboard).find((item) => (
+    item.type === type
+    && item.packet_id === packetId
+    && Number(item.version) === version
+  ));
+  if (!available) {
+    throw new Error('這個動作已不符合最新進度；請先同步最新進度。');
+  }
+  if (type === 'confirm-shared-goal' || type === 'consume-packet') {
+    return {
+      type,
+      verb: 'consume',
+      packet_id: packetId,
+      version,
+      result: text,
+      preview: available.preview,
+    };
+  }
+  if (type === 'decline-packet') {
+    return {
+      type,
+      verb: 'decline',
+      packet_id: packetId,
+      version,
+      reason: text,
+      preview: available.preview,
+    };
+  }
+  if (type === 'close-packet') {
+    return {
+      type,
+      verb: 'close',
+      packet_id: packetId,
+      version,
+      reason: text,
+      preview: available.preview,
+    };
+  }
+  throw new Error(`unsupported APS Live formal action: ${type}`);
+}
+
+function runLiveFormalAction({ hubRoot, projectSlug, agentId, action }) {
+  if (action.verb === 'consume') {
+    consumePacket({ hubRoot, projectSlug, agentId, packetId: action.packet_id, version: action.version, result: action.result });
+    return `已記錄 ${agentId} 對 ${action.packet_id} v${action.version} 的確認。`;
+  }
+  if (action.verb === 'decline') {
+    declinePacket({ hubRoot, projectSlug, agentId, packetId: action.packet_id, version: action.version, reason: action.reason });
+    return `已記錄 ${agentId} 對 ${action.packet_id} v${action.version} 的退回理由。`;
+  }
+  if (action.verb === 'close') {
+    closePacket({ hubRoot, projectSlug, agentId, packetId: action.packet_id, reason: action.reason });
+    return `已 close ${agentId} 發出的 ${action.packet_id} v${action.version}。`;
+  }
+  throw new Error(`unsupported formal verb: ${action.verb}`);
+}
+
+function assertLiveFormalActionReadback({ dashboard, action }) {
+  if (action.verb === 'consume' || action.verb === 'decline') {
+    const pending = (dashboard.incomingGroups || [])
+      .flatMap((group) => group.pending || [])
+      .some((item) => item.packetId === action.packet_id && Number(item.version) === Number(action.version));
+    if (pending) throw new Error('寫入後仍見同一交接待處理，讀回驗證未通過。');
+    return;
+  }
+  if (action.verb === 'close') {
+    const closed = (dashboard.outgoingPackets || []).some((item) => (
+      item.packetId === action.packet_id
+      && Number(item.version) === Number(action.version)
+      && item.state === 'closed'
+    ));
+    if (!closed) throw new Error('寫入後未見 close 狀態，讀回驗證未通過。');
+  }
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status);
+  res.end(JSON.stringify(payload));
+}
+
+function startApsLiveBridge({ hubRoot, projectSlug, port, config = {} }) {
   const token = readApsLiveBridgeToken({ hubRoot, projectSlug });
   if (!token) {
     throw new Error('未見 APS Live bridge token。請先執行 `aps live` 生成 APS Live 頁。');
@@ -4815,13 +6663,11 @@ function startApsLiveBridge({ hubRoot, projectSlug, port }) {
       return;
     }
     if (req.method === 'GET' && req.url === '/health') {
-      res.writeHead(200);
-      res.end(JSON.stringify({ ok: true, project: projectSlug }));
+      sendJson(res, 200, { ok: true, project: projectSlug });
       return;
     }
-    if (req.method !== 'POST' || req.url !== '/queue') {
-      res.writeHead(404);
-      res.end(JSON.stringify({ ok: false, error: 'not found' }));
+    if (req.method !== 'POST' || !['/queue', '/formal-state', '/formal-action/preview', '/formal-action/commit'].includes(req.url)) {
+      sendJson(res, 404, { ok: false, error: 'not found' });
       return;
     }
     let body = '';
@@ -4835,33 +6681,63 @@ function startApsLiveBridge({ hubRoot, projectSlug, port }) {
       try {
         const request = JSON.parse(body || '{}');
         if (request.token !== token) {
-          res.writeHead(403);
-          res.end(JSON.stringify({ ok: false, error: 'invalid token' }));
+          sendJson(res, 403, { ok: false, error: 'invalid token' });
+          return;
+        }
+        if (req.url === '/formal-state') {
+          const agentId = String(request.agent_id || '').trim();
+          const error = validateSnakeCase('agent_id', agentId);
+          if (error) {
+            sendJson(res, 400, { ok: false, error });
+            return;
+          }
+          const { snapshot, loaded_at } = bridgeDashboard({ hubRoot, projectSlug, agentId, config });
+          sendJson(res, 200, { ok: true, snapshot, loaded_at });
+          return;
+        }
+        if (req.url === '/formal-action/preview' || req.url === '/formal-action/commit') {
+          const agentId = String(request.agent_id || '').trim();
+          const error = validateSnakeCase('agent_id', agentId);
+          if (error) {
+            sendJson(res, 400, { ok: false, error });
+            return;
+          }
+          const before = bridgeDashboard({ hubRoot, projectSlug, agentId, config });
+          const action = normalizeLiveFormalAction({ dashboard: before.dashboard, action: request.action });
+          if (req.url === '/formal-action/preview') {
+            sendJson(res, 200, { ok: true, action, preview: action.preview });
+            return;
+          }
+          if (request.confirm !== true) {
+            sendJson(res, 400, { ok: false, error: 'commit requires confirm:true' });
+            return;
+          }
+          const summary = runLiveFormalAction({ hubRoot, projectSlug, agentId, action });
+          const after = bridgeDashboard({ hubRoot, projectSlug, agentId, config });
+          assertLiveFormalActionReadback({ dashboard: after.dashboard, action });
+          sendJson(res, 200, { ok: true, action, summary, snapshot: after.snapshot, loaded_at: after.loaded_at });
           return;
         }
         if (!request.payload || typeof request.payload !== 'object') {
-          res.writeHead(400);
-          res.end(JSON.stringify({ ok: false, error: 'missing payload' }));
+          sendJson(res, 400, { ok: false, error: 'missing payload' });
           return;
         }
         const { queuePath } = writeApsLiveQueueItem({ hubRoot, projectSlug, payload: request.payload });
-        res.writeHead(200);
-        res.end(JSON.stringify({
+        sendJson(res, 200, {
           ok: true,
           queued_path: queuePath,
           next_terminal_line: '請用 APS 讀取 APS Live 待處理佇列，先整理交接追蹤狀態、卡點、共識、分歧與待決定事項，判斷哪些需要寫回正式 APS 紀錄；如需要正式動作，先生成草稿和風險，等我確認。',
-        }));
+        });
       } catch (err) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ ok: false, error: err.message }));
+        sendJson(res, 400, { ok: false, error: err.message });
       }
     });
   });
   server.listen(port, '127.0.0.1', () => {
     console.log('📡 APS Live 本機 AI 接收器');
     console.log(`✅ 已啟動: http://127.0.0.1:${port}`);
-    console.log('🔎 Live 交接追蹤頁可一鍵交給本機 AI 整理下一步；此接收器只寫入本機待處理佇列，不寫 packet / outbox / ack。');
-    console.log('🚀 用法: 保持此 terminal 開啟，再到 APS Live 交接追蹤頁按「交給本機 AI 整理下一步」。');
+    console.log('🔎 Live 交接追蹤頁可重新讀取正式 APS 狀態，並在用戶確認後執行有限正式動作；Trystero 訊息不會觸發正式寫入。');
+    console.log('🚀 用法: 保持此視窗開啟，再到 APS Live 交接追蹤頁按「同步最新進度」或決策按鈕。');
   });
   return server;
 }
@@ -5478,7 +7354,7 @@ function registerHandoffKitIntegration(values, dryRun) {
   const projectIndexPath = path.join(projectRoot, 'dev', 'PROJECT_INDEX.md');
   const steps = [];
 
-  const routeRow = '| APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / check Drive / check Hub / Hub 有新嘢 / 跨機合作 / Drive 同步不到 / sync stuck / conflict | `dev/rules/aps-bridge.md` | APS cross-machine collaboration route: load the bridge rules and `.aps/config.json` before APS setup, daily use, status checks, inbox checks, or recovery. |';
+  const routeRow = '| APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / 打開 APS Live / APS Live 怎樣打開 / Live 入口在哪裡 / 繼續 APS 交接 / 看看現在去到哪一步 / 下一步應該做甚麼 / check Drive / check Hub / Hub 有新嘢 / 跨機合作 / Drive 同步不到 / sync stuck / conflict | `dev/rules/aps-bridge.md` | APS cross-machine collaboration route: load the bridge rules and `.aps/config.json` before APS setup, daily use, APS Live opening, continuation / status checks, inbox checks, or recovery. |';
   steps.push(upsertManagedBlock(
     rulePacksPath,
     'rule-pack-route',
@@ -5498,7 +7374,7 @@ function registerHandoffKitIntegration(values, dryRun) {
 | APS 合作目錄 | \`${values.projectSlug}\` |
 | Local agent | \`${values.agentId}\` |
 | Partner agent | ${values.otherAgentId ? `\`${values.otherAgentId}\`` : '(尚未邀請;新協作者請在 AI 工具說「邀請新協作者」)'} |
-| Trigger route | Registered in \`dev/RULE_PACKS.md\`; when the user mentions APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / check Drive / check Hub / Hub 有新嘢 / Drive sync / conflict, read \`dev/rules/aps-bridge.md\` and \`.aps/config.json\` before answering. |
+| Trigger route | Registered in \`dev/RULE_PACKS.md\`; when the user mentions APS / AI Public Squares / Agent Public Squares / 教我用 APS / 教我用 AI Public Squares / 教我用 Agent Public Squares / Check APS / 打開 APS Live / APS Live 怎樣打開 / Live 入口在哪裡 / 繼續 APS 交接 / 看看現在去到哪一步 / 下一步應該做甚麼 / check Drive / check Hub / Hub 有新嘢 / Drive sync / conflict, read \`dev/rules/aps-bridge.md\` and \`.aps/config.json\` before answering. |
 | Last verified | ${today} |`;
   steps.push(upsertManagedBlock(
     projectIndexPath,
@@ -5555,13 +7431,13 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps check-aps --demo-preview --scenario shared-goal
                                   顯示共同目標與分工確認主流程示範
   npx aps live
-                                  生成 APS Live 交接追蹤頁;用 Trystero 做即時核對,但不寫 packet / outbox / ack
+                                  生成 APS Live 交接追蹤頁;用 Trystero 做即時核對,並可透過本機 live-bridge 受控推進有限正式狀態
   npx aps live --dry-run
                                   只檢查並列出會生成的 APS Live 交接追蹤頁;不寫 HTML 或正式 APS 狀態
   npx aps live --output <path>
                                   生成到指定 HTML 路徑;只改輸出檔位置
   npx aps live-bridge
-                                  啟動 APS Live 本機 AI 接收器;Live 交接追蹤頁可一鍵送入本機待處理佇列
+                                  啟動 APS Live 本機 AI 接收器;預設按 APS 合作目錄分配本機 port,Live 交接追蹤頁可一鍵送入本機待處理佇列
   npx aps live-queue
                                   讀取 APS Live 已送入本機 AI 待處理佇列的內容
   npx aps live --demo-preview
@@ -6206,7 +8082,10 @@ if (subcommand === 'publish') {
     console.log('📧 Email 主旨: APS 有新交接包');
     console.log(`📧 Email 正文: ${notice}`);
     console.log('');
-    console.log('🚀 下一步:把上面的通知訊息複製貼上到 Telegram、WhatsApp、Email 或你們平常使用的通訊工具。由收件人本人決定何時叫自己的 AI `check Drive`;CLI inbox 命令只作排錯備用。');
+    console.log('🚀 下一步:先把上面的通知訊息傳給對方。正式收件仍由對方在自己的電腦、自己的已接 APS 項目資料夾叫 AI `check Drive`;CLI inbox 命令只作排錯備用。');
+    console.log('📡 可選即時核對:如果你想即時確認對方是否已進入這條交接、或想即場補資料,雙方各自在自己的已接 APS 項目資料夾說「Check APS」,它會生成 / 更新各自本機的 APS Live 入口。');
+    console.log('📌 不要把本機 file:// APS Live 頁當成對方可開的網址;對方要在自己的項目資料夾用 Check APS 取得自己的 Live 頁。');
+    console.log('⚠️ APS Live 只作即時核對與討論;正式狀態仍以 Drive 內 packet / ack 為準。');
   } catch (err) {
     console.error(`❌ 發佈失敗:${err.message}`);
     process.exit(1);
@@ -6458,12 +8337,22 @@ if (subcommand === 'check-aps') {
       peers: dashboard.peers,
       agentId,
     });
-    const liveResult = shouldGenerateLive
-      ? writeApsLiveHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig, dashboard })
-      : null;
+    let liveResult = null;
+    let liveGenerationError = null;
+    if (shouldGenerateLive) {
+      try {
+        liveResult = writeApsLiveHtml({ hubRoot, projectSlug, agentId, config: dashboardConfig, dashboard });
+      } catch (err) {
+        liveGenerationError = err;
+      }
+    }
     console.log('🧭 APS 狀態已在 terminal 顯示');
     console.log('- HTML dashboard 已退役；不再生成舊 dashboard 頁。');
-    if (liveResult) console.log(`- APS Live: ${liveResult.livePath}`);
+    if (liveResult) {
+      console.log(`- APS Live: ${liveResult.livePath}`);
+      console.log(`- 可點擊開啟: ${localFileHref(liveResult.livePath)}`);
+    }
+    if (liveGenerationError) console.log(`- APS Live: 暫時未能更新（${safeLiveDiagnosticText(liveGenerationError.message || liveGenerationError, '寫入失敗')}）。正式狀態仍會在 terminal 顯示。`);
     console.log('🔎 不用打開 HTML 也可以繼續；真正操作仍在這個 AI terminal。');
     console.log('⚠️ 注意:這不是背景自動監察;只有你要求 Check APS 時才重新讀取和生成。');
     console.log('');
@@ -6473,6 +8362,7 @@ if (subcommand === 'check-aps') {
       liveQueueItems,
       livePath: liveResult ? liveResult.livePath : null,
       liveGenerated: Boolean(liveResult),
+      liveGenerationError,
     }));
   } catch (err) {
     console.error(`❌ Check APS 失敗:${err.message}`);
@@ -6485,7 +8375,6 @@ if (subcommand === 'live') {
   const liveOutputFlag = getRequiredFlagValue('--output');
   const liveOutputPath = liveOutputFlag ? path.resolve(process.cwd(), liveOutputFlag) : null;
   const dryRun = args.includes('--dry-run');
-  const bridgePort = Number(getFlagValue('--bridge-port', getFlagValue('--port', '47879')));
   if (args.includes('--demo-preview')) {
     const scenario = getFlagValue('--scenario', 'shared-goal');
     const outputPath = liveOutputPath || path.resolve(process.cwd(), 'aps-live-demo.html');
@@ -6513,9 +8402,10 @@ if (subcommand === 'live') {
     console.log(`🔎 示範場景: ${scenario === 'shared-goal' ? '共同目標與分工確認' : '交接資料不足'}`);
     console.log(dryRun ? '✅ dry-run 通過：已檢查 APS Live 交接追蹤頁示範方案。' : '✅ 已生成 APS Live 交接追蹤頁示範。');
     console.log(dryRun ? `📄 將生成 HTML: ${livePath}` : `📄 HTML: ${livePath}`);
-    console.log('🔎 這是假資料示範；不讀 .aps/config.json，不寫共用 Drive，不更新 packet / outbox / ack。');
-    console.log('📡 Trystero 是 APS Live 主流程；連不上就不能當成對方已看到或已確認，只能保留可複製資料。');
-    console.log('🔎 注意:連接 Trystero room 後可做即時核對；正式紀錄仍要回到本機 AI / Drive 流程更新。');
+    console.log('🔎 這是假資料示範；只用來檢查頁面流程和文字，不會改變任何正式交接進度。');
+    console.log('🧪 Demo preview 邊界: 不讀 .aps/config.json；不寫共用 Drive；不更新 packet / outbox / ack。');
+    console.log('🔎 注意:頁面上的正式決策都會先做安全檢查，並在你確認後才會記錄。');
+    console.log('📡 Trystero 是 APS Live 主流程；正式狀態仍以 APS Drive 紀錄為準。');
     if (dryRun) {
       console.log('🧪 dry-run: 未寫入 HTML，未建立資料夾，未改正式 APS 狀態。');
       console.log(`🔎 狀態欄位: ${Object.keys(snapshot).join(', ')}`);
@@ -6530,12 +8420,14 @@ if (subcommand === 'live') {
   const projectSlug = flagOrConfig('--project', 'projectSlug', config);
   const agentId = flagOrConfig('--agent-id', 'agentId', config);
   const otherAgentId = flagOrConfig('--other-agent-id', 'otherAgentId', config);
+  const bridgePort = resolveApsLiveBridgePort({ hubRoot, projectSlug });
   requireValues({ '--hub-root': hubRoot, '--project': projectSlug, '--agent-id': agentId });
   const liveConfig = { ...config, hubRoot, projectSlug, agentId, otherAgentId };
   const errors = [
     validateSnakeCase('--project', projectSlug),
     validateSnakeCase('--agent-id', agentId),
     otherAgentId ? validateSnakeCase('--other-agent-id', otherAgentId) : null,
+    Number.isInteger(bridgePort) && bridgePort > 0 && bridgePort < 65536 ? null : '--port must be a number from 1 to 65535.',
   ].filter(Boolean);
   if (errors.length > 0) {
     for (const error of errors) console.error(error);
@@ -6546,26 +8438,30 @@ if (subcommand === 'live') {
     console.log('📡 APS Live 交接追蹤頁');
     console.log(dryRun ? '✅ dry-run 通過：已檢查 APS Live 交接追蹤頁生成方案。' : '✅ 已生成 APS Live 交接追蹤頁。');
     console.log(dryRun ? `📄 將生成 HTML: ${livePath}` : `📄 HTML: ${livePath}`);
-    console.log('🔎 這頁先顯示交接單、目前站點、等誰行動和事件紀錄；需要即時同步、回饋或建立共識時使用。不寫 packet / outbox / ack，也不代表 Drive 已同步。');
-    console.log('📡 Trystero 是 APS Live 主流程；連不上就不能當成對方已看到或已確認，只能保留可複製資料。');
+    console.log('🔎 這頁先顯示交接單、目前站點、等誰行動和事件紀錄；需要即時核對、回饋或建立共識時使用。');
     if (apsLiveHasClearBlocker(snapshot)) {
       console.log(`🔎 建議使用原因: ${snapshot.blocker}`);
     } else {
-      console.log('🔎 目前未見必須由 Live 解決的交接卡點；可先回到本機 AI / terminal 推進正式 APS 動作。');
+      console.log('🔎 目前未見必須由 Live 解決的交接卡點；可先回到你的 AI 對話推進下一步。');
     }
-    console.log('🔎 注意:連接 Trystero room 後可做即時核對；正式紀錄仍要回到本機 AI / Drive 流程更新。');
+    console.log('🔎 注意:頁面上的正式決策都會先做安全檢查，並在你確認後才會記錄。');
+    console.log('📡 Trystero 是 APS Live 主流程；正式狀態仍以 APS Drive 紀錄為準。');
     if (!dryRun) {
-      console.log(`📥 本機 AI 接收器: 另開 terminal 執行 \`npx aps live-bridge --port ${bridgePort}\`，Live 頁即可一鍵送入本機待處理佇列。`);
+      console.log('📥 本機 bridge 讀回後才可有限推進；如頁面未能直接交給你的 AI，頁面會提供可複製內容讓你貼回 AI 對話。');
+      console.log(`💬 請回到本機 AI。回到本機 AI 可直接說: ${snapshot.proposed_terminal_action}`);
     }
     if (dryRun) {
       console.log('🧪 dry-run: 未寫入 HTML，未建立資料夾，未改正式 APS 狀態。');
       console.log(`🔎 狀態欄位: ${Object.keys(snapshot).join(', ')}`);
+      console.log(`💬 回到本機 AI 可直接說: ${snapshot.proposed_terminal_action}`);
     }
+    const liveActionCount = Array.isArray(snapshot.formal_actions) ? snapshot.formal_actions.length : 0;
     console.log('');
-    console.log('🚀 回到本機 AI 可直接說:');
-    console.log('```');
-    console.log(snapshot.proposed_terminal_action);
-    console.log('```');
+    if (liveActionCount > 0) {
+      console.log('🚀 下一步: 打開 HTML，先看「AI 檢查結果」，再按頁面上的決策按鈕。');
+    } else {
+      console.log('🚀 下一步: 打開 HTML 檢查目前進度；若頁面沒有可用決策，再把頁面提供的整理內容交給你的 AI。');
+    }
   } catch (err) {
     console.error(`❌ APS Live 生成失敗:${err.message}`);
     process.exit(1);
@@ -6924,7 +8820,7 @@ if (subcommand === 'live-bridge') {
   const config = loadConfigOrExit();
   const hubRoot = flagOrConfig('--hub-root', 'hubRoot', config);
   const projectSlug = flagOrConfig('--project', 'projectSlug', config);
-  const port = Number(getFlagValue('--port', getFlagValue('--bridge-port', '47879')));
+  const port = resolveApsLiveBridgePort({ hubRoot, projectSlug });
   requireValues({ '--hub-root': hubRoot, '--project': projectSlug });
   const errors = [
     validateSnakeCase('--project', projectSlug),
@@ -6935,7 +8831,7 @@ if (subcommand === 'live-bridge') {
     process.exit(1);
   }
   try {
-    startApsLiveBridge({ hubRoot, projectSlug, port });
+    startApsLiveBridge({ hubRoot, projectSlug, port, config: { ...config, hubRoot, projectSlug } });
   } catch (err) {
     console.error(`❌ APS Live 本機 AI 接收器啟動失敗:${err.message}`);
     process.exit(1);

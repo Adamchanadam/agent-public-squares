@@ -1,6 +1,6 @@
 ---
 name: aps
-description: Sets up and runs cross-machine collaboration between AI agents on the same project, using a shared cloud-drive folder as the exchange. Use when the user wants to set up APS / Agent Public Squares (legacy alias AI Public Squares), invite a project peer, hand part of the work to a peer, post or receive a one-to-one inter-agent packet, check APS status, check the shared folder for new items, check whether a peer handled a packet, or fix cross-machine sync issues. Example triggers include "教我用 APS", "教我用 Agent Public Squares", "教我用 AI Public Squares", "set up APS", "裝 APS", "Check APS", "APS 狀態", "邀請 [對方] 加入 APS", "把這部分交給 [對方]", "post to [對方]", "check Drive", "check Hub", "[對方] 收到未", "Drive 同步唔到", "sync stuck", "conflict". The skill body lists the full trigger set.
+description: Sets up and runs cross-machine collaboration between AI agents on the same project, using a shared cloud-drive folder as the exchange. Use when the user wants to set up APS / Agent Public Squares (legacy alias AI Public Squares), invite a project peer, hand part of the work to a peer, post or receive a one-to-one inter-agent packet, check APS status, continue an APS handoff, open APS Live, see which step the APS flow is at, check the shared folder for new items, check whether a peer handled a packet, or fix cross-machine sync issues. Example triggers include "教我用 APS", "教我用 Agent Public Squares", "教我用 AI Public Squares", "set up APS", "裝 APS", "Check APS", "APS 狀態", "打開 APS Live", "APS Live 怎樣打開", "Live 入口在哪裡", "繼續 APS 交接", "看看現在去到哪一步", "下一步應該做甚麼", "邀請 [對方] 加入 APS", "把這部分交給 [對方]", "post to [對方]", "check Drive", "check Hub", "[對方] 收到未", "Drive 同步唔到", "sync stuck", "conflict". The skill body lists the full trigger set.
 ---
 
 # Agent Public Squares — 跨機合作 skill
@@ -66,7 +66,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 - **項目開局對齊**:用戶語句出現「建立共同目標與分工」「建立共同簡報」「項目共同目標」「先定分工」「開局對齊」「kickoff」「alignment」「project brief」「第一輪分工」「多人項目點開始」等,或安裝完成後 AI 發現尚未有明確共同目標 / 分工 / 驗收標準 → 進入「項目開局對齊子流程」(第 4.2 節)。「共同簡報」只視為舊稱或觸發別名;主流程名稱使用「共同目標與分工」。
 - **一語交接 / 發佈**:用戶語句出現「幫我將當前任務交接給 B」「把目前任務整理成 APS 交接包給對方」「我有嘢俾 X」「post to X」「交份嘢」「publish」「我做完份嘢,要俾 [對方]」等,或語意指向「將當前任務、目前上下文或已完成工作交給對方」的同類語句 → 進入「發佈子流程」(第 6 節)。
 - **邀請 peer / peer 狀態**:用戶語句出現「邀請指定協作者加入 APS」「新增協作對象」「生成維護用 starter pack」「對方收到未」「看看對方有沒有處理」等,或語意指向「管理 APS 合作目錄協作者或查發送狀態」的同類語句 → 進入「協作者邀請子流程」(第 5.1 節)。
-- **APS 整體狀態**:用戶語句明確出現「Check APS」「check-aps」「檢查 APS 狀態」「APS 狀態」等,代表要看整體 APS 狀態。預設輸出必須先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼,並把可複製下一句放在 terminal 底部。排錯用的數量、同步、路徑、來源編號、peer 詳情、完整追溯資料和長邊界說明只供 AI 判斷或 `check-aps --full` 深入排錯使用,不可預設丟給新手用戶校對。本機共用 Drive 路徑只作本機打開資料夾 / 排錯用途,不要放在首屏搶過工作判斷。日常狀態不使用 dashboard 頁;需要即時釐清時才使用 APS Live。先進入「首次使用子流程」(第 5 節),並使用 `npx aps check-aps`。不要把泛稱「狀態」「check」「下一步」單獨當作 APS 觸發。
+- **APS 整體狀態 / APS Live 入口**:用戶語句明確出現「Check APS」「check-aps」「檢查 APS 狀態」「APS 狀態」「打開 APS Live」「APS Live 怎樣打開」「Live 入口在哪裡」等,或在已有 `.aps/config.json` / 已明確提到 APS、交接、協作者、共用 Drive、APS Live 的語境下說「繼續 APS 交接」「繼續 <項目> APS 交接」「看看現在去到哪一步」「現在到哪一步」「下一步應該做甚麼」「看看整體狀態」「要怎樣打開」等,代表要看整體 APS 狀態或取得最新 APS Live 入口。AI 必須先執行 `npx aps check-aps`,並在回覆中保留 CLI 輸出的「🗺️ APS 流程位置」表格與「👉 目前位置」,不得只改寫成自己的摘要表。若用戶只問 APS Live 怎樣打開,仍要先跑 `check-aps`,再優先覆述 CLI 輸出的「可點擊開啟: file:///...」行,其次才附「APS Live: <本機路徑>」作備用;不得憑舊記憶只提供 Windows 路徑。同一部電腦同時打開多個 APS 合作目錄是正常場景;新版 APS Live 預設按 APS 合作目錄分配本機 bridge port,不應要求用戶關掉其他項目才可用。若 APS Live 顯示「即時對方已連接」但「本機 APS 未連上」,不要當成對方未上線;先查本機 `live-bridge` 是否未啟動、token 不一致、使用了舊版固定 port,或手動 `--port` 令連接埠被另一個 APS 合作目錄佔用。表格後才用一句話說明下一步。預設輸出必須先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼,並把可複製下一句放在 terminal 底部。排錯用的數量、同步、路徑、來源編號、peer 詳情、完整追溯資料和長邊界說明只供 AI 判斷或 `check-aps --full` 深入排錯使用,不可預設丟給新手用戶校對。本機共用 Drive 路徑只作本機打開資料夾 / 排錯用途,不要放在首屏搶過工作判斷。日常狀態不使用 dashboard 頁;需要即時釐清時才使用 APS Live。先進入「首次使用子流程」(第 5 節),並使用 `npx aps check-aps`。沒有 APS / 交接 / APS Live 語境時,不要把泛稱「狀態」「check」「下一步」「打開」單獨當作 APS 觸發。
 - **收件**:用戶語句出現「check Drive」「check Hub」「Hub 有新嘢」「X 嗰邊有冇新嘢」「check inbox」「未消化」「[對方] 整咗咩」等,或語意指向「查看對方有甚麼新東西交過來」的同類語句 → 進入「收件子流程」(第 7 節)。
 - **共識確認**:用戶語句出現「理解不一致」「不是做同一任務」「brief 不一致」「要求不同」「先確認共識」「不要先做」「alignment」「clarification」等,或 AI 讀取交接包後發現共同目標、任務範圍、檔案版本、交付要求與本方已知狀態不一致 → 進入「共識確認子流程」(第 8 節)。
 - **出錯 / 補救**:用戶語句出現「Drive 同步唔到」「X 話收唔到」「sync stuck」「conflict」「出錯」「Claude Code 唔識個 skill」「Agent Handoff Kit 未 init」「對方未 share」等,或語意指向「跨機合作流程中的某環節出錯需要補救」的同類語句 → 進入「補救子流程」(第 9 節)。
@@ -203,7 +203,7 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
    ```text
    npx aps check-aps
    ```
-   它輸出對話可讀的 APS 整體狀態摘要,不再生成 dashboard HTML。操作主線在 AI terminal;用戶不用打開 HTML 也可以繼續。狀態摘要預設只顯示交接包是否如期、自己有甚麼要跟進、真正需要用戶注意的風險,以及底部可直接複製給 AI 的下一句。若有 confirmed peer 但未見 `shared_goal_and_roles` 基準,下一步是先建立或補發共同目標與分工,不是發普通測試包。若有 pending 交接,必須逐件判斷「可開工 / 需退回補資料 / 先確認共同目標 / 等待對方修訂」,不可把 pending 一律寫成「你要處理」。本機共用 Drive 路徑、來源編號、packet / outbox / ack、數量、同步與完整追溯資料應由 AI 自己用來判斷;只有需要深入排錯時才執行或展示 `npx aps check-aps --full`。這只是唯讀整理,不是自動派工,也不是背景自動監察;只有用戶明確要求 `Check APS` 或 AI 在 APS 流程內需要刷新狀態時才執行。若真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。
+   它輸出對話可讀的 APS 整體狀態摘要,不再生成 dashboard HTML。操作主線在 AI terminal;用戶不用打開 HTML 也可以繼續。狀態摘要預設只顯示交接包是否如期、自己有甚麼要跟進、真正需要用戶注意的風險,以及底部可直接複製給 AI 的下一句。若有 confirmed peer 但未見 `shared_goal_and_roles` 基準,下一步是先建立或補發共同目標與分工,不是發普通測試包。若有 pending 交接,必須逐件判斷「可開工 / 需退回補資料 / 先確認共同目標 / 等待對方修訂」,不可把 pending 一律寫成「你要處理」。若 `check-aps` 顯示 APS Live 建議打開,AI 的一句下一步不得只說等待或只說叫對方 `check Drive`;必須同時講清楚兩條路:正式路徑是對方在自己的已接 APS 項目資料夾 `check Drive`,可選即時核對是雙方各自 `Check APS` 打開自己的 APS Live 頁。若用戶問「APS Live 怎樣打開」,回覆必須優先提供 `check-aps` 顯示的 `file:///` 可點擊連結,再附本機路徑作備用。本機共用 Drive 路徑、來源編號、packet / outbox / ack、數量、同步與完整追溯資料應由 AI 自己用來判斷;只有需要深入排錯時才執行或展示 `npx aps check-aps --full`。這只是唯讀整理,不是自動派工,也不是背景自動監察;只有用戶明確要求 `Check APS`,或在 APS / 交接語境下問「繼續」「去到哪一步」「下一步」,或 AI 在 APS 流程內需要刷新狀態時才執行。回覆必須保留「🗺️ APS 流程位置」表格與「👉 目前位置」,再補一句下一步。若真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。
    dashboard 指令只保留提示:
    ```text
    npx aps dashboard
@@ -270,7 +270,7 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
 10. 用 CLI 發佈 packet。**必須用 `--to <agent_id>` 指名收件 peer**(舊二人項目若有預設對方可省略,但新項目沒有預設對方;缺收件人時 CLI 會提示先揀 peer 或邀請,不會靜默失敗,亦不要硬發)。長正文或由 AI 生成的正文必須優先寫入暫存正文檔,再用 `--body-file` 發佈,避免在 shell 內塞入多行文字、表格或特殊符號。**正式一語交接必須加 `--strict-handoff`**,讓 CLI 在正文缺少共同目標、雙方任務、交叉點、證據或風險時阻止 publish。**把「請對方做的事」逐項用 `--items "甲;乙;丙"`(或 `--items-file`)明示申報**:CLI 會逐字記入 packet 的 `items` 欄與收件總覽。items 一定由發送方 AI 申報,CLI 不會自動從正文抽,亦不應靠正文標題或標點逆向估;正式交接如沒有明確行動項,應回到定義卡補洞,不可用省略 `--items` 逃過問題。
 11. 回報 packet id / version / 主題,並提醒這代表本機共用 Drive 資料夾已寫入,不等於對方電腦已完成 Google Drive 同步。若對方稍後未見,先等同步或進入補救子流程。
 12. 輸出可直接複製貼上的摘要式 Telegram / WhatsApp / Email 通知。
-13. 告訴用戶下一步只需把通知貼給對方;之後可說「看看對方有沒有回覆」。
+13. 告訴用戶下一步有兩條路,並分清正式狀態與即時核對:正式收件路徑是先把通知貼給對方,由對方在自己的電腦、自己的已接 APS 項目資料夾叫 AI `check Drive`;之後用戶可說「看看對方有沒有回覆」。若想即時確認對方是否已進入這條交接、補資料或釐清問題,雙方各自在自己的已接 APS 項目資料夾說「Check APS」,打開各自生成 / 更新的 APS Live 頁。不得把本機 `file://` APS Live 頁當成對方可開的網址;APS Live 只作即時核對與討論,正式狀態仍以 Drive 內 packet / ack 為準。
 
 ### 6.2 交接內容整理規則
 
@@ -315,7 +315,7 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
    若是舊二人預設對方,可省略 `--to`;若是 project peer,必須保留 `--to` 以免誤發給 `.aps/config.json` 的預設對方。短測試句可使用 `--body`;正式交接、長正文、多行摘要、表格或含引號 / 特殊符號的正文,一律使用 `--body-file`。`--strict-handoff` 是正式交接防線:CLI 會檢查共同目標、本方任務、對方任務、交叉點、請對方做的事、可共享真源指標、接收方開工條件與風險。`--items` 把今次請對方做的事逐項明示申報,CLI 逐字記入 `items` 欄,收件方總覽即可見。修訂時若不再傳 `--items` 會沿用上一版 items,要清空用 `--clear-items`。若目前 CLI 尚未支援 `--body-file` 或 `--strict-handoff`,不得用脆弱的多行 shell 引號硬塞內容;先提示需要更新 APS CLI 或改用本地候選 CLI。
    成功輸出會包含 `已發佈 <packet_id> v1`、packet folder 路徑,以及一段可直接複製給對方的通知文字。把 packet id 與通知文字回報給用戶。
 8. **生成通知短訊**:輸出給用戶手動傳給對方。通知必須包含 project slug、來源 agent、topic、packet id / version、`🔎 重點摘要`、`⚠️ 注意事項` 與 `🚀 下一步`。重點摘要應用一至三句寫明共同目標、請對方做的事或最重要的判斷;注意事項應列明風險、未決或「請先由收件人確認工作目錄與資料狀態已準備好,再叫 AI 介入」。通知不得只列交接編號,不得要求對方使用發送方的本機 Google Drive 路徑,亦不得寫成「進入同一個項目資料夾」這類可能被理解為同一條本機路徑的句子。skill 不代發 WhatsApp,不操作 clipboard。Telegram、WhatsApp、Email 或其他渠道都只是人類通知渠道;由收件人本人決定何時打開自己的 AI 並輸入「check Drive」。說明邊界:APS 不會在對方電腦彈出提示,亦不應因通知自動觸發 consume、close、revise 或 withdraw;它的作用是讓對方 AI 一旦檢查共用 Drive 資料夾,即可讀到共同目標、各自任務邊界、交叉協作點、任務需求與已讀狀態,不用人類重新搬運背景。若對方未見,先等待 Google Drive 同步並重試 `check Drive`,不要立即重發多個重複交接包。
-9. **提示下一步**:告訴用戶稍後可說「看看對方有沒有回覆」查看對方回覆或確認是否已消化。
+9. **提示下一步**:告訴用戶兩條後續路徑:一,正式收件路徑是把通知傳給對方,由對方在自己的電腦、自己的已接 APS 項目資料夾叫 AI `check Drive`;用戶稍後可說「看看對方有沒有回覆」查看對方回覆或確認是否已消化。二,可選即時核對路徑是雙方各自在自己的已接 APS 項目資料夾說「Check APS」,打開各自生成 / 更新的 APS Live 頁,用來即時確認對方是否已進入這條交接、補資料或釐清問題。不得把本機 `file://` APS Live 頁當成對方可開的網址;APS Live 只作即時核對與討論,正式狀態仍以 Drive 內 packet / ack 為準。
 
 失敗處理:
 - 若 CLI 回報 `outbox not found`,代表共用 Drive 資料夾尚未以 `aps init --hub-root ...` 建好或 project slug / agent id 錯。不要自行建立散落檔案;回到設置子流程補齊。

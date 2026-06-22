@@ -243,9 +243,9 @@ npx aps publish --to <peer_agent_id> --topic setup_test --body "APS setup test f
 
 完成後:
 
-> 設置完成。這個工作目錄已有 APS 本地設定。我會先替你做三件事:一,檢查共用 Drive 資料夾與本機設定是否完整;二,讀取協作者狀態;三,查看所有 peer 是否有新內容。若各項正常,第一步應先建立夠安全開始的共同目標與分工:先確認共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項和最小驗收方式;其他角色、邀請對象或第一輪交接對象可以先標為未定。共同目標與分工確認後,我會按狀態推進:未有協作者就替你生成可轉發邀請;已有 confirmed peer 就問你是否本機保存、發給對方確認,或整理第一輪交接包。你不需要記住命令;之後只要直接說「教我用 APS」「教我用 Agent Public Squares」「Check APS」「建立共同目標與分工」「建立共同簡報」「邀請指定協作者加入這個 APS 合作目錄」「把這部分交給指定協作者」「對方收到未」「check Drive」「check Hub」或「Drive 同步不到」即可。
+> 設置完成。這個工作目錄已有 APS 本地設定。我會先替你做三件事:一,檢查共用 Drive 資料夾與本機設定是否完整;二,讀取協作者狀態;三,查看所有 peer 是否有新內容。若各項正常,第一步應先建立夠安全開始的共同目標與分工:先確認共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項和最小驗收方式;其他角色、邀請對象或第一輪交接對象可以先標為未定。共同目標與分工確認後,我會按狀態推進:未有協作者就替你生成可轉發邀請;已有 confirmed peer 就問你是否本機保存、發給對方確認,或整理第一輪交接包。你不需要記住命令;之後只要直接說「教我用 APS」「教我用 Agent Public Squares」「Check APS」「打開 APS Live」「APS Live 怎樣打開」「Live 入口在哪裡」「繼續 APS 交接」「看看現在去到哪一步」「下一步應該做甚麼」「建立共同目標與分工」「建立共同簡報」「邀請指定協作者加入這個 APS 合作目錄」「把這部分交給指定協作者」「對方收到未」「check Drive」「check Hub」或「Drive 同步不到」即可。
 
-`Check APS` 是整體狀態入口:AI 會讀本機 APS 設定,查看收件、發件、peer 狀態、下一步與風險,並直接在 terminal 給出可行動摘要。日常狀態不使用 dashboard 頁;若有真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。`check Drive` 則偏向查看共用 Drive 有沒有對方交來的新內容。兩者都不是自動派工,不是背景自動監察,也不代表對方已收到人手通知。
+`Check APS` 是整體狀態和 APS Live 入口:AI 會讀本機 APS 設定,查看收件、發件、peer 狀態、下一步與風險,並直接在 terminal 給出可行動摘要。若用戶在 APS / 交接 / APS Live 語境下問「繼續」「去到哪一步」「下一步」「APS Live 怎樣打開」「Live 入口在哪裡」,AI 也要先走 `Check APS`,保留「🗺️ APS 流程位置」表格與「👉 目前位置」,並優先覆述 `check-aps` 顯示的「可點擊開啟: file:///...」行,再補本機路徑作備用。日常狀態不使用 dashboard 頁;若有真實卡點需要即時釐清,`Check APS` 可按需生成 APS Live 交接追蹤頁。`check Drive` 則偏向查看共用 Drive 有沒有對方交來的新內容。兩者都不是自動派工,不是背景自動監察,也不代表對方已收到人手通知。
 
 日常一語交接可用以下 wording:
 
@@ -290,6 +290,8 @@ npx aps publish --to <peer_agent_id> --topic setup_test --body "APS setup test f
 ```text
 npx aps publish --to <peer_agent_id> --topic <topic> --body-file <body_file_path> --items "<請對方做的事一>;<二>" --strict-handoff
 ```
+
+發出成功後,下一步不要只說「等對方回覆」。要同時給兩條清楚路徑:正式收件是把通知傳給對方,由對方在自己的電腦、自己的已接 APS 項目資料夾叫 AI `check Drive`;若想即時核對、補資料或確認對方是否已進入這條交接,雙方各自在自己的已接 APS 項目資料夾說「Check APS」並打開各自生成 / 更新的 APS Live 頁。不要把本機 `file://` APS Live 頁當成對方可開的網址;APS Live 只作即時核對與討論,正式狀態仍以 Drive 內 packet / ack 為準。
 
 ## 9. 既有項目升級 wording
 

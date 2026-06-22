@@ -7,6 +7,7 @@ const { spawnSync } = require('child_process');
 const repoRoot = path.resolve(__dirname, '..', '..');
 const apsBin = path.join(repoRoot, 'bin', 'aps.js');
 const evidenceRoot = path.join(repoRoot, 'dev', 'qc', 'evidence');
+fs.mkdirSync(evidenceRoot, { recursive: true });
 const runRoot = fs.mkdtempSync(path.join(evidenceRoot, 'context-index-regression-'));
 const hubRoot = path.join(runRoot, 'hub');
 const apsConfigPath = path.join(repoRoot, '.aps', 'config.json');
@@ -15,6 +16,14 @@ const existingApsConfig = fs.existsSync(apsConfigPath) ? fs.readFileSync(apsConf
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, 'utf8');
+}
+
+function cleanupPath(targetPath) {
+  try {
+    fs.rmSync(targetPath, { recursive: true, force: true });
+  } catch (error) {
+    console.warn(`WARN cleanup skipped for ${targetPath}: ${error.message}`);
+  }
 }
 
 function packet(project, agent, packetId, version = 1) {
@@ -115,6 +124,125 @@ function runDecline(args) {
   return runAps('decline', args);
 }
 
+function runBridgeFormalSmoke({ project, agentId, actionType, packetId, text }) {
+  const port = 48100 + Math.floor(Math.random() * 1000);
+  const script = String.raw`
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+
+const [apsBin, hubRoot, project, agentId, portText, actionType, packetId, actionText] = process.argv.slice(1);
+const port = Number(portText);
+const bridge = spawn(process.execPath, [
+  apsBin,
+  'live-bridge',
+  '--hub-root', hubRoot,
+  '--project', project,
+  '--port', String(port),
+], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+let bridgeOutput = '';
+bridge.stdout.on('data', chunk => { bridgeOutput += chunk.toString(); });
+bridge.stderr.on('data', chunk => { bridgeOutput += chunk.toString(); });
+
+function fail(message) {
+  throw new Error(message + '\nbridge output:\n' + bridgeOutput);
+}
+
+async function waitForHealth() {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch('http://127.0.0.1:' + port + '/health');
+      const data = await response.json();
+      if (response.ok && data.ok) return;
+    } catch (_) {
+      await new Promise(resolve => setTimeout(resolve, 120));
+    }
+  }
+  fail('live-bridge did not become healthy');
+}
+
+async function post(route, payload) {
+  const response = await fetch('http://127.0.0.1:' + port + route, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
+(async () => {
+  try {
+    await waitForHealth();
+    const tokenPath = path.join(hubRoot, project, '_context', 'live_bridge_token.json');
+    const token = JSON.parse(fs.readFileSync(tokenPath, 'utf8')).token;
+    const invalid = await post('/formal-state', { token: 'invalid-token', agent_id: agentId });
+    if (invalid.response.status !== 403 || invalid.data.ok) fail('invalid token should be rejected');
+
+    const stateBefore = await post('/formal-state', { token, agent_id: agentId });
+    if (!stateBefore.response.ok || !stateBefore.data.ok) fail('formal-state failed: ' + JSON.stringify(stateBefore.data));
+    const beforeActions = stateBefore.data.snapshot.formal_actions || [];
+    const action = beforeActions.find(item => item.type === actionType && item.packet_id === packetId);
+    if (!action) fail('expected action not found: ' + actionType + ' ' + packetId + ' actions=' + JSON.stringify(beforeActions));
+
+    const preview = await post('/formal-action/preview', {
+      token,
+      agent_id: agentId,
+      action: { ...action, text: actionText },
+    });
+    if (!preview.response.ok || !preview.data.ok || !preview.data.preview) fail('preview failed: ' + JSON.stringify(preview.data));
+
+    const stateAfterPreview = await post('/formal-state', { token, agent_id: agentId });
+    if (!stateAfterPreview.response.ok || !stateAfterPreview.data.ok) fail('formal-state after preview failed');
+    const stillPresent = (stateAfterPreview.data.snapshot.formal_actions || [])
+      .some(item => item.type === actionType && item.packet_id === packetId);
+    if (!stillPresent) fail('preview must not write formal state');
+
+    const rejectedCommit = await post('/formal-action/commit', {
+      token,
+      agent_id: agentId,
+      action: preview.data.action,
+      confirm: false,
+    });
+    if (rejectedCommit.response.status === 200 || rejectedCommit.data.ok) fail('commit without confirm should be rejected');
+
+    const commit = await post('/formal-action/commit', {
+      token,
+      agent_id: agentId,
+      action: preview.data.action,
+      confirm: true,
+    });
+    if (!commit.response.ok || !commit.data.ok || !commit.data.snapshot) fail('commit failed: ' + JSON.stringify(commit.data));
+    const afterActions = commit.data.snapshot.formal_actions || [];
+    const remains = afterActions.some(item => item.type === actionType && item.packet_id === packetId);
+    if (remains) fail('committed action should no longer remain available');
+
+    console.log('PASS bridge formal smoke ' + actionType + ' ' + packetId);
+  } finally {
+    bridge.kill();
+  }
+})().catch(error => {
+  bridge.kill();
+  console.error(error && error.stack ? error.stack : error);
+  process.exit(1);
+});
+`;
+  return spawnSync(process.execPath, [
+    '-e',
+    script,
+    apsBin,
+    hubRoot,
+    project,
+    agentId,
+    String(port),
+    actionType,
+    packetId,
+    text,
+  ], { encoding: 'utf8', cwd: repoRoot, timeout: 20000 });
+}
+
 function assert(condition, message, details = '') {
   if (!condition) {
     const suffix = details ? `\n${details}` : '';
@@ -123,7 +251,22 @@ function assert(condition, message, details = '') {
 }
 
 function outputOf(result) {
-  return `${result.stdout || ''}${result.stderr || ''}`;
+  const errorText = result.error ? `\nspawn error: ${result.error.code || ''} ${result.error.message || result.error}` : '';
+  return `${result.stdout || ''}${result.stderr || ''}${errorText}`;
+}
+
+function localFileHrefForTest(filePath) {
+  const resolved = path.resolve(String(filePath || '')).replace(/\\/g, '/');
+  return `file:///${resolved.split('/').map((part, index) => {
+    if (index === 0 && /^[A-Za-z]:$/.test(part)) return part;
+    return encodeURIComponent(part);
+  }).join('/')}`;
+}
+
+function bridgePortFromLiveHtml(html, label) {
+  const match = String(html || '').match(/"url": "http:\/\/127\.0\.0\.1:(\d+)"/);
+  assert(match, `${label}: expected generated APS Live HTML to include local bridge URL`, html);
+  return Number(match[1]);
 }
 
 function expectOutputCase(name, result, expectedStatus, requiredText, forbiddenText = []) {
@@ -255,7 +398,7 @@ function expectFirstCheckApsLiveTranscriptFixture() {
     'live_stage_guide',
     'live_coordination_block',
     'live_local_ai_return',
-    'live_terminal_options',
+    'live_controlled_formal_actions',
   ];
   const expectedBranchIds = [
     'live_no_baseline',
@@ -267,7 +410,7 @@ function expectFirstCheckApsLiveTranscriptFixture() {
     'live_wrong_project_identity',
     'live_drive_sync_delay',
     'live_three_plus_one_to_one',
-    'live_no_formal_write',
+    'live_no_hidden_formal_write',
   ];
   assert(Array.isArray(fixture.checkApsCases) && fixture.checkApsCases.length === expectedCheckIds.length, 'First Check APS fixture: expected four Check APS cases');
   assert(Array.isArray(fixture.apsLiveFunctions) && fixture.apsLiveFunctions.length === expectedFunctionIds.length, 'First Check APS fixture: expected ten APS Live functions');
@@ -300,6 +443,7 @@ function expectFirstCheckApsLiveTranscriptFixture() {
     '共同基準',
     '需先建立共同目標與分工',
     'Check APS',
+    '繼續北岸設計 APS 交接，看看現在去到哪一步。',
     'APS Live 交接追蹤',
     '任務',
     '真源',
@@ -538,6 +682,7 @@ function runApsProcess(args, cwd = repoRoot) {
     status: result.status,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
+    error: result.error || null,
   };
 }
 
@@ -704,6 +849,38 @@ try {
   );
 
   expectRepoFileContains(
+    'APS skill routes ordinary continuation wording through check-aps',
+    'skills/aps/SKILL.md',
+    [
+      '繼續 APS 交接',
+      '看看現在去到哪一步',
+      'APS Live 怎樣打開',
+      'AI 必須先執行 `npx aps check-aps`',
+      '保留 CLI 輸出的「🗺️ APS 流程位置」表格與「👉 目前位置」',
+      '可點擊開啟: file:///',
+      '不得憑舊記憶只提供 Windows 路徑',
+      '不得只改寫成自己的摘要表',
+    ],
+  );
+
+  expectRepoFileContains(
+    'bridge pack routes ordinary continuation wording through check-aps',
+    'examples/demo-agent-a/dev/rules/aps-bridge.md',
+    [
+      '繼續 APS 交接',
+      '看看現在去到哪一步',
+      'APS Live 怎樣打開',
+      'run `npx aps check-aps` first',
+      'preserve its `🗺️ APS 流程位置`',
+      'quote',
+      '可點擊開啟: file:///',
+      'Do not answer from an old remembered `G:\\...` path only',
+      'Do not replace it with a homemade status table',
+    ],
+  );
+
+
+  expectRepoFileContains(
     'public first-user docs keep draft confirmation and no-auto-notification boundary',
     'docs/guides/index.html',
     [
@@ -764,7 +941,9 @@ try {
       'This status does not certify reliable cross-machine APS Live',
       'or full first-use product-flow coverage',
       'S105-style same-machine evidence proves only the exact scripted branch it ran',
-      'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`, unconfirmed shared-goal draft, normal confirmed-baseline handoff, missing-information return, stale generated-page refresh boundary, peer-offline / same-identity UI guard, wrong-project room isolation, Drive-sync-delay identity-risk scan, and active packet consistency across `check-aps`, `check-drive`, and APS Live',
+      'controlled normal-handoff completion loop',
+      'receiver uses live-bridge consume',
+      'status --packet-id` reads back `已收結',
       'It still must not be generalized to real Trystero peer-offline events, real Drive sync timing, real human comprehension, or real two-device operation',
     ],
   );
@@ -839,7 +1018,7 @@ try {
       'APS Live 功能與分支覆蓋',
       'APS Live operation smoke',
       '真 Drive timing 與真兩機 / APS Live transport',
-      'APS Live operation smoke 已有本機 CLI + localhost bridge evidence',
+      'APS Live operation smoke 已有本機 CLI + localhost bridge formal evidence',
       'dev/qc/evidence/aps-live-operation-smoke/20260618T114335/',
       '16 PASS / 0 FAIL / 2 BLOCKED',
       'peer join / leave / reconnect',
@@ -938,7 +1117,9 @@ try {
     'APS Live capability spec requires full operation loop and 3+ group boundary',
     'docs/plans/aps-live-capability-spec.md',
     [
-      'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`, unconfirmed shared-goal draft, normal confirmed-baseline handoff, missing-information return, stale generated-page refresh boundary, peer-offline / same-identity UI guard, wrong-project room isolation, Drive-sync-delay identity-risk scan, and active packet consistency across `check-aps`, `check-drive`, and APS Live',
+      'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`',
+      'active packet consistency across `check-aps`, `check-drive`, and APS Live',
+      'controlled normal-handoff completion loop',
       'Six-stage Product Flow Definition',
       'APS Live is not considered product-flow complete until this exact six-stage path is proven with two APS identities',
       'Each stage must have evidence of transition, not only a visible label on the page.',
@@ -955,8 +1136,8 @@ try {
       'APS Live operation smoke standard',
       'This recurring smoke is a product operation gate, not a one-time demo',
       'entry path, connect / no-peer / peer-left / reconnect / wrong-project / same-identity states',
-      'bridge online / offline / invalid-token queue paths',
-      'formal state before / after comparisons',
+      'bridge online / offline / invalid-token paths',
+      'formal state before / preview / commit / read-back comparisons',
       '3+ participant one-to-one-boundary',
       'The APS Live end-to-end operation flow gate must prove the whole path',
       'The six-stage product-flow gate must pass before the Trystero evidence can be treated as product readiness.',
@@ -1063,9 +1244,20 @@ try {
   const jayAfterConfirm = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
   const jayAfterConfirmOutput = outputOf(jayAfterConfirm);
   assert(jayAfterConfirm.status === 0, `journey jay check-aps after shared goal confirm: expected exit 0, got ${jayAfterConfirm.status}`, jayAfterConfirmOutput);
-  for (const text of ['目前沒有明確卡點', '按共同目標與分工推進', '根據目前共同目標與分工']) {
+  for (const text of ['目前沒有明確卡點', '按共同目標與分工推進', '根據目前共同目標與分工', '📌 下一輪起點', '目前沒有進行中的正式工作包；如要再合作，下一輪由這一步開始。']) {
     assert(jayAfterConfirmOutput.includes(text), `journey jay check-aps after confirm: missing ${text}`, jayAfterConfirmOutput);
   }
+  const jayAfterConfirmLive = runApsProcess(['live',
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'jay',
+  ]);
+  const jayAfterConfirmLiveOutput = outputOf(jayAfterConfirmLive);
+  assert(jayAfterConfirmLive.status === 0, `journey jay live after shared goal confirm: expected exit 0, got ${jayAfterConfirmLive.status}`, jayAfterConfirmLiveOutput);
+  const jayAfterConfirmLiveHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html'), 'utf8');
+  assert(jayAfterConfirmLiveHtml.includes('沒有進行中交接'), 'journey jay live after confirm: idle state should not look like an active handoff', jayAfterConfirmLiveHtml);
+  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(jayAfterConfirmLiveHtml), 'journey jay live after confirm: common baseline should remain completed', jayAfterConfirmLiveHtml);
+  assert(!/tracking-step active" aria-label="已發出：進行中"/.test(jayAfterConfirmLiveHtml), 'journey jay live after confirm: no outgoing handoff should be marked active', jayAfterConfirmLiveHtml);
   const jayAfterConfirmFull = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--full']);
   const jayAfterConfirmFullOutput = outputOf(jayAfterConfirmFull);
   assert(jayAfterConfirmFull.status === 0, `journey jay full check-aps after shared goal confirm: expected exit 0, got ${jayAfterConfirmFull.status}`, jayAfterConfirmFullOutput);
@@ -1108,6 +1300,34 @@ try {
   assert(validHandoffPublish.status === 0, `journey valid handoff publish: expected exit 0, got ${validHandoffPublish.status}`, validHandoffOutput);
   const validHandoffPacketId = extractPublishedPacketId(validHandoffOutput, 'journey valid handoff publish');
 
+  for (const text of [
+    '可選即時核對',
+    '雙方各自在自己的已接 APS 項目資料夾說「Check APS」',
+    '不要把本機 file:// APS Live 頁當成對方可開的網址',
+    '正式狀態仍以 Drive 內 packet / ack 為準',
+  ]) {
+    assert(validHandoffOutput.includes(text), `journey valid handoff publish: missing post-publish Live routing text ${text}`, validHandoffOutput);
+  }
+
+  writeTempApsConfig(journeyProject, 'adam');
+  const adamWaitingCheck = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
+  const adamWaitingCheckOutput = outputOf(adamWaitingCheck);
+  assert(adamWaitingCheck.status === 0, `journey adam check-aps waiting outgoing: expected exit 0, got ${adamWaitingCheck.status}`, adamWaitingCheckOutput);
+  for (const text of [
+    '1 件正式工作包等對方處理',
+    '正式路徑：提醒對方在自己項目資料夾 check Drive',
+    '即時核對：雙方各自 Check APS 打開 Live',
+    '正式狀態仍等對方 check Drive / 回覆',
+    'APS Live 只作即時核對，不取代 packet / ack',
+  ]) {
+    assert(adamWaitingCheckOutput.includes(text), `journey adam check-aps waiting outgoing: missing ${text}`, adamWaitingCheckOutput);
+  }
+  const adamWaitingLive = runLive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
+  const adamWaitingLiveOutput = outputOf(adamWaitingLive);
+  assert(adamWaitingLive.status === 0, `journey adam live waiting outgoing: expected exit 0, got ${adamWaitingLive.status}`, adamWaitingLiveOutput);
+  const adamWaitingLiveHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_adam.html'), 'utf8');
+  assert(/"formal_actions": \[\s*\]/.test(adamWaitingLiveHtml), 'journey adam waiting live: active waiting work packet should not inherit close action from an already-confirmed baseline or older packet', adamWaitingLiveHtml);
+
   writeTempApsConfig(journeyProject, 'jay');
   const jayCheckValidHandoff = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
   const jayCheckValidHandoffOutput = outputOf(jayCheckValidHandoff);
@@ -1124,9 +1344,9 @@ try {
   assert(jayValidHandoffLiveHtml.includes('可按交接內容開工'), 'journey jay valid handoff live: missing can-start label', jayValidHandoffLiveHtml);
   assert(!jayValidHandoffLiveHtml.includes('未見目前有效共同目標與分工基準'), 'journey jay valid handoff live: should not show no-baseline blocker after confirmation', jayValidHandoffLiveHtml);
   assert(jayValidHandoffLiveHtml.includes(`"seen_packet": "adam:${validHandoffPacketId}:v1"`), 'journey jay valid handoff live: snapshot should point to the same pending packet as terminal state', jayValidHandoffLiveHtml);
-  assert(jayValidHandoffLiveHtml.includes('頁面資料來自生成時的 APS 快照'), 'journey jay valid handoff live: stale-page boundary should be visible', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('正式狀態：本頁生成時快照'), 'journey jay valid handoff live: formal snapshot boundary should be visible', jayValidHandoffLiveHtml);
   assert(jayValidHandoffLiveHtml.includes('重新讀取正式狀態'), 'journey jay valid handoff live: stale-page refresh action should be visible', jayValidHandoffLiveHtml);
-  assert(jayValidHandoffLiveHtml.includes('refreshFormalPrompt'), 'journey jay valid handoff live: refresh prompt script should be present', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('/formal-state'), 'journey jay valid handoff live: bridge formal refresh endpoint should be present', jayValidHandoffLiveHtml);
 
   const jayCheckDriveValid = runCheckDrive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--from', 'adam']);
   const jayCheckDriveValidOutput = outputOf(jayCheckDriveValid);
@@ -1134,23 +1354,118 @@ try {
   for (const text of ['今日收件報告', 'homepage_copy_review', validHandoffPacketId, '對方交了甚麼', '建議下一步']) {
     assert(jayCheckDriveValidOutput.includes(text), `journey jay check-drive valid handoff: missing ${text}`, jayCheckDriveValidOutput);
   }
+  const controlledCompletionLedger = [
+    {
+      stage: 'shared_goal_confirmed',
+      actor: 'jay',
+      proof: 'check-aps after consume of shared_goal_and_roles shows confirmed baseline and normal work may continue',
+    },
+    {
+      stage: 'handoff_published',
+      actor: 'adam',
+      packet_id: validHandoffPacketId,
+      proof: 'strict-handoff publish returned a concrete packet id for homepage_copy_review',
+    },
+    {
+      stage: 'receiver_can_start',
+      actor: 'jay',
+      packet_id: validHandoffPacketId,
+      proof: 'check-aps marked homepage_copy_review as [✅ 可開工] and check-drive rendered the same packet id',
+    },
+    {
+      stage: 'live_snapshot_refresh_boundary',
+      actor: 'jay',
+      packet_id: validHandoffPacketId,
+      proof: 'APS Live snapshot contains the same seen_packet and exposes /formal-state plus stale-page refresh wording',
+    },
+  ];
 
-  const jayConsumeValid = runApsProcess(['consume',
-    '--hub-root', hubRoot,
-    '--project', journeyProject,
-    '--agent-id', 'jay',
-    '--packet-id', validHandoffPacketId,
-    '--version', '1',
-    '--result', 'Reviewed homepage_copy_review and preparing concrete feedback',
-  ]);
-  const jayConsumeValidOutput = outputOf(jayConsumeValid);
-  assert(jayConsumeValid.status === 0, `journey jay consume valid handoff: expected exit 0, got ${jayConsumeValid.status}`, jayConsumeValidOutput);
+  const bridgeConsumeValid = runBridgeFormalSmoke({
+    project: journeyProject,
+    agentId: 'jay',
+    actionType: 'consume-packet',
+    packetId: validHandoffPacketId,
+    text: 'Reviewed homepage_copy_review through APS Live bridge smoke and preparing concrete feedback',
+  });
+  const bridgeConsumeValidOutput = outputOf(bridgeConsumeValid);
+  assert(bridgeConsumeValid.status === 0, `journey bridge consume valid handoff: expected exit 0, got ${bridgeConsumeValid.status}`, bridgeConsumeValidOutput);
+  assert(bridgeConsumeValidOutput.includes('PASS bridge formal smoke consume-packet'), 'journey bridge consume valid handoff: missing bridge smoke pass', bridgeConsumeValidOutput);
+  controlledCompletionLedger.push({
+    stage: 'bridge_consume_confirmed',
+    actor: 'jay',
+    packet_id: validHandoffPacketId,
+    proof: 'live-bridge rejected invalid token, preview did not write, commit without confirm was rejected, confirmed commit consumed packet, and bridge readback removed the action',
+  });
   const jayAfterConsumeCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
   const jayAfterConsumeCheckApsOutput = outputOf(jayAfterConsumeCheckAps);
   assert(jayAfterConsumeCheckAps.status === 0, `journey jay check-aps after consuming valid handoff: expected exit 0, got ${jayAfterConsumeCheckAps.status}`, jayAfterConsumeCheckApsOutput);
   assert(jayAfterConsumeCheckApsOutput.includes('目前沒有明確卡點'), 'journey jay check-aps after consume: formal state should move on even if an older Live HTML remains on disk', jayAfterConsumeCheckApsOutput);
   assert(!jayAfterConsumeCheckApsOutput.includes('有 1 件交接等你處理'), 'journey jay check-aps after consume: stale generated page must not keep old pending terminal state alive', jayAfterConsumeCheckApsOutput);
-  console.log('PASS check-aps, check-drive, and APS Live point to the same active packet and stale generated pages keep a refresh boundary');
+  const jayAfterConsumeCheckDrive = runCheckDrive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--from', 'adam']);
+  const jayAfterConsumeCheckDriveOutput = outputOf(jayAfterConsumeCheckDrive);
+  assert(jayAfterConsumeCheckDrive.status === 0, `journey jay check-drive after bridge consume: expected exit 0, got ${jayAfterConsumeCheckDrive.status}`, jayAfterConsumeCheckDriveOutput);
+  assert(jayAfterConsumeCheckDriveOutput.includes('沒有待處理項目'), 'journey jay check-drive after bridge consume: packet must not remain pending after bridge readback', jayAfterConsumeCheckDriveOutput);
+  writeTempApsConfig(journeyProject, 'adam');
+  const adamStatusAfterConsume = runApsProcess(['status', '--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam', '--packet-id', validHandoffPacketId]);
+  const adamStatusAfterConsumeOutput = outputOf(adamStatusAfterConsume);
+  assert(adamStatusAfterConsume.status === 0, `journey adam status after bridge consume: expected exit 0, got ${adamStatusAfterConsume.status}`, adamStatusAfterConsumeOutput);
+  for (const text of ['收件方已標記處理', 'Reviewed homepage_copy_review through APS Live bridge smoke']) {
+    assert(adamStatusAfterConsumeOutput.includes(text), `journey adam status after bridge consume: missing ${text}`, adamStatusAfterConsumeOutput);
+  }
+  controlledCompletionLedger.push({
+    stage: 'receiver_readback_clear',
+    actor: 'jay',
+    packet_id: validHandoffPacketId,
+    proof: 'receiver check-aps and check-drive both show the pending item has cleared after bridge consume',
+  });
+  controlledCompletionLedger.push({
+    stage: 'sender_status_after_consume',
+    actor: 'adam',
+    packet_id: validHandoffPacketId,
+    proof: 'sender status sees receiver consumed result before close',
+  });
+  writeTempApsConfig(journeyProject, 'adam');
+  const adamLiveAfterConsume = runLive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
+  const adamLiveAfterConsumeOutput = outputOf(adamLiveAfterConsume);
+  assert(adamLiveAfterConsume.status === 0, `journey adam live after bridge consume: expected exit 0, got ${adamLiveAfterConsume.status}`, adamLiveAfterConsumeOutput);
+  const bridgeCloseValid = runBridgeFormalSmoke({
+    project: journeyProject,
+    agentId: 'adam',
+    actionType: 'close-packet',
+    packetId: validHandoffPacketId,
+    text: 'Receiver consumed homepage_copy_review through APS Live bridge smoke; closing the handoff line after read-back.',
+  });
+  const bridgeCloseValidOutput = outputOf(bridgeCloseValid);
+  assert(bridgeCloseValid.status === 0, `journey bridge close valid handoff: expected exit 0, got ${bridgeCloseValid.status}`, bridgeCloseValidOutput);
+  assert(bridgeCloseValidOutput.includes('PASS bridge formal smoke close-packet'), 'journey bridge close valid handoff: missing bridge smoke pass', bridgeCloseValidOutput);
+  const adamStatusAfterClose = runApsProcess(['status', '--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam', '--packet-id', validHandoffPacketId]);
+  const adamStatusAfterCloseOutput = outputOf(adamStatusAfterClose);
+  assert(adamStatusAfterClose.status === 0, `journey adam status after bridge close: expected exit 0, got ${adamStatusAfterClose.status}`, adamStatusAfterCloseOutput);
+  for (const text of ['已收結', 'Receiver consumed homepage_copy_review through APS Live bridge smoke']) {
+    assert(adamStatusAfterCloseOutput.includes(text), `journey adam status after bridge close: missing ${text}`, adamStatusAfterCloseOutput);
+  }
+  controlledCompletionLedger.push({
+    stage: 'bridge_close_confirmed',
+    actor: 'adam',
+    packet_id: validHandoffPacketId,
+    proof: 'live-bridge close used preview, explicit confirm, formal write, and readback verification',
+  });
+  controlledCompletionLedger.push({
+    stage: 'sender_closed_readback',
+    actor: 'adam',
+    packet_id: validHandoffPacketId,
+    proof: 'status --packet-id reports 已收結 with the bridge close reason',
+  });
+  const controlledCompletionPath = path.join(runRoot, 'aps-live-controlled-handoff-completion-loop.json');
+  writeFile(controlledCompletionPath, `${JSON.stringify({
+    product_gate: 'APS Live controlled handoff completion loop',
+    project: journeyProject,
+    packet_id: validHandoffPacketId,
+    boundary: 'local executable regression only; not true two-machine, not real Trystero transport, not real Drive timing, not publish / revise / withdraw page write support',
+    stages: controlledCompletionLedger,
+  }, null, 2)}\n`);
+  assert(fs.existsSync(controlledCompletionPath), 'controlled handoff completion loop evidence file should be written');
+  console.log(`PASS APS Live controlled handoff completion loop: ${controlledCompletionPath}`);
 
   writeTempApsConfig(journeyProject, 'adam');
   const badHandoffPublish = runPublish([
@@ -1197,16 +1512,16 @@ try {
   assert(jayBadHandoffLiveHtml.includes('未列明真源指標或來源位置'), 'journey jay bad handoff live: missing information blocker should be visible', jayBadHandoffLiveHtml);
   assert(jayBadHandoffLiveHtml.includes('請對方補真源、範圍或驗收標準'), 'journey jay bad handoff live: missing formal return action', jayBadHandoffLiveHtml);
 
-  const jayDeclineBad = runApsProcess(['decline',
-    '--hub-root', hubRoot,
-    '--project', journeyProject,
-    '--agent-id', 'jay',
-    '--packet-id', badHandoffPacketId,
-    '--version', '1',
-    '--reason', 'Missing receiver-readable source pointer and receiver start condition',
-  ]);
-  const jayDeclineBadOutput = outputOf(jayDeclineBad);
-  assert(jayDeclineBad.status === 0, `journey jay decline bad handoff: expected exit 0, got ${jayDeclineBad.status}`, jayDeclineBadOutput);
+  const bridgeDeclineBad = runBridgeFormalSmoke({
+    project: journeyProject,
+    agentId: 'jay',
+    actionType: 'decline-packet',
+    packetId: badHandoffPacketId,
+    text: 'Missing receiver-readable source pointer and receiver start condition',
+  });
+  const bridgeDeclineBadOutput = outputOf(bridgeDeclineBad);
+  assert(bridgeDeclineBad.status === 0, `journey bridge decline bad handoff: expected exit 0, got ${bridgeDeclineBad.status}`, bridgeDeclineBadOutput);
+  assert(bridgeDeclineBadOutput.includes('PASS bridge formal smoke decline-packet'), 'journey bridge decline bad handoff: missing bridge smoke pass', bridgeDeclineBadOutput);
 
   writeTempApsConfig(journeyProject, 'adam');
   const adamSeesDecline = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
@@ -2481,12 +2796,17 @@ try {
   assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard_adam.html')), 'retired dashboard must not write personal dashboard');
   assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html')), 'retired dashboard must not write dashboard index');
   const autoGeneratedLiveProjectPath = path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_adam.html');
+  const autoGeneratedLiveProjectHref = localFileHrefForTest(autoGeneratedLiveProjectPath);
   expectCheckApsCase(
     'check-aps shows user-facing status and keeps troubleshooting out of default view',
     ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay'],
     0,
     [
       'APS 整體狀態',
+      'APS 流程位置',
+      '| 階段 | 狀態 | 現在代表 | 下一步 |',
+      '👉 目前位置',
+      'APS Live 何時用',
       '結論',
       '下一句可對 AI 說',
       '交接包狀態',
@@ -2503,9 +2823,11 @@ try {
       '不是背景自動監察',
       'APS Live 即時協作',
       `APS Live: ${autoGeneratedLiveProjectPath}`,
+      `可點擊開啟: ${autoGeneratedLiveProjectHref}`,
       '頁面已由 Check APS 自動生成 / 更新',
       '你只需打開頁面使用',
-      'Live 只做即時核對',
+      'Trystero 只做即時核對',
+      '本機 live-bridge',
     ],
     [
       '📊 數量摘要（排錯用）',
@@ -2524,6 +2846,35 @@ try {
   assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard_adam.html')), 'check-aps must not write personal dashboard after retirement');
   assert(!fs.existsSync(path.join(hubRoot, 'dashboard_daily', '_context', 'dashboard.html')), 'check-aps must not write dashboard index after retirement');
   assert(fs.existsSync(autoGeneratedLiveProjectPath), 'check-aps should auto-generate APS Live HTML when Live coordination is useful');
+  const originalWriteFileSync = fs.writeFileSync;
+  fs.writeFileSync = function patchedWriteFileSync(filePath, ...writeArgs) {
+    if (String(filePath).endsWith(path.join('_context', 'aps-live_adam.html'))) {
+      const error = new Error('EPERM: operation not permitted, open C:\\locked\\aps-live_adam.html');
+      error.code = 'EPERM';
+      throw error;
+    }
+    return originalWriteFileSync.call(fs, filePath, ...writeArgs);
+  };
+  let lockedLiveOutput;
+  try {
+    const lockedLiveResult = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay']);
+    lockedLiveOutput = outputOf(lockedLiveResult);
+    assert(lockedLiveResult.status === 0, `check-aps locked APS Live html: expected exit 0, got ${lockedLiveResult.status}`, lockedLiveOutput);
+  } finally {
+    fs.writeFileSync = originalWriteFileSync;
+  }
+  for (const text of [
+    'APS 狀態已在 terminal 顯示',
+    'APS 流程位置',
+    '👉 目前位置',
+    'APS Live 頁暫時未能更新',
+    '正式狀態已照常讀取',
+    '請先按上方 APS 流程位置推進',
+  ]) {
+    assert(lockedLiveOutput.includes(text), `check-aps locked APS Live html: missing ${text}`, lockedLiveOutput);
+  }
+  assert(!lockedLiveOutput.includes('❌ Check APS 失敗'), 'check-aps locked APS Live html should not fail the whole status command', lockedLiveOutput);
+  console.log('PASS check-aps degrades when APS Live HTML is locked');
   expectCheckApsCase(
     'check-aps --full shows troubleshooting details',
     ['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'adam', '--other-agent-id', 'jay', '--full'],
@@ -2551,6 +2902,8 @@ try {
     0,
     [
       '共同目標與分工: 未見目前有效基準',
+      'APS 流程位置',
+      '| 2. 建立共同目標與分工 | 👉 目前位置',
       '[🔎 先建立基準]',
       '不要先發普通任務包',
       '下一句可對 AI 說',
@@ -2577,6 +2930,10 @@ try {
       '不讀 .aps/config.json',
       '不寫共用 Drive',
       'APS 整體狀態',
+      'APS 流程位置',
+      '| 階段 | 狀態 | 現在代表 | 下一步 |',
+      '👉 目前位置',
+      'APS Live 何時用',
       '結論',
       '下一句可對 AI 說',
       '交接包狀態',
@@ -2590,7 +2947,8 @@ try {
       'APS Live 即時協作',
       '正式項目會由 Check APS 自動生成 APS Live 頁',
       'demo preview 不會寫入 HTML',
-      'Live 只做即時核對',
+      'Trystero 只做即時核對',
+      '本機 live-bridge',
     ],
     [
       '📊 數量摘要（排錯用）',
@@ -2608,13 +2966,17 @@ try {
     0,
     [
       '示範場景: 共同目標與分工確認',
+      'APS 流程位置',
+      '| 階段 | 狀態 | 現在代表 | 下一步 |',
+      '| 3. 協作者確認共同基準 | 👉 目前位置',
+      'APS Live 何時用',
       '共同目標與分工仍未完成逐人確認',
       '第一輪正式任務要先等基準一致',
       '等待協作者確認',
       '建議開 APS Live',
       '正式項目會由 Check APS 自動生成 APS Live 頁',
       'demo preview 不會寫入 HTML',
-      '正式確認仍要回到 terminal',
+      '本機 live-bridge',
       '請用 APS 整理還有誰未確認共同目標與分工',
     ],
     [
@@ -2735,7 +3097,13 @@ try {
     '連接 APS Live',
     '重新讀取正式狀態',
     '頁面打開後會自動連接',
-    '頁面資料來自生成時的 APS 快照',
+    '正式狀態：本頁生成時快照',
+    'Trystero 訊息不會觸發正式寫入',
+    'APS Live 可推進的正式狀態',
+    'formal_actions',
+    '/formal-state',
+    '/formal-action/preview',
+    '/formal-action/commit',
     '發送核對訊息',
     'id="discussionStatus"',
     'id="forwardToAgentAfterDiscussion"',
@@ -2852,13 +3220,8 @@ try {
     '請先在 terminal 執行 aps live-bridge',
     '目前本機 APS 狀態',
     'JSON.stringify(recentMessages',
-    '生成 APS 正式動作草稿',
     '比對雙方看到的狀態',
     '不可把 Live 訊息當成 APS ack',
-    '正式紀錄邊界',
-    '正式寫入 Drive 前仍要你批准',
-    '正式寫回 Drive 前等我確認',
-    '正式動作等我確認',
     '判斷是否需要寫回 APS 正式紀錄',
     '這頁只通訊，不替你完成正式紀錄',
     '不可把 Live 訊息當成對方已正式確認',
@@ -2916,7 +3279,8 @@ try {
   assert(liveOutput.status === 0, `aps live project handoff check page: expected exit 0, got ${liveOutput.status}`, liveOutputText);
   for (const text of [
     'APS Live 交接追蹤頁',
-    '不寫 packet / outbox / ack',
+    '本機 bridge 讀回',
+    '有限推進',
     '回到本機 AI 可直接說',
     '請回到本機 AI',
   ]) {
@@ -2927,6 +3291,16 @@ try {
   const livePeerOutputText = outputOf(livePeerOutput);
   assert(livePeerOutput.status === 0, `aps live peer page: expected exit 0, got ${livePeerOutput.status}`, livePeerOutputText);
   const livePeerHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_jay.html'), 'utf8');
+  const liveNoBaselineOutput = runLive(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline', '--agent-id', 'adam']);
+  const liveNoBaselineOutputText = outputOf(liveNoBaselineOutput);
+  assert(liveNoBaselineOutput.status === 0, `aps live no-baseline page: expected exit 0, got ${liveNoBaselineOutput.status}`, liveNoBaselineOutputText);
+  const liveNoBaselineHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_no_baseline', '_context', 'aps-live_adam.html'), 'utf8');
+  const liveProjectBridgePort = bridgePortFromLiveHtml(liveProjectHtml, 'aps live project html');
+  const livePeerBridgePort = bridgePortFromLiveHtml(livePeerHtml, 'aps live peer html');
+  const liveNoBaselineBridgePort = bridgePortFromLiveHtml(liveNoBaselineHtml, 'aps live no-baseline html');
+  assert(liveProjectBridgePort === livePeerBridgePort, `aps live bridge port: same APS project should share one local bridge port, got ${liveProjectBridgePort} and ${livePeerBridgePort}`);
+  assert(liveProjectBridgePort !== liveNoBaselineBridgePort, `aps live bridge port: different APS projects should not share the default local bridge port, got ${liveProjectBridgePort}`);
+  assert(liveProjectBridgePort !== 47879 && liveNoBaselineBridgePort !== 47879, 'aps live bridge port: default project-derived ports should not fall back to fixed 47879');
   const liveRoomId = liveProjectHtml.match(/const roomId = "([^"]+)"/);
   const livePeerRoomId = livePeerHtml.match(/const roomId = "([^"]+)"/);
   assert(liveRoomId && livePeerRoomId, 'aps live project html: room id should be visible in generated script for QC');
@@ -2996,8 +3370,17 @@ try {
     'id="forwardToAgentAfterDiscussion"',
     '本機 AI 佇列未連接',
     '重新讀取正式狀態',
+    '本機 APS 連到其他合作目錄',
+    '目前本機 bridge 服務的是其他合作目錄',
+    '本機 bridge 正連到其他 APS 合作目錄',
     '頁面打開後會自動連接',
-    '頁面資料來自生成時的 APS 快照',
+    '正式狀態：本頁生成時快照',
+    'Trystero 訊息不會觸發正式寫入',
+    'APS Live 可推進的正式狀態',
+    'formal_actions',
+    '/formal-state',
+    '/formal-action/preview',
+    '/formal-action/commit',
     'autoConnectLive',
     'refreshFormalPrompt',
     'function remotePeerCount()',
@@ -3034,6 +3417,7 @@ try {
     assert(!liveProjectHtml.includes(text), `aps live project html: should keep ${text} out of user UI`, liveProjectHtml);
   }
   assert(/tracking-step done" aria-label="共同基準：已完成"/.test(liveProjectHtml), 'aps live project html: shared-goal baseline should mark 共同基準 as completed when a baseline packet exists', liveProjectHtml);
+  assert(!liveProjectHtml.includes('"default_text": "對方已回覆 共同目標與分工 v1，此交接線收結。"'), 'aps live project html: should not suggest closing shared-goal confirmation while ordinary work is still waiting', liveProjectHtml);
   assert(/<button id="sendProjectMessageInline" type="button" disabled>等待對方進入後才能發送核對訊息<\/button>/.test(liveProjectHtml), 'aps live project html: send button should start disabled until a real peer is present', liveProjectHtml);
   const liveBridgeTokenPath = path.join(hubRoot, 'dashboard_daily', '_context', 'live_bridge_token.json');
   assert(fs.existsSync(liveBridgeTokenPath), 'aps live project should create local bridge token');
@@ -3046,7 +3430,9 @@ try {
   for (const text of [
     'APS Live 即時協作',
     `APS Live: ${liveProjectPath}`,
-    'Live 只做即時核對',
+    `可點擊開啟: ${localFileHrefForTest(liveProjectPath)}`,
+    'Trystero 只做即時核對',
+    '本機 live-bridge',
   ]) {
     assert(liveLinkCheckApsText.includes(text), `check-aps live link: missing ${text}`, liveLinkCheckApsText);
   }
@@ -3246,9 +3632,9 @@ try {
   console.log('Project Context Index regression checks passed.');
 } finally {
   if (existingApsConfig === null) {
-    fs.rmSync(path.dirname(apsConfigPath), { recursive: true, force: true });
+    cleanupPath(path.dirname(apsConfigPath));
   } else {
     writeFile(apsConfigPath, existingApsConfig);
   }
-  fs.rmSync(runRoot, { recursive: true, force: true });
+  cleanupPath(runRoot);
 }

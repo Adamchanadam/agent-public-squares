@@ -237,11 +237,16 @@
 </section>
 
 <section>
+  <h2>維護者矩陣不是 UAT prompt</h2>
+  <p class="lede">本頁把合格第一屏、背後動作、不可出現文字與通過條件放在一起，目的是給維護者回歸與觀察，不可整列交給被測 AI 或真人受測者。真正 UAT prompt 只可包含自然用戶目標、資料位置、參與者與不確定感；觀察準則、命令名、禁線與 pass / fail 條件必須分開保存。</p>
+</section>
+
+<section>
   <h2>證據狀態</h2>
   <div class="status-grid">
-    <div class="status todo"><strong>真人 UAT gate</strong><span>單機 fixture 已覆蓋後，仍需真人檢查第一屏是否自然可懂。</span></div>
+    <div class="status todo"><strong>真人 UAT gate / 真人未驗</strong><span>單機 fixture 已覆蓋後，仍需真人檢查第一屏是否自然可懂。</span></div>
     <div class="status fixture"><strong>需補 fixture</strong><span>第一屏文字已定，但仍欠可重跑的單機 fixture 或 regression。</span></div>
-    <div class="status pass"><strong>已有本機證據</strong><span>已有本機可執行或直接檢查證據；仍不等於真人或真雙機通過。</span></div>
+    <div class="status pass"><strong>已有本機證據 / 本機已驗</strong><span>已有本機可執行或直接檢查證據；仍不等於真人或真雙機通過。</span></div>
     <div class="status blocked"><strong>外部 gate</strong><span>需要真人、兩部實體機、真 Drive timing 或外部通知證據。</span></div>
   </div>
 </section>
@@ -285,7 +290,7 @@
       <tr><td>目標</td><td>非技術新手只用自然語言向 AI 說目的，不需要理解命令、邀請碼模型或 APS 內部資料夾，也能完成 APS 核心合作流程。</td></tr>
       <tr><td>合格結果</td><td>新手能由收到邀請或想開始 APS，一路完成安裝或加入、第一次 Check APS、共同目標與分工、第一份正式交接、對方 check Drive、資料不足退回、修正、完成關閉；過程中不混淆本機工作目錄與 Google Drive APS 合作目錄。</td></tr>
       <tr><td>未通過</td><td>只建立驗收標準、命令能跑、AI persona 局部 fixture 通過，全部都不等於新手已能完成整條合作流程。</td></tr>
-      <tr><td>目前結果</td><td>單機 fixture / regression 已覆蓋完整合作流程：邀請、第一次 Check APS、共同基準、第一份正式交接、check Drive、資料不足退回、修正、關閉。真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋。</td></tr>
+      <tr><td>目前結果</td><td>單機完整合作流程已可驗收；單機 fixture / regression 已覆蓋完整合作流程：邀請、第一次 Check APS、共同基準、第一份正式交接、check Drive、資料不足退回、修正、關閉。真人 UAT 未跑；真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋。</td></tr>
     </tbody>
   </table>
   <div class="matrix-wrap">
@@ -298,14 +303,14 @@
       <tr><td>共同基準</td><td>新手看到一份可確認的共同目標與分工草稿，而不是填表壓力。</td><td>AI 從對話整理，缺資料最多問三題，確認後才落地。</td><td>把八項框架變成必填表；未確認就假裝團隊口徑一致。</td><td><span class="badge pass">已有單機 fixture</span></td></tr>
       <tr><td>第一份正式交接</td><td>新手看到交接確認卡，知道對方要做甚麼、依據甚麼、何時算完成。</td><td>AI 補齊真源、開工條件、風險與請對方做的事，確認後才寫入。</td><td>只問 topic、直接 publish、把整段聊天倒入 packet。</td><td><span class="badge pass">已有單機 fixture</span></td></tr>
       <tr><td>收件與退回</td><td>收件方知道可否開工；不能開工時知道缺甚麼，發送方知道怎樣補。</td><td>AI 做完整性與本機對接檢查，退回、revise、close 都回到同一條交接線。</td><td>收到即 done、退回說成完成、重發多條重複線、收件方 close 對方 packet。</td><td><span class="badge pass">已有單機 fixture</span></td></tr>
-      <tr><td>完整旅程通過</td><td>新手能由一句目的走到完成第一條交接線，不理解任何內部命令仍能完成。</td><td>AI 全程提出最佳下一步；只有讀到真衝突才解釋衝突；正式寫入前取得確認。</td><td>新手需要猜 A/B、工作目錄、合作目錄、邀請碼或 packet 是甚麼。</td><td><span class="badge pass">單機 fixture 已覆蓋；真人 UAT 未跑</span></td></tr>
+      <tr><td>完整旅程通過</td><td>新手能由一句目的走到完成第一條交接線，不理解任何內部命令仍能完成。</td><td>AI 全程提出最佳下一步；只有讀到真衝突才解釋衝突；正式寫入前取得確認。</td><td>新手需要猜 A/B、工作目錄、合作目錄、邀請碼或 packet 是甚麼。</td><td><span class="badge pass">本機已驗；真人未驗</span></td></tr>
     </tbody>
   </table>
   </div>
 </section>
 <section>
   <h2>Transcript 驗收矩陣</h2>
-  <p class="lede">本表的每一列都是一條可驗收產品情景。單機 fixture / regression 已覆蓋完整核心合作流程；下一步只保留外部 gate，不再把已清零項目列為單機待辦。</p>
+  <p class="lede">本表的每一列都是一條可驗收產品情景。單機 fixture / regression 已覆蓋完整核心合作流程；下一步只保留外部 gate，不再把本機已驗範圍列為單機待辦。</p>
   <div class="matrix-wrap">
   <table>
     <thead>
@@ -328,7 +333,7 @@
         <td>讀邀請內容與安裝頁；檢查目前工作目錄是否已有 APS；列一次性安裝 / 加入計劃；經用戶確認後才寫入。</td>
         <td>叫 B 自己輸入 <code>npx</code>；叫 B 換本機工作目錄；照抄發起方 Drive 路徑；要求發起人先替 B 取名；正常第一屏列 A / B 選項。</td>
         <td>非技術 B 讀完只需知道提供兩項資料：自己的 Google Drive 本機路徑與用戶名稱。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>已由 <code>dev/qc/aps-ux-transcript-b-side-invite-fixture.json</code> 鎖住合格第一屏、失敗樣本與禁線；下一步只屬真人 UAT。</td>
       </tr>
       <tr>
@@ -338,7 +343,7 @@
         <td>只讀 <code>.aps/config.json</code>；比對邀請內合作目錄、邀請碼與本機設定；必要時跑 doctor / Check APS；不寫入。</td>
         <td>重跑 init；覆寫設定；重建 Drive 資料夾；把同一合作目錄說成另一個新項目；要求另開工作目錄。</td>
         <td>AI 保留現有設定，下一步集中在狀態確認與共同基準，不製造新線。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>已由 <code>dev/qc/aps-ux-transcript-b-side-invite-fixture.json</code> 鎖住不重裝、不覆寫、不另開工作目錄；下一步只屬真人 UAT。</td>
       </tr>
       <tr>
@@ -348,7 +353,7 @@
         <td>讀本機設定與邀請；列出兩個合作目錄的名稱、交換區、用戶名稱；若要切換，先預演將改甚麼，經確認才寫入。</td>
         <td>預設叫用戶另開新工作目錄；把本機工作目錄當作房間；叫用戶自己理解 invite code；把兩個合作目錄混合。</td>
         <td>AI 提供最佳建議與影響範圍，不把選擇題丟給用戶猜。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>已由 <code>dev/qc/aps-ux-transcript-b-side-invite-fixture.json</code> 鎖住「不是換本機工作目錄」與先預演再寫入；下一步只屬真人 UAT。</td>
       </tr>
       <tr>
@@ -358,7 +363,7 @@
         <td>檢查兩份邀請的合作目錄、交換區與邀請人；若未能判斷共同目標，建議用剛貼上的邀請作當前加入線，並標記另一碼不用。</td>
         <td>叫雙方各用自己的驗證碼；說兩個邀請碼要合併；把邀請碼說成身份；要求雙方建立兩個合作目錄。</td>
         <td>只留下單一合作空間，不建立 split-brain 交接線。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>已由 <code>dev/qc/aps-ux-transcript-b-side-invite-fixture.json</code> 鎖住只選一個 APS 合作目錄、另一邀請碼不用；下一步只屬真人 UAT。</td>
       </tr>
       <tr>
@@ -368,7 +373,7 @@
         <td>跑整體狀態檢查；必要時生成或刷新 APS Live；不得改 packet / ack；不得用 <code>check Drive</code> 取代整體狀態。APS Live 只在共同基準、資料不足、狀態不一致、Drive 同步或即時核對有用時出現。</td>
         <td>直接叫發普通任務；顯示大量 packet id；把 <code>check Drive</code> 當整體狀態；未有共同基準仍說可以開工；把 APS Live presence 當正式 ack。</td>
         <td>未有共同基準時，第一建議一定是建立或確認共同目標與分工；已有共同基準時，第一建議才可進入第一份正式交接。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>已由 <code>dev/qc/aps-ux-check-aps-live-branches-fixture.json</code> 鎖住 no-baseline、unconfirmed baseline、confirmed baseline、active handoff 與 APS Live 功能 / 分支禁線；下一步只屬真人 UAT。</td>
       </tr>
       <tr>
@@ -378,7 +383,7 @@
         <td>檢查是否已有共同基準；若沒有，整理草稿；若已有，讀最新版本，不重建平行基準。</td>
         <td>先邀請更多人；先發普通任務；把共同基準當作可省略說明；建立兩份互相打架基準。</td>
         <td>八個最低欄位齊全：共同目標、參與者、角色、第一輪分工、不可做的事、驗收標準、第一邀請對象、第一交接對象。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>真人語感屬外部 UAT；功能證據已由 S108 / regression 支撐。</td>
       </tr>
       <tr>
@@ -388,7 +393,7 @@
         <td>檢查收件人 confirmed；整理共同目標、本方完成、請對方做的事、真源、開工條件與風險；使用 strict handoff。</td>
         <td>直接 publish；只問 topic；整段聊天倒入 packet；沒有真源或開工條件仍說可以發。</td>
         <td>交接確認卡足以讓 stateless receiver 開工或知道不能開工。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>一語交接真人語感屬外部 UAT；命令與 strict gate 已有 regression。</td>
       </tr>
       <tr>
@@ -438,7 +443,7 @@
         <td>跑 peers / status；指定 <code>--to</code>；保持 A→B 與 A→C 隔離。</td>
         <td>多收件人 packet；讓 B 看見 C 的收件；把共同目標確認當作群聊。</td>
         <td>錯收件人不可 consume，狀態按每位用戶隔離。</td>
-        <td><span class="badge pass">已有本機證據</span></td>
+        <td><span class="badge pass">本機已驗</span></td>
         <td>保留本機三身分證據；真多人真人 UAT 屬外部 gate。</td>
       </tr>
     </tbody>
@@ -459,15 +464,15 @@
       <tr><td>共同基準草稿未確認</td><td>共同基準是「共同基準：進行中」；提供同意、部分同意、有異議、稍後四種回 terminal 路徑。</td><td>把草稿當正式基準；直接發普通交接。</td><td>同上。</td></tr>
       <tr><td>共同基準已確認且無交接</td><td>不用強推 Live；建議用戶一句話交待要交給誰，AI 先整理交接確認卡。</td><td>把 APS Live 當必做步驟；直接寫入 Drive。</td><td>同上。</td></tr>
       <tr><td>已有 active handoff</td><td>顯示一張主要 <code>交接單</code>，包含發送方、接收方、任務、真源、開工條件與可開工判斷。</td><td>只顯示 packet id；跳過可開工判斷。</td><td>同上。</td></tr>
-      <tr><td>頁面基本功能</td><td>標題、合作目錄、身份 pills、一張交接單、進度 tracker、任務 / 真源 / 開工條件、<code>連接 APS Live</code> 狀態、交接事件紀錄、目前階段與正式操作、協調與回應、本機 AI 回流、terminal 正式選項。</td><td>JSON、room id、raw packet、peer diagnostics、舊狀態頁、無邊界 chat room。</td><td>fixture <code>apsLiveFunctions</code>。</td></tr>
-      <tr><td>資料不足 / 退回</td><td>阻止可開工判斷；說明缺甚麼；回 terminal 讓用戶確認 decline、revise、consume 或 close。</td><td>consume 成 done；Live 自動 revise / decline。</td><td>fixture <code>live_missing_information</code>。</td></tr>
-      <tr><td>頁面過期</td><td>提示重新讀取正式狀態；舊頁面不可覆蓋 terminal 已更新事實。</td><td>old HTML override terminal state；舊 pending 一直保留。</td><td>fixture <code>live_stale_page_refresh</code>。</td></tr>
+      <tr><td>頁面基本功能</td><td>標題、合作目錄、身份 pills、一張交接單、進度 tracker、任務 / 真源 / 開工條件、<code>連接 APS Live</code> 狀態、正式 APS 狀態讀取時間、交接事件紀錄、目前階段與正式操作、協調與回應、本機 AI 回流、受控推進按鈕、terminal 正式選項。</td><td>JSON、room id、raw packet、peer diagnostics、舊狀態頁、無邊界 chat room；把 Trystero 已連線說成 Drive 已同步。</td><td>fixture <code>apsLiveFunctions</code>。</td></tr>
+      <tr><td>資料不足 / 退回</td><td>阻止可開工判斷；說明缺甚麼；可透過本機 <code>live-bridge</code> 預檢、確認、寫後讀回後 decline；若要補發或修訂內容，仍回 terminal / 本機 AI。</td><td>consume 成 done；Live 自動 revise / publish；未經預檢與確認就 decline。</td><td>fixture <code>live_missing_information</code>。</td></tr>
+      <tr><td>頁面過期</td><td>提示重新讀取正式狀態；bridge 在線時可直接重新讀 Drive 並更新頁面；舊頁面不可覆蓋 terminal 已更新事實。</td><td>old HTML override terminal state；舊 pending 一直保留；已連線就當作已刷新正式狀態。</td><td>fixture <code>live_stale_page_refresh</code>。</td></tr>
       <tr><td>peer offline</td><td>只代表對方此刻不在 Live；Drive 正式狀態仍以 packet / outbox / ack / shared goal 為準。</td><td>offline = 未安裝；online = 已讀或 ack。</td><td>fixture <code>live_peer_offline</code>。</td></tr>
       <tr><td>錯項目 / 錯身份</td><td>不當成有效協作者；同一身份另一視窗不算對方。</td><td>wrong project counted as peer；same identity counted as collaborator。</td><td>fixture <code>live_wrong_project_identity</code>。</td></tr>
       <tr><td>Drive 同步延遲</td><td>Live 可協助核對雙方看到甚麼，但不能把 Live 訊息當正式 Drive 同步或 ack。</td><td>file existence proves notification；Live message proves Drive sync。</td><td>fixture <code>live_drive_sync_delay</code>。</td></tr>
       <tr><td>三人或以上</td><td>可在同一 Live context 有 bounded coordination；正式交接單仍是一位發送方對一位接收方。</td><td>群組 packet；第三者 ack / consume / decline；B 看見 C-only packet。</td><td>fixture <code>live_three_plus_one_to_one</code>。</td></tr>
-      <tr><td>正式寫入邊界</td><td>Live 只可草擬；所有 publish、revise、decline、consume、close、withdraw、shared-goal 更新都要回 terminal / 本機 AI，等用戶確認。</td><td>Live 自動寫入正式狀態；hidden formal action。</td><td>fixture <code>live_no_formal_write</code>。</td></tr>
-      <tr><td>APS Live operation smoke</td><td>每次 Live 連線、chat、status、local AI queue、正式寫入邊界或交接推進改動後，都要重跑可重用 smoke：入口、連線、雙向訊息、狀態回應、queue bridge、terminal readback、formal state before / after、六階段交接、三人一對一邊界、私隱安全。</td><td>只用本機 CLI smoke 宣稱真雙機；用 chat 成功代替交接推進；用 queue 成功代替正式狀態；用 Live presence 當 ack、consume、Drive sync 或通知送達。</td><td><span class="badge fixture">需補 transport</span> 本機 smoke 已跑：<code>dev/qc/evidence/aps-live-operation-smoke/20260618T114335/</code>，16 PASS / 0 FAIL / 2 BLOCKED。blocked：real peer join / leave / reconnect、A→B / B→A Trystero browser chat。</td></tr>
+      <tr><td>正式寫入邊界</td><td>Trystero、頁面載入、聊天與 queue 不可寫正式狀態；本機 <code>live-bridge</code> 只可在重新讀取正式狀態、預檢通過、用戶確認、寫後讀回驗證後，執行有限 consume / decline / close。正常完成閉環還要由接收方 <code>check-aps</code> / <code>check-drive</code> 顯示待處理已清、發送方 <code>status --packet-id</code> 讀到已處理與已收結。publish、revise、withdraw、複雜共同基準改寫仍回 terminal / 本機 AI。</td><td>Live 自動寫入正式狀態；hidden formal action；Trystero 訊息觸發 ack；舊 HTML 寫入新狀態；只看橋接成功就宣稱交接完成。</td><td>fixture <code>live_no_hidden_formal_write</code>；主回歸會生成 <code>aps-live-controlled-handoff-completion-loop.json</code>。</td></tr>
+      <tr><td>APS Live operation smoke</td><td>每次 Live 連線、chat、status、local AI queue、正式寫入邊界或交接推進改動後，都要重跑可重用 smoke：入口、連線、雙向訊息、狀態回應、queue bridge、terminal readback、formal state before / preview / commit / readback、受控完成閉環、六階段交接、三人一對一邊界、私隱安全。</td><td>只用本機 CLI smoke 宣稱真雙機；用 chat 成功代替交接推進；用 queue 成功代替正式狀態；用 Live presence 當 ack、consume、Drive sync 或通知送達。</td><td><span class="badge fixture">需補 transport</span> 本機 smoke 已跑：<code>dev/qc/evidence/aps-live-operation-smoke/20260618T114335/</code>，16 PASS / 0 FAIL / 2 BLOCKED；主回歸另覆蓋受控完成閉環。blocked：real peer join / leave / reconnect、A→B / B→A Trystero browser chat。</td></tr>
     </tbody>
   </table>
   </div>
@@ -498,12 +503,12 @@
   <table>
     <thead><tr><th>層級</th><th>範圍</th><th>目前判斷</th></tr></thead>
     <tbody>
-      <tr><td>已清零</td><td>B 貼邀請四條分支：未安裝、已有同一合作目錄、已有不同合作目錄、互邀。</td><td>由 <code>dev/qc/aps-ux-transcript-b-side-invite-fixture.json</code> 覆蓋；不再列為單機下一步。</td></tr>
-      <tr><td>已清零</td><td>加入後第一次 <code>Check APS</code>、共同目標確認與 APS Live 本機分支。</td><td>由 <code>dev/qc/aps-ux-check-aps-live-branches-fixture.json</code> 覆蓋；不再列為單機下一步。</td></tr>
-      <tr><td>已清零</td><td>第一份正式交接、收件方 <code>check Drive</code> 可開工 / 不可開工、資料不足退回、發送方 revise、最終 close。</td><td>由 <code>dev/qc/aps-ux-formal-handoff-cycle-fixture.json</code> 覆蓋；單機完整合作流程已可驗收。</td></tr>
-      <tr><td>已清零</td><td>新手非技術 UX 產品結果閘。</td><td>單機 fixture / regression 已覆蓋完整旅程；不等於真人 UAT、真兩機、真 Drive timing 或外部通知通過。</td></tr>
+      <tr><td>本機已驗</td><td>B 貼邀請四條分支：未安裝、已有同一合作目錄、已有不同合作目錄、互邀。</td><td>由 <code>dev/qc/aps-ux-transcript-b-side-invite-fixture.json</code> 覆蓋；不再列為單機下一步。</td></tr>
+      <tr><td>本機已驗</td><td>加入後第一次 <code>Check APS</code>、共同目標確認、APS Live 本機分支與受控完成閉環。</td><td>由 <code>dev/qc/aps-ux-check-aps-live-branches-fixture.json</code> 與 <code>dev/qc/check_context_index.cjs</code> 覆蓋；本機 bridge 已驗 invalid token、preview 不寫、confirm 才寫、consume、decline、close、接收方 pending 清除、發送方 consumed / closed 狀態讀回，並生成受控完成閉環 ledger。</td></tr>
+      <tr><td>本機已驗</td><td>第一份正式交接、收件方 <code>check Drive</code> 可開工 / 不可開工、資料不足退回、發送方 revise、最終 close。</td><td>由 <code>dev/qc/aps-ux-formal-handoff-cycle-fixture.json</code> 覆蓋；本機 fixture / regression 已覆蓋完整合作流程；真人未驗、兩機未驗。</td></tr>
+      <tr><td>本機已驗</td><td>新手非技術 UX 產品結果閘。</td><td>單機 fixture / regression 已覆蓋完整旅程；不等於真人 UAT、真兩機、真 Drive timing 或外部通知通過。</td></tr>
       <tr><td>下一個外部 gate</td><td>真人新手 UAT。</td><td>檢查非技術真人是否看得懂 AI 第一屏與下一步；若暴露表面困惑，需降回單機 partial 並補 regression。</td></tr>
-      <tr><td>下一個外部 gate</td><td>真 Drive timing 與真兩機 / APS Live transport。</td><td>APS Live operation smoke 已有本機 CLI + localhost bridge evidence；仍欠 peer join / leave / reconnect 與 A→B / B→A browser chat 等真 transport 證據。</td></tr>
+      <tr><td>下一個外部 gate</td><td>真 Drive timing 與真兩機 / APS Live transport。</td><td>APS Live operation smoke 已有本機 CLI + localhost bridge formal evidence，主回歸已有受控完成閉環；仍欠 peer join / leave / reconnect、A→B / B→A browser chat、真 Drive 同步延遲與真人誤解點證據。</td></tr>
     </tbody>
   </table>
 </section>

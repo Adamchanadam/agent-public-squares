@@ -19,7 +19,18 @@ Architectural rationale: see APS design doc in `agent-public-squares` repo,
 ## When this pack is loaded
 
 Trigger phrases (any one): "APS Hub", "讀 Agent_Public_Squares", "process unconsumed",
-"未消化", "Hub 有新嘢", "跟 APS 協定".
+"未消化", "Hub 有新嘢", "跟 APS 協定", "Check APS", "APS 狀態",
+"打開 APS Live", "APS Live 怎樣打開", "Live 入口在哪裡",
+"繼續 APS 交接", "繼續 <項目> APS 交接", "看看現在去到哪一步", "現在到哪一步",
+"下一步應該做甚麼".
+
+The ordinary continuation phrases above are APS triggers only when the current folder has
+`.aps/config.json` or the user has already mentioned APS, 交接, 協作者, or 共用 Drive.
+When triggered this way, run `npx aps check-aps` first and preserve its `🗺️ APS 流程位置`
+table with `👉 目前位置` in the user reply. Do not replace it with a homemade status table.
+When the user asks how to open APS Live, still run `npx aps check-aps` first and quote
+the latest `可點擊開啟: file:///...` line before the fallback local file path.
+Do not answer from an old remembered `G:\...` path only.
 
 Also auto-engage as the last step of standard startup read order — see "Startup
 addendum" below.

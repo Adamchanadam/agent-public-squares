@@ -2,7 +2,7 @@
   "title": "APS formal handoff cycle novice UX fixture",
   "status": "static_single_machine_fixture",
   "generatedAt": "2026-06-18",
-  "scope": "Single-machine novice UX coverage for first formal handoff, receiver check Drive, missing-information return, sender revise, and sender close before true two-machine UAT.",
+  "scope": "Single-machine novice UX coverage for first formal handoff, post-publish formal-notification plus optional APS Live routing, receiver check Drive, missing-information return, sender revise, and sender close before true two-machine UAT.",
   "boundary": "This fixture locks acceptable first-screen wording, actionability judgement, and failure samples. It is not real human UAT, not true two-machine evidence, not real Drive timing proof, and not an external notification proof.",
   "cases": [
     {
@@ -19,7 +19,7 @@
         "把整段聊天倒入 packet",
         "沒有真源仍發出"
       ],
-      "passCondition": "A novice sees a confirmation card path and knows nothing is written until they confirm; the AI owns the technical publish step."
+      "passCondition": "A novice sees a confirmation card path and knows nothing is written until they confirm; after publish, the user sees both paths: formal receiver check Drive, and optional APS Live through each side saying Check APS in their own already-connected project folder. The AI owns the technical publish step and never tells the sender to share a local file:// Live URL."
     },
     {
       "id": "receiver_check_drive_can_start",
