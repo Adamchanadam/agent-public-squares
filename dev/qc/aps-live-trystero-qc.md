@@ -10,6 +10,16 @@ This module defines the dedicated verification gate for APS Live real-time peer-
 
 APS Live is a product capability, not a one-off Adam / Jay demo. All tests must prove that the page uses APS project state and packet state to identify participants, room context, handoff ticket, and next action. `Adam` and `Jay` may be used as labelled fixtures only. A pass requires at least one test run with non-Adam / non-Jay APS names so hard-coded identity assumptions are caught.
 
+## Novice And Cognitive-Load Boundary
+
+This QC module can prepare evidence for APS acceptance, but it is not itself a novice UAT script. Tested users or tested AI roles must receive only a natural task goal, not this matrix, pass table, observer criteria, or expected route as an answer key.
+
+A single run must not combine novice acting, observer judgement, documentation signoff, browser proof, and release approval. Keep the layers separate: document alignment, mechanical smoke, browser proof, design dry-run, and uncoached novice UAT.
+
+Stop the run and mark the package invalid if an answer key reaches the tested role, if a stage runs longer than 30 minutes without a checkpoint, if APS Live should be opened but only `about:blank` or stale HTML is available, if a blocked tool is hidden in a pass summary, or if the user is the first person to discover a critical handoff error.
+
+Previous local sessions S246, S247, and S248 were useful defect-discovery evidence, not complete uncoached APS UAT. They must not be re-labelled as final novice acceptance.
+
 ## Six-stage Product Flow Gate
 
 The basic APS Live product flow is a separate required gate. It must be proven before Trystero transport evidence can be used to promote APS Live. Transport success, page rendering, same-machine screenshots, local queue write / readback, or "no formal state was mutated" evidence cannot substitute for this gate.
@@ -37,7 +47,7 @@ Current local executable coverage: PUBLIC `dev/qc/check_context_index.cjs` cover
 
 This is the recurring operation smoke standard for APS Live. It is not a one-off demo record. Run it whenever APS Live connection, chat, local AI queue, status wording, handoff progression, or formal-state boundary changes. It may be run on one machine with isolated browser profiles to catch product-flow regressions before asking for a real two-machine test, but it cannot certify reliable cross-machine APS Live.
 
-The smoke answers one product question: can a non-technical user move from a blocked or uncertain APS handoff into APS Live, coordinate with the collaborator, send the result back to local AI, and return to terminal formal action without hidden writes, split-brain state, or misleading status?
+The smoke answers one product question: can a non-technical user use APS Live as the handoff workbench during an active APS handoff round, track the stage, coordinate with the collaborator, exchange feedback / comments, send the result back to local AI, and return to terminal formal action without hidden writes, split-brain state, or misleading status? Blocked or uncertain handoffs are important branches, but they are not the only valid reason to open Live.
 
 ### When To Run
 
@@ -55,7 +65,7 @@ Every recurring smoke package must list each scenario as `PASS`, `FAIL`, `BLOCKE
 
 | Scenario family | Required branches | Pass condition |
 |---|---|---|
-| Entry path | `Check APS` opens or refreshes Live; `check Drive` or handoff preflight can recommend Live; maintainer `aps live` regeneration remains secondary. | The user is not told to run technical commands as the normal path. The page opens only with project, user, active ticket, blocker, and next formal action context. |
+| Entry path | `Check APS` opens or refreshes Live as the handoff workbench when a handoff round is active, shared visibility is useful, the user asks to coordinate with a collaborator, or an exception needs handling; `check Drive` or handoff preflight can recommend Live; maintainer `aps live` regeneration remains secondary. | The user is not told to run technical commands as the normal path. The page opens with project, user, current ticket or baseline state, stage, next responsible person, and next formal action context. No-blocker wording must say Live is optional for alignment, not unnecessary. |
 | Connection | no peer, peer joins, peer leaves, reconnect / reload, stale page, same identity in another tab, wrong APS project / room. | The visible state is current and plain-language. Same identity and wrong project are not counted as valid collaborators. Offline means only not present in Live now. |
 | Chat | A sends to B, B sends to A, near-simultaneous sends, immediate send after peer discovery, duplicate warmup resend. | Both sides see one human-readable message in the right ticket context. Duplicate cards are not created. Chat history remains browser-local convenience only. |
 | Status responses | connected, connected without peer, peer left, wrong project / identity, no baseline, unconfirmed baseline, confirmed baseline, normal handoff, missing information, Drive sync delay, declined / returned packet. | Each state gives one clear next user action. Old pending hints do not remain after a later state. No status text claims formal ack, notification receipt, or Drive sync proof. |
