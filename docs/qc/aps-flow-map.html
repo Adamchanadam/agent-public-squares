@@ -302,7 +302,7 @@
       <tr><th>流程</th><th>目前判斷</th><th>已知證據</th><th>外部未覆蓋</th><th>下一步</th></tr>
     </thead>
     <tbody>
-      <tr><td>安裝 / 升級提示</td><td><span class="badge done">本機已驗</span></td><td>v0.2.30 已發佈並由 npm 讀回；候選修補保留一次計劃確認、加入邀請、APS Live 工作台口徑與 UX 修補。</td><td>真人是否覺得第一屏自然，仍屬 UAT。</td><td>保留，不再每次急推雙機。</td></tr>
+      <tr><td>安裝 / 升級提示</td><td><span class="badge done">本機已驗</span></td><td>v0.2.31 候選修補保留一次計劃確認、加入邀請、APS Live 工作台口徑與 UX 修補；發佈後需 npm 讀回。</td><td>真人是否覺得第一屏自然，仍屬 UAT。</td><td>保留，不再每次急推雙機。</td></tr>
       <tr><td>本機工作目錄與 APS 交換區邊界</td><td><span class="badge done">本機已驗</span></td><td>S138-S141 已修正邀請文字與 regression；B-side invite fixture 覆蓋未安裝、已有同一合作目錄、已有不同合作目錄、互邀。</td><td>真人是否自然理解仍待 UAT。</td><td>保留為真人未驗；不再阻塞單機產品流程。</td></tr>
       <tr><td>APS 合作目錄命名</td><td><span class="badge done">本機已驗</span></td><td>現有 regression 禁人名、電腦名、AI 名稱或發起人名稱。</td><td>公開頁與 CLI 用語仍需發佈後讀回。</td><td>發佈前再跑靜態檢查。</td></tr>
       <tr><td>邀請協作者</td><td><span class="badge local">本機真 Drive 已驗</span></td><td>S142 用真 Google Drive 本機同步資料夾跑通 A invite → B join。</td><td>兩部實體機收到同一模板後的真 UX 仍未驗。</td><td>暫不急推；先補 transcript 與相鄰變體。</td></tr>
@@ -318,7 +318,7 @@
       <tr><td>真兩機安裝</td><td><span class="badge final">外部未驗</span></td><td>Adam 回報兩機成功安裝；S142 真 Drive 本機邀請煙霧通過。</td><td>不代表整個交接流程成熟。</td><td>只作最後驗證，不作日常補坑方法。</td></tr>
       <tr><td>新手非技術 UX 驗收軸</td><td><span class="badge done">本機已驗</span></td><td><code>dev/qc/aps-novice-nontechnical-ux-axis.json</code> 已記錄產品結果閘；B-side invite、第一次 Check APS、共同基準、APS Live、第一份正式交接、check Drive、資料不足退回、發送方 revise、close 已有單機 fixture / regression。</td><td>真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋。</td><td>單機產品流程可進入外部 gate 前檢；不可把真人 / 真雙機視為已通過。</td></tr>
       <tr><td>真人 UAT gate / 真人零知識 UAT</td><td><span class="badge final">外部未驗</span></td><td>S107 / S108 是 AI persona 替代驗收。</td><td>需要非技術真人讀 prompt、跟 AI 操作、指出困惑。</td><td>等新手非技術 UX 驗收軸清走明顯坑後再做。</td></tr>
-      <tr><td>公開發佈讀回</td><td><span class="badge final">外部未驗</span></td><td>v0.2.30 已由 npm 讀回；本輪 APS Live 工作台口徑與 UX / QC 對齊仍需另行授權發佈後讀回。</td><td>本輪修補要另行授權發佈。</td><td>不在本頁任務內發佈。</td></tr>
+      <tr><td>公開發佈讀回</td><td><span class="badge final">外部未驗</span></td><td>v0.2.31 候選修補需另行授權發佈後讀回 npm、npx、GitHub release 與公開頁。</td><td>本輪修補要另行授權發佈。</td><td>不在本頁任務內發佈。</td></tr>
     </tbody>
   </table>
 </section>
