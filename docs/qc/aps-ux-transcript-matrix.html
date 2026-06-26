@@ -370,7 +370,7 @@
         <td>加入後第一次 Check APS</td>
         <td>「Check APS」或「看看 APS 狀態」。</td>
         <td>先說目前接到哪個 APS 交換區、APS 合作目錄、本機用戶名稱、協作者狀態；再說共同目標與分工是否存在。未有共同基準時，直接建議建立共同目標與分工；已有草稿但未確認時，先處理同意、部分同意、有異議或稍後；已確認且無阻塞時，才導向第一份正式交接。</td>
-        <td>跑整體狀態檢查；必要時生成或刷新 APS Live；不得改 packet / ack；不得用 <code>check Drive</code> 取代整體狀態。APS Live 只在共同基準、資料不足、狀態不一致、Drive 同步或即時核對有用時出現。</td>
+        <td>跑整體狀態檢查；需要交接工作台、共同基準對齊、資料不足、狀態不一致、Drive 同步核對或即時回饋時生成或刷新 APS Live；不得直接改正式交接紀錄；不得用 <code>check Drive</code> 取代整體狀態。</td>
         <td>直接叫發普通任務；顯示大量 packet id；把 <code>check Drive</code> 當整體狀態；未有共同基準仍說可以開工；把 APS Live presence 當正式 ack。</td>
         <td>未有共同基準時，第一建議一定是建立或確認共同目標與分工；已有共同基準時，第一建議才可進入第一份正式交接。</td>
         <td><span class="badge pass">本機已驗</span></td>
@@ -454,17 +454,17 @@
 
 <section>
   <h2>APS Live 功能與分支覆蓋</h2>
-  <p class="lede">本表把 APS Live 由「一個頁面」拆成可驗收功能與分支。正常用戶不需要看內部房間、封包或命令；AI 只應在狀態卡住、資料不足、共同基準未確認或需要即時核對時打開 Live。</p>
+  <p class="lede">本表把 APS Live 由「一個頁面」拆成可驗收功能與分支。正常用戶不需要看內部房間、封包或命令；AI 應在交接期間需要工作台、階段追蹤、即時對齊、回饋、資料不足、共同基準未確認或狀態不一致時打開 Live。</p>
   <div class="matrix-wrap">
   <table>
     <thead><tr><th>功能 / 分支</th><th>合格行為</th><th>不可出現</th><th>證據</th></tr></thead>
     <tbody>
       <tr><td>第一次 <code>Check APS</code> 入口</td><td>先顯示 APS 交換區、APS 合作目錄、本機用戶名稱、協作者狀態與共同基準狀態；沒有阻塞時直接給下一句可做的事。</td><td>把 <code>check Drive</code> 當整體狀態；直接叫用戶輸入命令。</td><td><code>aps-ux-check-aps-live-branches-fixture.json</code></td></tr>
-      <tr><td>沒有共同基準</td><td>顯示「共同基準：未通過 / 需處理」與「需先建立共同目標與分工」；普通任務不可開始；回到本機 AI 建立共同目標與分工草稿。</td><td>「共同基準：已完成」；未有共同基準仍說可以開工。</td><td>同上；對齊 APS Live spec no-baseline row。</td></tr>
-      <tr><td>共同基準草稿未確認</td><td>共同基準是「共同基準：進行中」；提供同意、部分同意、有異議、稍後四種回 terminal 路徑。</td><td>把草稿當正式基準；直接發普通交接。</td><td>同上。</td></tr>
-      <tr><td>共同基準已確認且無交接</td><td>不用強推 Live；建議用戶一句話交待要交給誰，AI 先整理交接確認卡。</td><td>把 APS Live 當必做步驟；直接寫入 Drive。</td><td>同上。</td></tr>
+      <tr><td>沒有共同基準</td><td>主畫面顯示「準備交接包：未通過 / 需處理」與「需先建立共同目標與分工」；背後細分狀態保留「共同基準」缺口；普通任務不可開始；交給本機 AI 建立共同目標與分工草稿。</td><td>「準備交接包：已完成」；未有共同基準仍說可以開工；把內部「共同基準」細分狀態當作新手主流程。</td><td>同上；對齊 APS Live spec no-baseline row。</td></tr>
+      <tr><td>共同基準草稿未確認</td><td>主畫面顯示「準備交接包：進行中」；背後細分狀態保留「共同基準：進行中」；提供同意、部分同意、有異議、稍後四種回 terminal 路徑。</td><td>把草稿當正式基準；直接發普通交接。</td><td>同上。</td></tr>
+      <tr><td>共同基準已確認且無交接</td><td>依 APS Live 階段 UX 規格顯示「準備交接包」：主行動是交給本機 AI 草擬交接包；Live 只作即時對齊，不是正式寫入前置條件。接收方頁面要說明本輪正式交接包尚未建立，不是收正式任務；資料足夠並經用戶確認後，才可變成正式交接。</td><td>把 APS Live 當必做步驟；直接寫入 Drive；把「目前沒有正式決策」當主訊息；讓用戶只能在協調分頁深處才找到正確下一步；把草稿說成已可發出的正式交接包。</td><td>同上；對齊 APS Live Stage UX Specification。</td></tr>
       <tr><td>已有 active handoff</td><td>顯示一張主要 <code>交接單</code>，包含發送方、接收方、任務、真源、開工條件與可開工判斷。</td><td>只顯示 packet id；跳過可開工判斷。</td><td>同上。</td></tr>
-      <tr><td>頁面基本功能</td><td>標題、合作目錄、身份 pills、一張交接單、進度 tracker、任務 / 真源 / 開工條件、<code>連接 APS Live</code> 狀態、正式 APS 狀態讀取時間、交接事件紀錄、目前階段與正式操作、協調與回應、本機 AI 回流、受控推進按鈕、terminal 正式選項。</td><td>JSON、room id、raw packet、peer diagnostics、舊狀態頁、無邊界 chat room；把 Trystero 已連線說成 Drive 已同步。</td><td>fixture <code>apsLiveFunctions</code>。</td></tr>
+      <tr><td>頁面基本功能</td><td>標題、合作目錄、身份 pills、一張交接單、進度 tracker、任務 / 真源 / 開工條件、自動即時對齊狀態、<code>重新嘗試即時對齊</code> 按鈕、正式 APS 狀態讀取時間、交接事件紀錄、目前階段與正式操作、協調與回應、本機 AI 回流、受控推進按鈕、本機 AI 正式選項。</td><td>JSON、room id、raw packet、peer diagnostics、舊狀態頁、無邊界 chat room；把 Trystero 已連線說成 Drive 已同步。</td><td>fixture <code>apsLiveFunctions</code>。</td></tr>
       <tr><td>資料不足 / 退回</td><td>阻止可開工判斷；說明缺甚麼；可透過本機 <code>live-bridge</code> 預檢、確認、寫後讀回後 decline；若要補發或修訂內容，仍回 terminal / 本機 AI。</td><td>consume 成 done；Live 自動 revise / publish；未經預檢與確認就 decline。</td><td>fixture <code>live_missing_information</code>。</td></tr>
       <tr><td>頁面過期</td><td>提示重新讀取正式狀態；bridge 在線時可直接重新讀 Drive 並更新頁面；舊頁面不可覆蓋 terminal 已更新事實。</td><td>old HTML override terminal state；舊 pending 一直保留；已連線就當作已刷新正式狀態。</td><td>fixture <code>live_stale_page_refresh</code>。</td></tr>
       <tr><td>peer offline</td><td>只代表對方此刻不在 Live；Drive 正式狀態仍以 packet / outbox / ack / shared goal 為準。</td><td>offline = 未安裝；online = 已讀或 ack。</td><td>fixture <code>live_peer_offline</code>。</td></tr>
@@ -472,7 +472,7 @@
       <tr><td>Drive 同步延遲</td><td>Live 可協助核對雙方看到甚麼，但不能把 Live 訊息當正式 Drive 同步或 ack。</td><td>file existence proves notification；Live message proves Drive sync。</td><td>fixture <code>live_drive_sync_delay</code>。</td></tr>
       <tr><td>三人或以上</td><td>可在同一 Live context 有 bounded coordination；正式交接單仍是一位發送方對一位接收方。</td><td>群組 packet；第三者 ack / consume / decline；B 看見 C-only packet。</td><td>fixture <code>live_three_plus_one_to_one</code>。</td></tr>
       <tr><td>正式寫入邊界</td><td>Trystero、頁面載入、聊天與 queue 不可寫正式狀態；本機 <code>live-bridge</code> 只可在重新讀取正式狀態、預檢通過、用戶確認、寫後讀回驗證後，執行有限 consume / decline / close。正常完成閉環還要由接收方 <code>check-aps</code> / <code>check-drive</code> 顯示待處理已清、發送方 <code>status --packet-id</code> 讀到已處理與已收結。publish、revise、withdraw、複雜共同基準改寫仍回 terminal / 本機 AI。</td><td>Live 自動寫入正式狀態；hidden formal action；Trystero 訊息觸發 ack；舊 HTML 寫入新狀態；只看橋接成功就宣稱交接完成。</td><td>fixture <code>live_no_hidden_formal_write</code>；主回歸會生成 <code>aps-live-controlled-handoff-completion-loop.json</code>。</td></tr>
-      <tr><td>APS Live operation smoke</td><td>每次 Live 連線、chat、status、local AI queue、正式寫入邊界或交接推進改動後，都要重跑可重用 smoke：入口、連線、雙向訊息、狀態回應、queue bridge、terminal readback、formal state before / preview / commit / readback、受控完成閉環、六階段交接、三人一對一邊界、私隱安全。</td><td>只用本機 CLI smoke 宣稱真雙機；用 chat 成功代替交接推進；用 queue 成功代替正式狀態；用 Live presence 當 ack、consume、Drive sync 或通知送達。</td><td><span class="badge fixture">需補 transport</span> 本機 smoke 已跑：<code>dev/qc/evidence/aps-live-operation-smoke/20260618T114335/</code>，16 PASS / 0 FAIL / 2 BLOCKED；主回歸另覆蓋受控完成閉環。blocked：real peer join / leave / reconnect、A→B / B→A Trystero browser chat。</td></tr>
+      <tr><td>APS Live operation smoke</td><td>每次 Live 即時對齊、chat、status、local AI queue、正式寫入邊界或交接推進改動後，都要重跑可重用 smoke：入口、自動即時對齊、雙向訊息、狀態回應、queue bridge、本機 AI readback、formal state before / preview / commit / readback、受控完成閉環、六階段交接、三人一對一邊界、私隱安全。</td><td>只用本機 CLI smoke 宣稱真雙機；用 chat 成功代替交接推進；用 queue 成功代替正式狀態；用 Live presence 當 ack、consume、Drive sync 或通知送達。</td><td><span class="badge fixture">需補 transport</span> 本機 smoke 已跑：<code>dev/qc/evidence/aps-live-operation-smoke/20260618T114335/</code>，16 PASS / 0 FAIL / 2 BLOCKED；主回歸另覆蓋受控完成閉環。blocked：real peer join / leave / reconnect、A→B / B→A Trystero browser chat。</td></tr>
     </tbody>
   </table>
   </div>

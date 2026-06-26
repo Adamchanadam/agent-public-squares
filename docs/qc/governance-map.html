@@ -514,7 +514,7 @@
 
 <section>
   <h2>合作階段驗收矩陣</h2>
-  <p class="lede">此矩陣把 APS 由初設到升級維護的合作旅程收口成階段級 QC。全面檢須同時核對 Terminal UX、HTML UX 與 packet 狀態；若加入 APS Live，Live 只可作即時釐清與協作加速層，不可取代 Drive packet / outbox / ack 正式帳本。</p>
+  <p class="lede">此矩陣把 APS 由初設到升級維護的合作旅程收口成階段級 QC。全面檢須同時核對 Terminal UX、HTML UX 與 packet 狀態；APS Live 是交接期間的階段追蹤、即時對齊、回饋與例外處理工作台，不可取代 Drive packet / outbox / ack 正式帳本。</p>
   <table class="params">
     <thead>
       <tr><th>合作階段</th><th>Terminal UX</th><th>HTML UX</th><th>packet 狀態</th></tr>
@@ -547,7 +547,7 @@
       <tr>
         <td>日常推進</td>
         <td><code>Check APS</code> 看整體可行動狀態與共同基準；<code>check Drive</code> 讀具體收件。兩者不得混用。</td>
-        <td><code>Check APS</code> terminal 狀態顯示待我處理、我交出去的事、等待對方、風險與同步資料；需要即時釐清時才引導 APS Live，正式寫入仍回到 terminal。</td>
+        <td><code>Check APS</code> terminal 狀態顯示待我處理、我交出去的事、等待對方、風險與同步資料；交接期間如需看階段、即時對齊、收回饋、補資料或處理分歧，應引導 APS Live 作工作台；正式寫入仍回到 terminal。</td>
         <td>pending 計算須以 packet / outbox / ack 為準；context 只可作背景，不可覆蓋正式交接。</td>
       </tr>
       <tr>
@@ -576,7 +576,7 @@
       </tr>
       <tr>
         <td>APS Live 產品標準驗收</td>
-        <td><code>Check APS</code>、<code>check Drive</code> 或 <code>decline</code> 只可在真實卡點提示「可開 APS Live 釐清」；驗收須先逐項走通 <code>共同基準</code> → <code>已發出</code> → <code>對方查看</code> → <code>可開工判斷</code> → <code>處理 / 補資料</code> → <code>正式更新</code>，再驗 Trystero 通訊。</td>
+        <td><code>Check APS</code>、<code>check Drive</code> 或 <code>decline</code> 應在交接期間提供 APS Live 工作台入口；沒有必須修復的卡點只代表 Live 非強制，不代表不能即時對齊。驗收須先逐項走通 <code>共同基準</code> → <code>已發出</code> → <code>對方查看</code> → <code>可開工判斷</code> → <code>處理 / 補資料</code> → <code>正式更新</code>，再驗 Trystero 通訊。</td>
         <td>APS Live 不可做成空白聊天室、訊息牆或泛用狀態牆。合格入口須先有六階段產品流程證據、可驗證通道、接收介面、狀態寫入邊界與確認閘；頁面只顯示階段名稱、同機截圖、local queue 或 console clean 都不可代替流程走通。</td>
         <td>Live 訊息只可生成待確認草稿；正式狀態仍須回到 terminal，由用戶批准後經 <code>publish</code>、<code>revise</code>、<code>decline</code>、<code>consume</code> 或 <code>close</code> 落帳。</td>
       </tr>

@@ -9,15 +9,15 @@
       "id": "check_aps_no_baseline_first_use",
       "userInput": "Check APS",
       "localState": "The user has joined an APS cooperation directory, peers are confirmed, and no valid shared_goal_and_roles baseline exists.",
-      "acceptableFirstScreen": "🔎 目前已接上 APS 交換區與 APS 合作目錄，協作者已加入；但未有共同基準。畫面必須用表格顯示 APS 流程位置，並用「👉 目前位置」標示「2. 建立共同目標與分工」。建議下一步是先建立共同目標與分工，暫時不要發普通交接。若需要即時核對，我會打開 APS Live 交接追蹤；頁面應顯示「共同基準：未通過 / 需處理」與「需先建立共同目標與分工」。",
-      "behindTheScenes": "Run whole-project status through Check APS, inspect peer cards and shared-goal state, generate or refresh APS Live only if useful, and avoid packet / ack mutation.",
+      "acceptableFirstScreen": "🔎 目前已接上 APS 交換區與 APS 合作目錄，協作者已加入；但未有共同基準。畫面必須用表格顯示 APS 主流程，並用「👉 目前位置 / ⚠️ 需處理」標示「準備交接包」。建議下一步要像新手用戶一樣自然：先告訴本機 AI「我有一份任務資料想交給協作者跟進，你先帶我下一步」，由 AI 主動追問任務資料、協作者、交回物和共同基準。若需要即時核對，我會打開 APS Live 交接追蹤；頁面主流程應顯示「準備交接包：未通過 / 需處理」與「需先建立共同目標與分工」。",
+      "behindTheScenes": "Run whole-project status through Check APS, inspect peer cards and shared-goal state, generate or refresh APS Live only if useful, and avoid packet / ack mutation. Internal detail may retain the missing shared-goal gate for --full / regression evidence only; it must not appear as the normal first-screen journey.",
       "forbidden": [
         "未有共同基準仍說可以開工",
         "把 check Drive 當整體狀態",
         "要求用戶自己輸入 npx",
         "直接發普通任務",
         "顯示大量 packet id",
-        "只用散文說下一步，沒有 APS 流程位置表"
+        "只用散文說下一步，沒有 APS 主流程表"
       ],
       "passCondition": "The first recommendation is to create or confirm the shared goal and roles before ordinary handoff, and the CLI first screen shows the journey table with a current-position emoji."
     },
@@ -25,14 +25,14 @@
       "id": "check_aps_shared_goal_draft_unconfirmed",
       "userInput": "看看 APS 狀態",
       "localState": "A shared_goal_and_roles packet or draft exists, but the receiver has not confirmed it.",
-      "acceptableFirstScreen": "🔎 APS 已有共同目標與分工草稿，但仍未確認。畫面必須用表格顯示 APS 流程位置，並用「👉 目前位置」標示「3. 協作者確認共同基準」。建議先處理共同基準：可同意、部分同意並請對方修改、有異議，或稍後再處理。APS Live 若打開，應顯示「共同基準：進行中」，不能顯示已完成。",
-      "behindTheScenes": "Read shared-goal draft state, keep ordinary handoff blocked, and route confirmation decisions back to terminal / local AI.",
+      "acceptableFirstScreen": "🔎 APS 已有共同目標與分工草稿，但仍未確認。畫面必須用表格顯示 APS 主流程，並用「👉 目前位置 / ⏳ 等待」標示「準備交接包」。建議先處理共同基準：可同意、部分同意並請對方修改、有異議，或稍後再處理。APS Live 若打開，主流程應顯示「準備交接包：進行中」，不能顯示已完成。",
+      "behindTheScenes": "Read shared-goal draft state, keep ordinary handoff blocked, and route confirmation decisions back to terminal / local AI. Internal detail may retain the shared-goal in-progress gate for --full / regression evidence only; it must not appear as the normal first-screen journey.",
       "forbidden": [
         "共同基準：已完成",
         "直接發普通任務",
         "把草稿當正式基準",
         "Live 自動寫入正式狀態",
-        "只用散文說下一步，沒有 APS 流程位置表"
+        "只用散文說下一步，沒有 APS 主流程表"
       ],
       "passCondition": "The user sees that the project is not ready for ordinary work until the baseline is confirmed, and the current stage is visually marked in the CLI table."
     },
@@ -40,14 +40,14 @@
       "id": "check_aps_confirmed_baseline_no_active_packet",
       "userInput": "繼續北岸設計 APS 交接，看看現在去到哪一步。",
       "localState": "A current shared baseline is confirmed, peers are confirmed, and there is no active incoming or outgoing handoff ticket.",
-      "acceptableFirstScreen": "🔎 APS 合作目錄、用戶名稱、協作者與共同基準都已就緒。畫面必須用表格顯示 APS 流程位置，並用「👉 目前位置」標示「4. 發正式工作包」。現在沒有待處理交接。建議下一步：如果要交工作給協作者，請直接說「把目前工作交給 <用戶名稱>」，我會先整理交接確認卡，等你確認後才寫入共用 Drive。APS Live 不是必做；只有需要即時核對或出現卡點才引導打開。",
+      "acceptableFirstScreen": "🔎 APS 合作目錄、用戶名稱、協作者與共同基準都已就緒。畫面必須用表格顯示 APS 主流程，並用「📌 下一輪起點」標示「準備交接包」。現在沒有待處理交接，但這不是無事可做：如果要交工作給協作者，先說明下一輪目標、收件人、交回物和真源，AI 會先整理待確認草稿，等你確認後才寫入共用 Drive。APS Live 可用作即時對齊，不應說成沒有卡點就不用。",
       "behindTheScenes": "Run whole-project status, keep Live out of the path if there is no blockage or live coordination need, and do not generate unnecessary chat surfaces.",
       "forbidden": [
         "未解釋共同基準狀態",
         "把 APS Live 當必做步驟",
         "要求用戶自己輸入 publish 命令",
         "直接寫入 Drive",
-        "只用散文說下一步，沒有 APS 流程位置表"
+        "只用散文說下一步，沒有 APS 主流程表"
       ],
       "passCondition": "The user gets a direct, non-technical next sentence for first formal handoff, with a CLI journey table showing the current stage and APS Live as conditional."
     },
@@ -55,14 +55,14 @@
       "id": "check_aps_confirmed_baseline_active_handoff",
       "userInput": "Check APS",
       "localState": "A shared baseline is confirmed and one active handoff ticket exists.",
-      "acceptableFirstScreen": "🔎 目前已有一條交接正在進行。畫面必須用表格顯示 APS 流程位置，並用「👉 目前位置」標示「5. 對方處理 / 退回 / 回覆」。先顯示交接狀態、發送方、接收方、任務、真源與開工條件；再判斷接收方是否可開工。若狀態不一致、資料不足或需要即時核對，才建議打開 APS Live。",
+      "acceptableFirstScreen": "🔎 目前已有一條交接正在進行。畫面必須用表格顯示 APS 主流程，並用「👉 目前位置」標示「對方查看 / 處理」。先顯示交接狀態、發送方、接收方、任務、真源與開工條件；再判斷接收方是否可開工。若狀態不一致、資料不足或需要即時核對，應引導雙方打開 APS Live；Live 只作協調，正式狀態仍以 Drive 紀錄為準。",
       "behindTheScenes": "Compare Check APS, check Drive, packet, ack, and Live snapshot candidates against the same active ticket.",
       "forbidden": [
         "把 Live presence 當 ack",
         "把 Live 訊息當正式完成",
         "只列 packet id 不講任務",
         "跳過可開工判斷",
-        "只用散文說下一步，沒有 APS 流程位置表"
+        "只用散文說下一步，沒有 APS 主流程表"
       ],
       "passCondition": "The user sees one active handoff ticket, the next formal action, and the current handoff stage marked visually in the CLI table."
     }
@@ -110,12 +110,12 @@
     },
     {
       "id": "live_connection_and_presence",
-      "function": "連接 APS Live and presence status",
-      "acceptableBehavior": "Show one connection action and stateful peer presence. Peer offline only means not present in Live now.",
+      "function": "自動即時對齊 and presence status",
+      "acceptableBehavior": "Auto-attempt APS Live real-time alignment on page load, show a retry action labelled 重新嘗試即時對齊, and show stateful peer presence. Peer offline only means not present in Live now; users may save a pending draft but the page must not claim it was delivered.",
       "forbidden": [
         "把 peer offline 當成 Drive 未同步",
         "把 peer online 當成已讀或 ack",
-        "send enabled with no real peer present"
+        "pending draft shown as delivered to the peer"
       ]
     },
     {
@@ -141,7 +141,7 @@
     {
       "id": "live_coordination_block",
       "function": "協調與回應",
-      "acceptableBehavior": "Provide quick replies, editable draft, send button, stateful status, and current-room history in one bounded block.",
+      "acceptableBehavior": "Provide an editable message box, save-or-send button, stateful status, and current-room history in one bounded block; retired quick-reply buttons must not return as a competing workflow.",
       "forbidden": [
         "unbounded social chat",
         "message card that looks sent before connection",
@@ -150,11 +150,11 @@
     },
     {
       "id": "live_local_ai_return",
-      "function": "本機 AI return and queue bridge",
+      "function": "本機 AI return and local handoff",
       "acceptableBehavior": "Send structured discussion material, current APS status, and selected intent to local-only queue when bridge is online; refresh formal APS state through bridge when requested; provide human-readable fallback when offline or token invalid.",
       "forbidden": [
         "raw JSON fallback",
-        "terminal auto-wake promise",
+        "local AI auto-wake promise",
         "queue treated as formal APS truth",
         "Trystero treated as formal APS truth"
       ]
@@ -162,7 +162,7 @@
     {
       "id": "live_controlled_formal_actions",
       "function": "Controlled formal actions",
-      "acceptableBehavior": "Offer only current-state-valid consume, decline, shared-goal confirmation, or sender close actions through local live-bridge; each action requires fresh formal-state read, server preflight, explicit user confirmation, and read-back verification. A normal completion loop is complete only when receiver check-aps / check-drive no longer show the packet as pending, sender status --packet-id first reads the receiver consumed result, sender close is confirmed through bridge, and sender status --packet-id reads back closed. Publish, revise, withdraw, and complex shared-goal rewrite remain terminal/local-AI drafts requiring user approval.",
+      "acceptableBehavior": "Offer only current-state-valid consume, decline, shared-goal confirmation, or sender close actions through local live-bridge; each action requires fresh formal-state read, server preflight, explicit user confirmation, and read-back verification. A normal completion loop is complete only when receiver check-aps / check-drive no longer show the packet as pending, sender status --packet-id first reads the receiver consumed result, sender close is confirmed through bridge, and sender status --packet-id reads back closed. Publish, revise, withdraw, and complex shared-goal rewrite remain local-AI drafts requiring user approval.",
       "forbidden": [
         "Live 自動 consume",
         "Live 自動 decline",
@@ -179,7 +179,7 @@
     {
       "id": "live_no_baseline",
       "trigger": "Confirmed peers exist but no valid shared baseline exists.",
-      "acceptableBehavior": "共同基準 is blocked; ordinary task start is blocked; return to local AI to create shared-goal-and-roles draft.",
+      "acceptableBehavior": "Visible stage 準備交接包 is blocked; internal 共同基準 is blocked; ordinary task start is blocked; return to local AI to create shared-goal-and-roles draft.",
       "forbidden": [
         "共同基準：已完成",
         "normal handoff can start"
@@ -188,7 +188,7 @@
     {
       "id": "live_unconfirmed_baseline",
       "trigger": "A shared-goal draft exists but is not confirmed.",
-      "acceptableBehavior": "共同基準 remains 進行中; expose agree / partial agree / object / later return paths.",
+      "acceptableBehavior": "Visible stage 準備交接包 remains 進行中; internal 共同基準 remains 進行中; expose agree / partial agree / object / later return paths.",
       "forbidden": [
         "draft treated as final baseline",
         "ordinary handoff readiness"

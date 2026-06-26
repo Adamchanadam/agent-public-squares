@@ -277,7 +277,7 @@
     <article class="node"><strong>11. 判斷可開工或退回</strong><p>資料足夠才處理；不足則發補交需求或共識確認。</p><small>未補齊前不把原交接收結。</small></article>
     <article class="node"><strong>12. 修訂、回覆與收結</strong><p>發送方 revise / withdraw / close；收件方 consume / decline / reply，狀態可追蹤。</p><small>舊版本不可被當作最新任務。</small></article>
     <article class="node"><strong>13. 多人逐一交接</strong><p>同一 APS 合作目錄可有多位用戶，但每個 packet 只發給一位。</p><small>不能讓 B 看見或消化 C 的 packet。</small></article>
-    <article class="node"><strong>14. APS Live 只處理卡點</strong><p>Live 可協調疑問，但正式狀態仍回到 terminal / 本機 AI 經用戶確認落帳。</p><small>Live 不取代 Drive 帳本。</small></article>
+    <article class="node"><strong>14. APS Live 交接工作台</strong><p>Live 在交接期間顯示階段、下一位行動者、即時對齊和回本機 AI 的主出口；正式狀態仍回到 terminal / 本機 AI 經用戶確認落帳。</p><small>Live 不取代 Drive 帳本，也不自動 publish。</small></article>
     <article class="node"><strong>15. 升級維護</strong><p>既有項目更新套件、跑 upgrade、再 doctor。</p><small>不得覆寫既有交接、ack、peer 或共同基準。</small></article>
     <article class="node"><strong>16. 最後才做真雙機</strong><p>單機流程與 UX 變體收口後，才安排真人或兩部實體機測試。</p><small>雙機測試不是補單機設計粗疏的工具。</small></article>
   </div>
@@ -302,7 +302,7 @@
       <tr><th>流程</th><th>目前判斷</th><th>已知證據</th><th>外部未覆蓋</th><th>下一步</th></tr>
     </thead>
     <tbody>
-      <tr><td>安裝 / 升級提示</td><td><span class="badge done">本機已驗</span></td><td>v0.2.26 已發佈並讀回；0.2.27 候選保留一次計劃確認並加入邀請 / UX 修補。</td><td>真人是否覺得第一屏自然，仍屬 UAT。</td><td>保留，不再每次急推雙機。</td></tr>
+      <tr><td>安裝 / 升級提示</td><td><span class="badge done">本機已驗</span></td><td>v0.2.30 已發佈並由 npm 讀回；候選修補保留一次計劃確認、加入邀請、APS Live 工作台口徑與 UX 修補。</td><td>真人是否覺得第一屏自然，仍屬 UAT。</td><td>保留，不再每次急推雙機。</td></tr>
       <tr><td>本機工作目錄與 APS 交換區邊界</td><td><span class="badge done">本機已驗</span></td><td>S138-S141 已修正邀請文字與 regression；B-side invite fixture 覆蓋未安裝、已有同一合作目錄、已有不同合作目錄、互邀。</td><td>真人是否自然理解仍待 UAT。</td><td>保留為真人未驗；不再阻塞單機產品流程。</td></tr>
       <tr><td>APS 合作目錄命名</td><td><span class="badge done">本機已驗</span></td><td>現有 regression 禁人名、電腦名、AI 名稱或發起人名稱。</td><td>公開頁與 CLI 用語仍需發佈後讀回。</td><td>發佈前再跑靜態檢查。</td></tr>
       <tr><td>邀請協作者</td><td><span class="badge local">本機真 Drive 已驗</span></td><td>S142 用真 Google Drive 本機同步資料夾跑通 A invite → B join。</td><td>兩部實體機收到同一模板後的真 UX 仍未驗。</td><td>暫不急推；先補 transcript 與相鄰變體。</td></tr>
@@ -318,7 +318,7 @@
       <tr><td>真兩機安裝</td><td><span class="badge final">外部未驗</span></td><td>Adam 回報兩機成功安裝；S142 真 Drive 本機邀請煙霧通過。</td><td>不代表整個交接流程成熟。</td><td>只作最後驗證，不作日常補坑方法。</td></tr>
       <tr><td>新手非技術 UX 驗收軸</td><td><span class="badge done">本機已驗</span></td><td><code>dev/qc/aps-novice-nontechnical-ux-axis.json</code> 已記錄產品結果閘；B-side invite、第一次 Check APS、共同基準、APS Live、第一份正式交接、check Drive、資料不足退回、發送方 revise、close 已有單機 fixture / regression。</td><td>真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋。</td><td>單機產品流程可進入外部 gate 前檢；不可把真人 / 真雙機視為已通過。</td></tr>
       <tr><td>真人 UAT gate / 真人零知識 UAT</td><td><span class="badge final">外部未驗</span></td><td>S107 / S108 是 AI persona 替代驗收。</td><td>需要非技術真人讀 prompt、跟 AI 操作、指出困惑。</td><td>等新手非技術 UX 驗收軸清走明顯坑後再做。</td></tr>
-      <tr><td>公開發佈讀回</td><td><span class="badge final">外部未驗</span></td><td>v0.2.26 已發佈讀回；0.2.27 候選包含 S137-S153 邀請、用語、UX 與 QC 修補，仍需正式發佈讀回。</td><td>本輪修補要另行授權發佈。</td><td>不在本頁任務內發佈。</td></tr>
+      <tr><td>公開發佈讀回</td><td><span class="badge final">外部未驗</span></td><td>v0.2.30 已由 npm 讀回；本輪 APS Live 工作台口徑與 UX / QC 對齊仍需另行授權發佈後讀回。</td><td>本輪修補要另行授權發佈。</td><td>不在本頁任務內發佈。</td></tr>
     </tbody>
   </table>
 </section>

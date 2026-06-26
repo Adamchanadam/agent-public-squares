@@ -21,15 +21,33 @@ Architectural rationale: see APS design doc in `agent-public-squares` repo,
 Trigger phrases (any one): "APS Hub", "讀 Agent_Public_Squares", "process unconsumed",
 "未消化", "Hub 有新嘢", "跟 APS 協定", "Check APS", "APS 狀態",
 "打開 APS Live", "APS Live 怎樣打開", "Live 入口在哪裡",
-"繼續 APS 交接", "繼續 <項目> APS 交接", "看看現在去到哪一步", "現在到哪一步",
+"想跟協作者即時對齊", "想問對方下一步",
+"繼續 APS 交接", "繼續 <項目> APS 交接", "交接工作", "資料交接",
+"與同事做交接工作", "與同事交接",
+"交給同事", "交給協作者", "同事跟進", "協作者跟進",
+"看看現在去到哪一步", "現在到哪一步",
 "下一步應該做甚麼".
 
 The ordinary continuation phrases above are APS triggers only when the current folder has
 `.aps/config.json` or the user has already mentioned APS, 交接, 協作者, or 共用 Drive.
-When triggered this way, run `npx aps check-aps` first and preserve its `🗺️ APS 流程位置`
+When triggered this way, run `npx aps check-aps` first and preserve its `🗺️ APS 主流程`
 table with `👉 目前位置` in the user reply. Do not replace it with a homemade status table.
-When the user asks how to open APS Live, still run `npx aps check-aps` first and quote
-the latest `可點擊開啟: file:///...` line before the fallback local file path.
+When a user first asks the AI to read a task folder because the work will be handed to
+a colleague or collaborator, the AI may read the folder first, but it must then run
+`npx aps check-aps` before offering next-step choices. The choices must reflect the
+current APS state. If there is no valid shared goal or the named / default peer is
+provisional, the recommended next step must be a shared-goal / roles baseline draft
+or collaborator invite / confirmation. The draft may summarize the future receiver
+task, but do not name it "the packet for sandbox / the collaborator", and do not offer "prepare an APS packet" as an equal option.
+The default first screen uses the four visible stages: `準備交接包`, `確認並發出`,
+`對方查看 / 處理`, and `檢查回覆 / 收結`; internal detailed stages are for `--full`
+troubleshooting or regression evidence, not the novice first screen.
+When the user asks how to open APS Live or wants real-time alignment with a collaborator,
+still run `npx aps check-aps` first and quote the latest `可點擊開啟: file:///...`
+line before the fallback local file path. If `check-aps` does not print a clickable
+Live line but the user clearly wants APS Live, run `npx aps live` to generate or refresh
+the local Live page, then quote the new HTML path. Do not answer "no need for Live" when
+the user is trying to coordinate the handoff round.
 Do not answer from an old remembered `G:\...` path only.
 
 Also auto-engage as the last step of standard startup read order — see "Startup

@@ -4,6 +4,18 @@
   "generatedAt": "2026-06-18",
   "scope": "B receives a transferable APS invite prompt in a local AI tool before true two-machine UAT.",
   "boundary": "This fixture locks acceptable first-screen wording and failure samples. It is not real human UAT, not true two-machine evidence, and not Drive timing proof.",
+  "qcContract": {
+    "scenarioBoundary": "Static invite scenarios only; not a full APS handoff acceptance run.",
+    "noviceBoundary": "Use only as an evaluator fixture. Do not give acceptableFirstScreen, forbidden items, passCondition, or behindTheScenes text to a tested novice user or tested AI role as an answer key.",
+    "cognitiveLoadGuard": "Keep this fixture separate from browser proof, operation smoke, observer judgement, and final UAT so one agent is not overloaded with conflicting roles.",
+    "stopGates": [
+      "Stop if fixture answers or observer criteria reach the tested role.",
+      "Stop if a stage runs longer than 30 minutes without a checkpoint.",
+      "Stop if APS Live proof is claimed from about:blank, stale HTML, or static fixture text alone.",
+      "Stop if blocked tools, missing Drive proof, or missing browser proof are hidden in a pass result."
+    ],
+    "lastSessionFailureGuard": "S246, S247, and S248 were local or mixed same-machine defect-discovery evidence; this fixture must not be used to rename those sessions as complete uncoached novice UAT."
+  },
   "cases": [
     {
       "id": "b_invite_no_aps",

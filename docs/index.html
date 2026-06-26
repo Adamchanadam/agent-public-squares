@@ -23,7 +23,7 @@
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "description": "Agent Public Squares helps people working on the same project hand tasks between their local AI agents through a shared Google Drive folder, with one-to-one packets, check Drive, and Check APS status.",
-  "softwareVersion": "0.2.27",
+  "softwareVersion": "0.2.30",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "url": "https://adamchanadam.github.io/agent-public-squares/docs/index.html",
   "codeRepository": "https://github.com/Adamchanadam/agent-public-squares",
@@ -230,11 +230,12 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 
 <section>
   <h2>🔎 APS 解決甚麼問題？</h2>
-  <p>你要把一部分項目任務交給指定協作者時，最穩定的入口是明確提 APS，例如：「請用 APS 把這段工作交接給 Jay，先整理草稿，等我確認後才寫入共用 Drive。」這樣說，是為了讓 AI 走 APS 交接流程，而不是一般聊天式工作安排。AI 會先整理可核對的交接草稿，等你確認後才寫入 APS。對方收到人手通知後，在自己的項目資料夾說 <code>check Drive</code>，AI 就能讀到交接內容、版本與已讀狀態。若想看整個 APS 項目的收件、發件、協作對象、下一步與風險摘要，可以說 <code>Check APS</code>；這是按需檢查，只整理本機已同步資料，不是自動派工，也不是背景自動監察。</p>
+  <p>你要把一部分項目任務交給指定協作者時，最穩定的入口是明確提 APS，例如：「請用 APS 把這段工作交接給 Jay，先整理草稿，等我確認後才寫入共用 Drive。」這樣說，是為了讓 AI 走 APS 交接流程，而不是一般聊天式工作安排。AI 會先整理可核對的交接草稿，等你確認後才寫入 APS。對方收到人手通知後，在自己的項目資料夾說 <code>check Drive</code>，AI 就能讀到交接內容、版本與已讀狀態。若想看整個 APS 項目的收件、發件、協作對象、下一步與風險摘要，可以說 <code>Check APS</code>；若交接期間要看階段、跟協作者即時對齊、收回饋或補資料，打開 <code>APS Live</code> 交接追蹤工作台。這些入口只整理本機已同步資料和用戶確認的動作，不是自動派工，也不是背景自動監察。</p>
   <ul>
     <li>同一個項目可以有多位協作對象。</li>
     <li>每一次交接仍是一對一，不是群發。</li>
     <li>第一位用戶安裝後，AI 應主動建立「共同目標與分工」，先做到夠安全開始：共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項和最小驗收方式先清楚；其他角色、第一輪分工、邀請對象或詳細驗收可以先標為「未定」。</li>
+    <li>交接期間可以打開 APS Live 交接追蹤工作台看階段、對齊下一步、收回饋和補資料；正式進度仍以 Drive 內正式交接紀錄為準。</li>
     <li>APS 不會自動通知對方，也不會自動打開對方的 AI。</li>
     <li>AI 會生成可複製的通知文字，由你貼到 WhatsApp、Email 或平常使用的通訊工具。</li>
   </ul>
@@ -243,7 +244,7 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 <section>
   <h2>📌 目前狀態</h2>
   <p><span class="badge ok">公眾可用</span><span class="badge warn">前期測試版</span></p>
-  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.27</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，AI 應先帶用戶建立夠安全開始的共同目標與分工；示範人名不可當作固定預設，實際參與者和用戶名稱由用戶確認。共同目標與分工確認後，再按狀態保存、邀請協作者、讓已加入的協作者確認，或整理第一輪交接草稿。</p>
+  <p>目前公開版本是 <code>@adamchanadam/aps@0.2.30</code>。它已可用於受控實際試行，但仍不應承諾為生產級工具。每個真實項目第一次使用時，AI 應先帶用戶建立夠安全開始的共同目標與分工；示範人名不可當作固定預設，實際參與者和用戶名稱由用戶確認。共同目標與分工確認後，再按狀態保存、邀請協作者、讓已加入的協作者確認，或整理第一輪交接草稿。</p>
 </section>
 
 <section>

@@ -206,7 +206,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest upgrade --yes --root "&lt;目�
       <tr><td>APS 本機設定</td><td>存在 <code>.aps/config.json</code>，內容指向用戶提供的 APS 交換區、APS 合作目錄名稱與自己的用戶名稱。</td></tr>
       <tr><td>共用 Drive 資料夾</td><td><code>npx aps doctor</code> 通過；未邀請對方時，對方狀態只可作參考，不應視為失敗。</td></tr>
       <tr><td>狀態入口</td><td>用戶說 <code>Check APS</code> 時，先回答交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。排錯用的數量、同步、路徑、來源編號和完整追溯資料由 AI 自己使用，不預設丟給用戶；只有需要深入排錯時才用 <code>check-aps --full</code> 展開。它不是自動派工，也不是背景自動監察。</td></tr>
-      <tr><td>狀態入口</td><td>真正操作主線在 AI terminal；用戶說 <code>Check APS</code> 時，AI 先整理交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。若有真實卡點需要即時釐清，<code>Check APS</code> 可按需生成 APS Live 交接追蹤頁。正式寫入仍回到 terminal，經用戶確認後才寫入 APS 紀錄。</td></tr>
+      <tr><td>狀態入口</td><td>AI terminal 顯示正式狀態與需確認的正式命令；用戶說 <code>Check APS</code> 時，AI 先整理交接包是否如期、自己有甚麼要跟進、下一句要叫 AI 做甚麼。交接期間如要看階段、跟協作者即時對齊、收回饋、補資料、推進或退回前做預備判斷，<code>Check APS</code> 可生成 / 更新 APS Live 交接追蹤工作台。正式寫入仍回到 terminal，經用戶確認後才寫入 APS 紀錄。</td></tr>
       <tr><td>下一步</td><td>先帶用戶建立「夠安全開始」的共同目標與分工，確認共同目標、自己的用戶名稱、第一個可做小步、明顯不可做事項與最小驗收方式；其他分工或邀請細節可先標為未定。確認後，必須按狀態推進：未落地就問本機保存；已有已確認協作者就請對方確認共同基準或整理第一輪交接草稿；未有協作者就主動生成含一次加入邀請碼的可轉發邀請，對方在自己的電腦、自己的本機工作目錄、自己的 Google Drive 本機路徑加入，用戶名稱由對方自己確認。示範人名不得當作固定預設。</td></tr>
     </tbody>
   </table>
