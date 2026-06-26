@@ -6,7 +6,7 @@
   "boundary": "This fixture locks acceptable first-screen wording and failure samples. It is not real human UAT, not true two-machine evidence, and not Drive timing proof.",
   "qcContract": {
     "scenarioBoundary": "Static invite scenarios only; not a full APS handoff acceptance run.",
-    "noviceBoundary": "Use only as an evaluator fixture. Do not give acceptableFirstScreen, forbidden items, passCondition, or behindTheScenes text to a tested novice user or tested AI role as an answer key.",
+    "noviceBoundary": "Use only as an evaluator fixture. Do not give acceptableFirstScreen, forbidden items, passCondition, or behindTheScenes text to a tested novice user or tested AI role as expected-route material.",
     "cognitiveLoadGuard": "Keep this fixture separate from browser proof, operation smoke, observer judgement, and final UAT so one agent is not overloaded with conflicting roles.",
     "stopGates": [
       "Stop if fixture answers or observer criteria reach the tested role.",

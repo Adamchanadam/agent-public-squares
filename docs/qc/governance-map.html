@@ -273,7 +273,7 @@
   <div class="meta">
     <span>本卡片：參考</span>
     <span>觸發詞真源：<code>dev/qc/triggers.md</code></span>
-    <span>覆蓋登記真源：<code>OPS dev/qc/QC_COVERAGE_INDEX.md</code></span>
+    <span>覆蓋登記真源：維護者覆蓋登記表</span>
     <span>建立：2026-05-21 S6</span>
   </div>
 </header>
@@ -281,17 +281,17 @@
 <section>
   <h2>設計意圖</h2>
   <p class="lede">過往「全套 QC / 完整 QC / 跑驗收 / 整體 audit」此類含混詞容易令人類與 AI 對驗收範圍理解不一致。三級觸發詞彙鎖定三件事:每級的覆蓋範圍與時間、較高級別自動包含較低級別、含混詞觸發停手反問。</p>
-  <p>本卡片只屬日常閱讀與操作參考；觸發詞、級別定義與 QC 結果收口規則之單一真源為 <code>dev/qc/triggers.md</code>。完整流程覆蓋狀態、缺口、阻塞與同步責任之單一真源為 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code>。若本 HTML 與真源不一致，先以真源為準，並須將本卡片同步修正，不可讓讀者面長期漂移。</p>
+  <p>本卡片只屬日常閱讀與操作參考；觸發詞、級別定義與 QC 結果收口規則之單一真源為 <code>dev/qc/triggers.md</code>。完整流程覆蓋狀態、缺口、阻塞與同步責任之單一真源為維護者覆蓋登記表。若本 HTML 與真源不一致，先以真源為準，並須將本卡片同步修正，不可讓讀者面長期漂移。</p>
 </section>
 
 <section>
   <h2>互聯查閱</h2>
-  <p class="lede">本頁回答「叫 AI 跑哪一級 QC」；維護者頁回答「哪些文件與公開承諾要同步」；OPS 覆蓋熱圖回答「目前哪些流程有 QC、哪些仍有缺口」。</p>
+  <p class="lede">本頁回答「叫 AI 跑哪一級 QC」；維護者頁回答「哪些文件與公開承諾要同步」；維護者覆蓋熱圖回答「目前哪些流程有 QC、哪些仍有缺口」。</p>
   <ul>
     <li><a href="../maintainers/index.html">維護者規格</a>：真源地圖、發佈邊界、維護者核對入口。</li>
     <li><a href="aps-flow-map.html">APS 全流程地圖</a>：按非技術用戶旅程檢查安裝、邀請、加入、共同基準、正式交接、收件、退回與收結是否真正可用。</li>
     <li><a href="aps-ux-transcript-matrix.html">APS 單機 UX Transcript 矩陣</a>：逐一檢查非技術用戶語句、AI 第一屏、不可出現文字與單機通過條件。</li>
-    <li><a id="ops-heatmap-link" href="#">本機 OPS QC 覆蓋熱圖</a><span id="ops-heatmap-note">（只在本機 file:/// 開啟時自動連到 OPS 管理視圖）</span>。</li>
+    <li>維護者 QC 覆蓋熱圖：由維護者在本機管理資料中產生，用於檢查目前哪些流程有 QC、哪些仍有缺口。</li>
   </ul>
 </section>
 
@@ -669,10 +669,10 @@
 
 <section>
   <h2>更新覆蓋視圖</h2>
-  <p class="lede">當開發繼續，OPS 覆蓋熱圖會因為新功能、新測試、新阻塞或已補齊缺口而漂移。要更新管理視圖，不要只改 HTML；先更新 OPS 覆蓋登記表，再同步相關 HTML。</p>
+  <p class="lede">當開發繼續，維護者覆蓋熱圖會因為新功能、新測試、新阻塞或已補齊缺口而漂移。要更新管理視圖，不要只改 HTML；先更新維護者覆蓋登記表，再同步相關 HTML。</p>
   <p>下次可直接對 AI 說：</p>
   <ul>
-    <li>「<strong>更新 QC 覆蓋視圖</strong>」— 讀 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code>，核對最新 QC 證據，更新 <code>aps-qc-coverage-heatmap.html</code>、本頁與維護者頁。</li>
+    <li>「<strong>更新 QC 覆蓋視圖</strong>」— 讀維護者覆蓋登記表，核對最新 QC 證據，更新覆蓋熱圖、本頁與維護者頁。</li>
     <li>「<strong>同步 QC 覆蓋登記表與 HTML</strong>」— 當你知道 QC 機制或覆蓋狀態已改，要求 AI 先改登記表，再同步熱圖和 PUBLIC 參考頁。</li>
     <li>「<strong>刷新 APS QC 熱圖</strong>」— 只想更新管理視覺時使用；AI 仍須先讀登記表，不能直接憑舊 HTML 改色或改進度條。</li>
   </ul>
@@ -693,18 +693,9 @@
 </section>
 
 <footer>
-  Agent Public Squares · 分層 QC 參考卡 · 建立 2026-05-21 S6 · 同步 2026-06-15 · 觸發詞真源 <code>dev/qc/triggers.md</code> · 覆蓋登記真源 <code>OPS dev/qc/QC_COVERAGE_INDEX.md</code>
+  Agent Public Squares · 分層 QC 參考卡 · 建立 2026-05-21 S6 · 同步 2026-06-15 · 觸發詞真源 <code>dev/qc/triggers.md</code> · 覆蓋登記真源：維護者覆蓋登記表
 </footer>
 
 </main>
-<script>
-(function () {
-  var link = document.getElementById("ops-heatmap-link");
-  var note = document.getElementById("ops-heatmap-note");
-  if (!link || location.protocol !== "file:" || location.href.indexOf("Agent_Public_Squares_PUBLIC") === -1) return;
-  link.href = location.href.replace(/Agent_Public_Squares_PUBLIC\/docs\/qc\/governance-map\.html$/, "Agent_Public_Squares_OPS/outputs/aps-qc-coverage-heatmap.html");
-  if (note) note.textContent = "（本機 OPS 管理視圖）";
-}());
-</script>
 </body>
 </html>

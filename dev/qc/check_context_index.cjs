@@ -608,7 +608,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
   const naturalInputs = [
     '你先了解「北岸設計_第一次訪談整理」目錄，我們的任務是要與同事做這批資料的交接工作。',
     '這批資料之後要交給同事跟進，你先幫我看明白。',
-    '幫我看完這個資料夾，之後要交給 sandbox 跟進。',
+    '幫我看完這個資料夾，之後要交給協作者跟進。',
     '我想把這部分交給協作者處理，你先了解資料。',
   ];
   const routeText = readRepoFile('bin/aps.js');
@@ -632,7 +632,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     'The choices must reflect the',
     'current APS state.',
     'the recommended next step must be a shared-goal / roles baseline draft',
-    'do not name it "the packet for sandbox / the collaborator"',
+    'do not name it "the packet for the collaborator"',
     'do not offer "prepare an APS packet" as an equal option',
   ]) {
     assert(bridgeText.includes(text), `novice natural handoff dry-run: bridge gate missing "${text}"`);
@@ -643,7 +643,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     '收件人是否 confirmed',
     '能否發普通交接包',
     '推薦下一步必須是共同目標與分工 / 交接基準草稿',
-    '不得命名為「給 sandbox / 協作者的交接包內容」',
+    '不得命名為「給某位協作者的交接包內容」',
     '不可把「準備 APS 交接包」列成平等選項',
   ]) {
     assert(skillText.includes(text) || setupText.includes(text), `novice natural handoff dry-run: APS skill/setup gate missing "${text}"`);
@@ -653,7 +653,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     '下一步選項前先查 APS 狀態',
     '沒有共同目標時先建立共同目標與分工 / 交接基準草稿',
     '對方是 provisional 時先邀請或等對方 confirmed',
-    '不得把草稿命名為給 sandbox 的交接包內容',
+    '不得把草稿命名為給某位協作者的交接包內容',
     '不可把正式發包列成平等選項',
   ].join('\n');
   for (const input of naturalInputs) {
@@ -707,7 +707,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     '--hub-root', installedHub,
     '--project', 'novice_natural_blank',
     '--agent-id', 'adam',
-    '--other-agent-id', 'sandbox',
+    '--other-agent-id', 'receiver',
     '--role', 'A',
   ], installedRoot);
   const initOutput = `${initResult.stdout}\n${initResult.stderr}`;
@@ -723,7 +723,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     'load `dev/rules/aps-bridge.md`',
     'run `npx aps check-aps`',
     'the recommended next step must be a shared-goal / roles baseline draft',
-    'must not be named "the packet for sandbox / the collaborator"',
+    'must not be named "the packet for the collaborator"',
     'do not offer ordinary APS packet preparation as an equal next step',
   ]) {
     assert(installedHandoff.includes(text), `novice natural installed blank: SESSION_HANDOFF missing "${text}"`);
@@ -733,7 +733,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     'fresh or blank Agent Handoff Kit workspace',
     'run `npx aps check-aps`',
     'shared-goal / roles baseline draft',
-    'must not be named "the packet for sandbox / the collaborator"',
+    'must not be named "the packet for the collaborator"',
   ]) {
     assert(installedPrompt.includes(text), `novice natural installed blank: START_NEXT_SESSION_PROMPT missing "${text}"`);
   }
@@ -882,8 +882,8 @@ function run(label, cwd, args) {
 }
 
 Promise.all([
-  run('sender', senderRoot, ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', project, '--agent-id', 'adam', '--other-agent-id', 'sandbox']),
-  run('receiver', receiverRoot, ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', project, '--agent-id', 'sandbox', '--other-agent-id', 'adam']),
+  run('sender', senderRoot, ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', project, '--agent-id', 'sender', '--other-agent-id', 'receiver']),
+  run('receiver', receiverRoot, ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', project, '--agent-id', 'receiver', '--other-agent-id', 'sender']),
 ]).then((results) => {
   const failed = results.find((item) => item.status !== 0);
   if (failed) {
@@ -1227,10 +1227,11 @@ try {
       'No mandatory Live blocker',
       'This status does not certify reliable cross-machine APS Live',
       'or full first-use product-flow coverage',
-      'S105-style same-machine evidence proves only the exact scripted branch it ran',
+      'Same-machine evidence proves only the exact branch it ran',
       'controlled normal-handoff completion loop',
       'receiver uses live-bridge consume',
       'status --packet-id` reads back `已收結',
+      'Local browser verification also checks that the no-baseline generated page visibly blocks `共同基準` and exposes the refresh path',
       'It still must not be generalized to real Trystero peer-offline events, real Drive sync timing, real human comprehension, or real two-device operation',
     ],
   );
@@ -1244,7 +1245,7 @@ try {
       '本頁是 APS 產品旅程與完成度安排的真源',
       '凡改動 APS 使用者流程、功能邏輯、階段順序、完成度判斷或工作優先級，必須同步更新本頁',
       'CLI 實際行為以 <code>bin/aps.js</code> 為準',
-      'QC 覆蓋狀態、缺口與阻塞以 OPS <code>dev/qc/QC_COVERAGE_INDEX.md</code> 為準',
+      'QC 覆蓋狀態、缺口與阻塞以維護者覆蓋登記表為準',
       '用戶講目的，AI 做技術',
       '單機產品級完成，才推雙機',
       '本機工作目錄',
@@ -2111,7 +2112,7 @@ try {
   assert(parallelInit.status === 0, `parallel init peer cards: expected exit 0, got ${parallelInit.status}`, parallelInitOutput);
   const parallelPeerDir = path.join(hubRoot, parallelInitProject, '_peers', 'agents');
   const parallelCards = {};
-  for (const id of ['adam', 'sandbox']) {
+  for (const id of ['sender', 'receiver']) {
     const cardPath = path.join(parallelPeerDir, `${id}.json`);
     assert(fs.existsSync(cardPath), `parallel init peer cards: missing ${id}.json`, parallelInitOutput);
     parallelCards[id] = JSON.parse(fs.readFileSync(cardPath, 'utf8'));

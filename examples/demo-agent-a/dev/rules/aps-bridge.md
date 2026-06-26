@@ -38,7 +38,7 @@ a colleague or collaborator, the AI may read the folder first, but it must then 
 current APS state. If there is no valid shared goal or the named / default peer is
 provisional, the recommended next step must be a shared-goal / roles baseline draft
 or collaborator invite / confirmation. The draft may summarize the future receiver
-task, but do not name it "the packet for sandbox / the collaborator", and do not offer "prepare an APS packet" as an equal option.
+task, but do not name it "the packet for the collaborator", and do not offer "prepare an APS packet" as an equal option.
 The default first screen uses the four visible stages: `準備交接包`, `確認並發出`,
 `對方查看 / 處理`, and `檢查回覆 / 收結`; internal detailed stages are for `--full`
 troubleshooting or regression evidence, not the novice first screen.

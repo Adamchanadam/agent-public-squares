@@ -185,7 +185,7 @@
       </tr>
       <tr>
         <td>維護者</td>
-        <td>本頁、<a href="../qc/governance-map.html">分層 QC</a>、<a id="ops-heatmap-link" href="#">本機 OPS 覆蓋熱圖</a></td>
+        <td>本頁、<a href="../qc/governance-map.html">分層 QC</a>、維護者 QC 覆蓋熱圖</td>
         <td>核對公開承諾、發佈檢查、協定實作、同步記錄與內部規格。</td>
       </tr>
     </tbody>
@@ -224,7 +224,7 @@
       </tr>
       <tr>
         <td>QC 覆蓋登記與缺口管理</td>
-        <td><span class="path">OPS dev\qc\QC_COVERAGE_INDEX.md</span></td>
+        <td><span class="path">維護者覆蓋登記表</span></td>
         <td>修改 QC 機制、判斷覆蓋範圍、更新熱圖或處理 release gate 前。</td>
       </tr>
       <tr>
@@ -254,7 +254,7 @@
       </tr>
       <tr>
         <td>人類可視 QC 地圖</td>
-        <td><a href="../qc/governance-map.html">分層 QC</a>；<a id="ops-heatmap-link-2" href="#">本機 OPS 覆蓋熱圖</a></td>
+        <td><a href="../qc/governance-map.html">分層 QC</a>；維護者 QC 覆蓋熱圖</td>
         <td>維護者需要以 HTML 方式閱讀檢查分層或管理覆蓋缺口時。</td>
       </tr>
     </tbody>
@@ -277,7 +277,7 @@
 
 <section>
   <h2>最新 QC 覆蓋範圍</h2>
-  <p class="lede">QC 觸發詞與分層規則以 <span class="path">dev\qc\triggers.md</span> 為單一真源；QC 覆蓋狀態、缺口、阻塞與同步責任以 <span class="path">OPS dev\qc\QC_COVERAGE_INDEX.md</span> 為單一真源。本頁只提示維護者：功能、流程或教學改動後，以下項目必須納入外發前檢與全面檢。</p>
+  <p class="lede">QC 觸發詞與分層規則以 <span class="path">dev\qc\triggers.md</span> 為單一真源；QC 覆蓋狀態、缺口、阻塞與同步責任以維護者覆蓋登記表為單一真源。本頁只提示維護者：功能、流程或教學改動後，以下項目必須納入外發前檢與全面檢。</p>
   <ul>
     <li>新手頁的 SVG 宏觀流程圖與能力清單，須與 README、入口頁、CLI、skill spec、QC 真源一致。</li>
     <li>日常主路徑須是自然語言請 AI 操作；命令列只可作備用、排錯或維護者驗證。</li>
@@ -285,7 +285,7 @@
     <li>合作階段驗收矩陣須覆蓋初設、開局對齊、邀請加入、首次交接、日常推進、資料不足與解難、多人分工、修訂 / 撤回 / 收結、升級維護，以及 APS Live 產品標準驗收；每階段須同時核對 Terminal UX、HTML UX 與 packet 狀態。</li>
     <li>APS 不自動發 Telegram / WhatsApp / Email，也不自動觸發對方 AI，不保證對方電腦即時同步；公開文檔與通知文字不得暗示相反能力。</li>
     <li>公眾入口與新手 HTML 只寫現有可用能力；未列入現有能力的產品路線名稱留在 Markdown 真源、維護者驗收頁與審核報告，不放入公眾頁面。</li>
-    <li>若 HTML 參考卡與 <span class="path">dev\qc\triggers.md</span> 或 <span class="path">OPS dev\qc\QC_COVERAGE_INDEX.md</span> 不一致，先以對應真源為準，再立即同步 HTML。</li>
+    <li>若 HTML 參考卡與 <span class="path">dev\qc\triggers.md</span> 或維護者覆蓋登記表不一致，先以對應真源為準，再立即同步 HTML。</li>
   </ul>
 </section>
 
@@ -294,13 +294,5 @@
 </footer>
 
 </main>
-<script>
-(function () {
-  var links = [document.getElementById("ops-heatmap-link"), document.getElementById("ops-heatmap-link-2")].filter(Boolean);
-  if (!links.length || location.protocol !== "file:" || location.href.indexOf("Agent_Public_Squares_PUBLIC") === -1) return;
-  var target = location.href.replace(/Agent_Public_Squares_PUBLIC\/docs\/maintainers\/index\.html$/, "Agent_Public_Squares_OPS/outputs/aps-qc-coverage-heatmap.html");
-  links.forEach(function (link) { link.href = target; });
-}());
-</script>
 </body>
 </html>

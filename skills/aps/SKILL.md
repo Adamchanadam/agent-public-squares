@@ -13,7 +13,7 @@ description: Use for APS / Agent Public Squares cross-machine handoff through a 
 >
 > 協作者狀態 + Sent Status(`peers`、`peer add`、`peer starter`、`publish --to`、`inbox --from`、`inbox --all`、`status --packet-id`)讓一個 APS 合作目錄可有多位協作者、每次仍是一對一 packet。設置完成後日常命令可省略 APS 交換區、APS 合作目錄和用戶名稱等長參數。
 >
-> 專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。若需要維護者歷史、設計理據或已退役稿件,不要從 shipped skill runtime 追索;應回到 repo / OPS 的治理索引或 release 記錄。
+> 專案已通過一次維護者真實 Google Drive 跨機往返驗證;技能內自然語言日常操作與補救流程仍為前期測試。若需要維護者歷史、設計理據或已退役稿件,不要從 shipped skill runtime 追索;應回到維護者治理索引或 release 記錄。
 
 ## 1. 此 skill 的職責
 
@@ -225,12 +225,12 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
    若用戶第一次說「先讀某任務資料,之後要和同事 / 協作者做交接」或同等自然語句,AI 可先讀資料,但給下一步選項前必須執行 `npx aps check-aps`,把是否已有共同目標、收件人是否 confirmed、能否發普通交接包作為選項依據。
    若 `check-aps` 顯示 APS Live 待本機 AI 整理,AI 要先執行 `npx aps live-queue` 讀取並整理材料,合併重複內容,再向用戶提出共識、分歧、待決定事項、缺口與草稿;整理成草稿後,執行 `npx aps live-queue --mark-reviewed` 封存已整理待辦,避免下次 `Check APS` 重複使用舊材料。這只封存 Live 待辦,不代表 publish / consume / decline / close,亦不改正式 APS packet / outbox / ack 紀錄。
    APS Live 頁面上的「交給本機 AI」操作結果必須對用戶可持續理解:重新載入 HTML 後仍應看到上一個已放入本機 AI 待辦或失敗回退的可複製下一句;若用戶清除本頁記錄,只可清除本機頁面提示與對話顯示,不得改正式 APS 紀錄。
-   若有 confirmed peer 但未見 `shared_goal_and_roles` 基準,下一步是先建立或補發共同目標與分工,不是發普通測試包。若預設或指名對方仍是 provisional,推薦下一步必須是共同目標與分工 / 交接基準草稿,或生成加入邀請並等待對方 confirmed。這份草稿可整理將來可能交給收件人的任務材料,但不得命名為「給 sandbox / 協作者的交接包內容」,亦不得把「準備 APS 交接包」列成平等選項。
+   若有 confirmed peer 但未見 `shared_goal_and_roles` 基準,下一步是先建立或補發共同目標與分工,不是發普通測試包。若預設或指名對方仍是 provisional,推薦下一步必須是共同目標與分工 / 交接基準草稿,或生成加入邀請並等待對方 confirmed。這份草稿可整理將來可能交給收件人的任務材料,但不得命名為「給某位協作者的交接包內容」,亦不得把「準備 APS 交接包」列成平等選項。
    若有 pending 交接,必須逐件判斷「可開工 / 需退回補資料 / 先確認共同目標 / 等待對方修訂」,不可把 pending 一律寫成「你要處理」。
    若 `check-aps` 顯示 APS Live 建議打開,AI 的一句下一步不得只說等待或只說叫對方 `check Drive`;必須同時講清楚兩條路:正式路徑是對方在自己的已接 APS 項目資料夾 `check Drive`,即時工作台路徑是雙方各自 `Check APS` 打開自己的 APS Live 頁。若用戶問「APS Live 怎樣打開」,回覆必須優先提供 `check-aps` 顯示的 `file:///` 可點擊連結;若 `check-aps` 沒有生成連結但用戶明確想即時對齊,AI 應改執行 `npx aps live` 生成 / 更新本機 APS Live 頁,再附本機路徑作備用。
    本機共用 Drive 路徑、來源編號、packet / outbox / ack、數量、同步與完整追溯資料應由 AI 自己用來判斷;只有需要深入排錯時才執行或展示 `npx aps check-aps --full`。這只是唯讀整理,不是自動派工,也不是背景自動監察;只有用戶明確要求 `Check APS`,或在 APS / 交接語境下問「繼續」「去到哪一步」「下一步」,或 AI 在 APS 流程內需要刷新狀態時才執行。
    回覆必須保留「🗺️ APS 主流程」表格與「👉 目前位置」;預設首屏只用四段主流程,背後細分狀態只在 `check-aps --full` 或排錯時展示。沒有必須由 Live 修復的卡點,只代表 Live 不是強制修復路徑;用戶想跟協作者即時對齊時仍應開 APS Live。
-   硬規則補充:未見有效共同目標與分工,或對方仍是 provisional 時,不可把「準備 APS 交接包」列成平等選項;推薦下一步只能是共同目標與分工 / 交接基準草稿,或加入邀請與協作者確認。草稿可整理將來給收件人的任務材料,但不得命名為「給 sandbox / 協作者的交接包內容」。
+   硬規則補充:未見有效共同目標與分工,或對方仍是 provisional 時,不可把「準備 APS 交接包」列成平等選項;推薦下一步只能是共同目標與分工 / 交接基準草稿,或加入邀請與協作者確認。草稿可整理將來給收件人的任務材料,但不得命名為「給某位協作者的交接包內容」。
    dashboard 指令只保留提示:
    ```text
    npx aps dashboard
@@ -460,6 +460,6 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
 - `docs/guides/aps-ai-agent-install.html` — 公開 AI 代理安裝 / 升級指引
 - `docs/guides/aps-onboarding-walkthrough.html` — 詳細設置教學
 - `docs/plans/aps-live-capability-spec.md` — APS Live 產品邊界與工作台規格;不是通過證據
-- `dev/qc/aps-live-trystero-qc.md` — APS Live 可靠跨機驗收門檻;不是新手 UAT 答案紙
+- `dev/qc/aps-live-trystero-qc.md` — APS Live 可靠跨機驗收門檻;不是新手 UAT 操作腳本
 - 共用 Drive 資料夾內的 `_hub/PROTOCOL.md` — 協定 v1.0 契約
-- 維護者歷史稿、已退役設計文件和舊審核紀錄不屬 shipped skill runtime 依賴;若需要追溯,回到 repo / OPS 治理索引查證,不要把舊路徑當作目前產品指引。
+- 維護者歷史稿、已退役設計文件和舊審核紀錄不屬 shipped skill runtime 依賴;若需要追溯,回到維護者治理索引查證,不要把舊路徑當作目前產品指引。

@@ -8813,7 +8813,7 @@ This project has APS installed. On a fresh or blank Agent Handoff Kit workspace,
 
 When the user asks the AI to read a task folder because the work will be handed to a colleague, coworker, collaborator, or peer, or uses wording such as 「交接工作」,「資料交接」,「與同事做交接工作」,「與同事交接」,「交給同事」,「交給協作者」,「同事跟進」,「協作者跟進」, load \`dev/rules/aps-bridge.md\` and read \`.aps/config.json\` before offering next-step choices.
 
-The AI may read the task folder first, but before proposing an APS packet, formal handoff draft, or next-step choices it must run \`npx aps check-aps\`. If there is no valid shared goal or the named / default peer is provisional, the recommended next step must be a shared-goal / roles baseline draft or collaborator invite / confirmation. The draft may summarize the future receiver task, but must not be named "the packet for sandbox / the collaborator" and must not offer ordinary APS packet preparation as an equal next step; do not offer ordinary APS packet preparation as an equal next step.`;
+The AI may read the task folder first, but before proposing an APS packet, formal handoff draft, or next-step choices it must run \`npx aps check-aps\`. If there is no valid shared goal or the named / default peer is provisional, the recommended next step must be a shared-goal / roles baseline draft or collaborator invite / confirmation. The draft may summarize the future receiver task, but must not be named "the packet for the collaborator" and must not offer ordinary APS packet preparation as an equal next step; do not offer ordinary APS packet preparation as an equal next step.`;
   steps.push(upsertManagedBlock(
     sessionHandoffPath,
     'startup-natural-handoff-route',
