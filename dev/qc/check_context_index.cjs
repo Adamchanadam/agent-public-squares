@@ -6,6 +6,7 @@ const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const apsBin = path.join(repoRoot, 'bin', 'aps.js');
+const packageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
 const evidenceRoot = path.join(repoRoot, 'dev', 'qc', 'evidence');
 fs.mkdirSync(evidenceRoot, { recursive: true });
 const runRoot = fs.mkdtempSync(path.join(evidenceRoot, 'context-index-regression-'));
@@ -263,6 +264,21 @@ function localFileHrefForTest(filePath) {
   }).join('/')}`;
 }
 
+function visibleTextFromHtml(html) {
+  return String(html || '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function bridgePortFromLiveHtml(html, label) {
   const match = String(html || '').match(/"url": "http:\/\/127\.0\.0\.1:(\d+)"/);
   assert(match, `${label}: expected generated APS Live HTML to include local bridge URL`, html);
@@ -336,6 +352,19 @@ function expectRepoFileContains(name, relativePath, requiredText, forbiddenText 
     assert(!content.includes(text), `${name}: ${relativePath} should not include "${text}"`);
   }
   console.log(`PASS ${name}`);
+}
+
+function expectCurrentPublicVersionMirrored() {
+  const expected = String(packageJson.version || '').trim();
+  assert(expected, 'package.json must expose a version for public docs version mirror checks');
+  for (const relativePath of ['README.md', 'docs/index.html', 'docs/qc/aps-flow-map.html']) {
+    const content = readRepoFile(relativePath);
+    assert(content.includes(expected), `public version mirror: ${relativePath} must include ${expected}`);
+    for (const oldVersion of ['0.2.27', '0.2.28', '0.2.29']) {
+      assert(!content.includes(oldVersion), `public version mirror: ${relativePath} must not retain stale ${oldVersion}`);
+    }
+  }
+  console.log('PASS public docs mirror current package version');
 }
 
 function expectBsideInviteTranscriptFixture() {
@@ -425,6 +454,7 @@ function expectFirstCheckApsLiveTranscriptFixture() {
     for (const bad of item.forbidden) {
       assert(!item.acceptableFirstScreen.includes(bad), `First Check APS fixture: ${id} acceptable first screen includes forbidden text "${bad}"`);
     }
+    assert(!item.acceptableFirstScreen.includes('背後細分狀態'), `First Check APS fixture: ${id} acceptable first screen must not expose internal detail wording`);
   }
   for (const id of expectedFunctionIds) {
     const item = fixture.apsLiveFunctions.find((entry) => entry.id === id);
@@ -448,7 +478,7 @@ function expectFirstCheckApsLiveTranscriptFixture() {
     '任務',
     '真源',
     '開工條件',
-    '連接 APS Live',
+    '重新嘗試即時對齊',
     '交接事件紀錄',
     '目前階段與正式操作',
     '協調與回應',
@@ -573,6 +603,149 @@ function expectNoviceNontechnicalUxAxis() {
   );
   console.log('PASS novice non-technical UX product-result gate is covered for single-machine fixture scope');
 }
+
+function expectNoviceNaturalHandoffDryRunGate() {
+  const naturalInputs = [
+    '你先了解「北岸設計_第一次訪談整理」目錄，我們的任務是要與同事做這批資料的交接工作。',
+    '這批資料之後要交給同事跟進，你先幫我看明白。',
+    '幫我看完這個資料夾，之後要交給 sandbox 跟進。',
+    '我想把這部分交給協作者處理，你先了解資料。',
+  ];
+  const routeText = readRepoFile('bin/aps.js');
+  const bridgeText = readRepoFile('examples/demo-agent-a/dev/rules/aps-bridge.md');
+  const skillText = readRepoFile('skills/aps/SKILL.md');
+  const skillFrontmatter = skillText.slice(0, skillText.indexOf('---', 4) + 3);
+  const setupText = readRepoFile('skills/aps/references/setup-dialogue.md');
+  for (const phrase of ['交接工作', '資料交接', '與同事做交接工作', '與同事交接', '交給同事', '交給協作者', '同事跟進', '協作者跟進']) {
+    assert(routeText.includes(phrase), `novice natural handoff dry-run: route row missing "${phrase}"`);
+    assert(bridgeText.includes(phrase), `novice natural handoff dry-run: bridge pack missing "${phrase}"`);
+    assert(skillFrontmatter.includes(phrase), `novice natural handoff dry-run: skill description missing natural trigger "${phrase}"`);
+  }
+  for (const text of [
+    'Natural colleague-handoff wording is an APS trigger',
+    'even if the user does not say APS explicitly',
+  ]) {
+    assert(skillFrontmatter.includes(text), `novice natural handoff dry-run: skill description missing route guard "${text}"`);
+  }
+  for (const text of [
+    'the AI may read the folder first, but it must then run',
+    'The choices must reflect the',
+    'current APS state.',
+    'the recommended next step must be a shared-goal / roles baseline draft',
+    'do not name it "the packet for sandbox / the collaborator"',
+    'do not offer "prepare an APS packet" as an equal option',
+  ]) {
+    assert(bridgeText.includes(text), `novice natural handoff dry-run: bridge gate missing "${text}"`);
+  }
+  for (const text of [
+    '先讀某任務資料,之後要和同事 / 協作者做交接',
+    '給下一步選項前必須執行 `npx aps check-aps`',
+    '收件人是否 confirmed',
+    '能否發普通交接包',
+    '推薦下一步必須是共同目標與分工 / 交接基準草稿',
+    '不得命名為「給 sandbox / 協作者的交接包內容」',
+    '不可把「準備 APS 交接包」列成平等選項',
+  ]) {
+    assert(skillText.includes(text) || setupText.includes(text), `novice natural handoff dry-run: APS skill/setup gate missing "${text}"`);
+  }
+  const expectedDryRunOutcome = [
+    '可先讀任務資料',
+    '下一步選項前先查 APS 狀態',
+    '沒有共同目標時先建立共同目標與分工 / 交接基準草稿',
+    '對方是 provisional 時先邀請或等對方 confirmed',
+    '不得把草稿命名為給 sandbox 的交接包內容',
+    '不可把正式發包列成平等選項',
+  ].join('\n');
+  for (const input of naturalInputs) {
+    assert(input.includes('交') || input.includes('跟進'), `novice natural handoff dry-run: fixture input lacks handoff intent: ${input}`);
+  }
+  assert(expectedDryRunOutcome.includes('下一步選項前先查 APS 狀態'), 'novice natural handoff dry-run: expected outcome missing APS state gate');
+  assert(expectedDryRunOutcome.includes('不可把正式發包列成平等選項'), 'novice natural handoff dry-run: expected outcome missing equal-option ban');
+
+  const installedRoot = makeHandoffProject('novice-natural-installed-blank-project');
+  writeFile(
+    path.join(installedRoot, 'dev', 'SESSION_HANDOFF.md'),
+    [
+      '# Session Handoff',
+      '',
+      'Last Updated: TBD',
+      '',
+      '<!-- ack:section:active-objective -->',
+      '## Active Objective',
+      '',
+      'TBD',
+      '',
+      '<!-- ack:section:next-session-opening-message -->',
+      '## Next Session Opening Message',
+      '',
+      '```text',
+      'Work in this blank test project.',
+      'Read AGENTS.md first.',
+      '```',
+      '',
+    ].join('\n'),
+  );
+  writeFile(
+    path.join(installedRoot, 'START_NEXT_SESSION_PROMPT.txt'),
+    [
+      'Work in this blank test project.',
+      '',
+      'Read in order:',
+      '1. AGENTS.md',
+      '2. dev/SESSION_HANDOFF.md',
+      '3. dev/SESSION_LOG.md',
+      '4. dev/PROJECT_INDEX.md',
+      '5. dev/RULE_PACKS.md',
+      '',
+      'Before changing anything, tell me the current state and your recommended next step.',
+      '',
+    ].join('\n'),
+  );
+  const installedHub = path.join(runRoot, 'novice-natural-installed-blank-hub');
+  const initResult = runApsProcess([
+    'init',
+    '--hub-root', installedHub,
+    '--project', 'novice_natural_blank',
+    '--agent-id', 'adam',
+    '--other-agent-id', 'sandbox',
+    '--role', 'A',
+  ], installedRoot);
+  const initOutput = `${initResult.stdout}\n${initResult.stderr}`;
+  assert(initResult.status === 0, `novice natural installed blank: aps init expected exit 0, got ${initResult.status}`, initOutput);
+  const installedHandoff = fs.readFileSync(path.join(installedRoot, 'dev', 'SESSION_HANDOFF.md'), 'utf8');
+  const installedPrompt = fs.readFileSync(path.join(installedRoot, 'START_NEXT_SESSION_PROMPT.txt'), 'utf8');
+  const installedRoute = fs.readFileSync(path.join(installedRoot, 'dev', 'RULE_PACKS.md'), 'utf8');
+  const installedBridge = fs.readFileSync(path.join(installedRoot, 'dev', 'rules', 'aps-bridge.md'), 'utf8');
+  for (const text of [
+    'APS Startup Route',
+    'fresh or blank Agent Handoff Kit workspace',
+    'read a task folder because the work will be handed to a colleague',
+    'load `dev/rules/aps-bridge.md`',
+    'run `npx aps check-aps`',
+    'the recommended next step must be a shared-goal / roles baseline draft',
+    'must not be named "the packet for sandbox / the collaborator"',
+    'do not offer ordinary APS packet preparation as an equal next step',
+  ]) {
+    assert(installedHandoff.includes(text), `novice natural installed blank: SESSION_HANDOFF missing "${text}"`);
+  }
+  for (const text of [
+    'APS Startup Route',
+    'fresh or blank Agent Handoff Kit workspace',
+    'run `npx aps check-aps`',
+    'shared-goal / roles baseline draft',
+    'must not be named "the packet for sandbox / the collaborator"',
+  ]) {
+    assert(installedPrompt.includes(text), `novice natural installed blank: START_NEXT_SESSION_PROMPT missing "${text}"`);
+  }
+  for (const phrase of ['交接工作', '資料交接', '與同事做交接工作', '交給同事']) {
+    assert(installedRoute.includes(phrase), `novice natural installed blank: RULE_PACKS missing natural handoff route "${phrase}"`);
+    assert(installedHandoff.includes(phrase), `novice natural installed blank: SESSION_HANDOFF missing natural handoff route "${phrase}"`);
+    assert(installedPrompt.includes(phrase), `novice natural installed blank: START_NEXT_SESSION_PROMPT missing natural handoff route "${phrase}"`);
+  }
+  assert(installedBridge.includes('When a user first asks the AI to read a task folder'), 'novice natural installed blank: bridge pack missing task-folder gate');
+  console.log('PASS novice natural handoff dry-run gate covers task-folder colleague handoff starts');
+}
+
 function listFilesRecursive(dirPath, predicate) {
   const results = [];
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
@@ -686,6 +859,54 @@ function runApsProcess(args, cwd = repoRoot) {
   };
 }
 
+function runParallelInitPair({ project, senderRoot, receiverRoot }) {
+  const script = String.raw`
+const { spawn } = require('child_process');
+
+const [apsBin, hubRoot, project, senderRoot, receiverRoot] = process.argv.slice(1);
+
+function run(label, cwd, args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [apsBin, ...args], { cwd });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => {
+      resolve({ label, status: 1, stdout, stderr: stderr + '\n' + error.message });
+    });
+    child.on('close', (status) => {
+      resolve({ label, status, stdout, stderr });
+    });
+  });
+}
+
+Promise.all([
+  run('sender', senderRoot, ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', project, '--agent-id', 'adam', '--other-agent-id', 'sandbox']),
+  run('receiver', receiverRoot, ['init', '--target', 'codex', '--hub-root', hubRoot, '--project', project, '--agent-id', 'sandbox', '--other-agent-id', 'adam']),
+]).then((results) => {
+  const failed = results.find((item) => item.status !== 0);
+  if (failed) {
+    console.error(JSON.stringify(results, null, 2));
+    process.exit(1);
+  }
+  console.log(JSON.stringify(results, null, 2));
+}).catch((error) => {
+  console.error(error && error.stack ? error.stack : error);
+  process.exit(1);
+});
+`;
+  return spawnSync(process.execPath, [
+    '-e',
+    script,
+    apsBin,
+    hubRoot,
+    project,
+    senderRoot,
+    receiverRoot,
+  ], { encoding: 'utf8', cwd: repoRoot, timeout: 20000 });
+}
+
 function makeHandoffProject(name) {
   const projectRoot = path.join(runRoot, name);
   writeFile(path.join(projectRoot, 'AGENTS.md'), '# Test Handoff Project\n');
@@ -739,6 +960,9 @@ try {
       '交接確認卡',
       '真源指標',
       '接收方開工條件',
+      '這張確認卡只可升級成「共同目標與分工草稿」',
+      '不得說「擴成正式 APS 交接包草稿」',
+      '必須用 `--to <agent_id>` 指名 confirmed 收件 peer',
     ],
     ['交接定義卡', '證據位置'],
   );
@@ -751,6 +975,8 @@ try {
       '真源指標',
       '接收方開工條件',
       'Jay 交回甚麼才算完成',
+      '不得直接升級成普通正式交接包',
+      '收件人是 provisional 或未邀請',
     ],
     ['交接定義卡', '證據位置'],
   );
@@ -853,11 +1079,18 @@ try {
     'skills/aps/SKILL.md',
     [
       '繼續 APS 交接',
+      '先讀某任務資料,之後要和同事 / 協作者做交接',
       '看看現在去到哪一步',
       'APS Live 怎樣打開',
+      '想跟協作者即時對齊',
+      '給下一步選項前必須執行 `npx aps check-aps`',
+      '收件人是否 confirmed',
+      '不可把「準備 APS 交接包」列成平等選項',
       'AI 必須先執行 `npx aps check-aps`',
-      '保留 CLI 輸出的「🗺️ APS 流程位置」表格與「👉 目前位置」',
+      '保留 CLI 輸出的「🗺️ APS 主流程」表格與「👉 目前位置」',
       '可點擊開啟: file:///',
+      '若沒有可點擊行但用戶明確要 Live',
+      '沒有必須由 Live 修復的卡點',
       '不得憑舊記憶只提供 Windows 路徑',
       '不得只改寫成自己的摘要表',
     ],
@@ -868,14 +1101,40 @@ try {
     'examples/demo-agent-a/dev/rules/aps-bridge.md',
     [
       '繼續 APS 交接',
+      '交接工作',
+      '與同事交接',
+      '交給同事',
+      '交給協作者',
+      '同事跟進',
+      '協作者跟進',
       '看看現在去到哪一步',
       'APS Live 怎樣打開',
+      '想跟協作者即時對齊',
+      'the work will be handed to',
+      'must then run',
+      'do not offer "prepare an APS packet" as an equal option',
       'run `npx aps check-aps` first',
-      'preserve its `🗺️ APS 流程位置`',
+      'preserve its `🗺️ APS 主流程`',
       'quote',
       '可點擊開啟: file:///',
+      'run `npx aps live` to generate or refresh',
+      'Do not answer "no need for Live"',
       'Do not answer from an old remembered `G:\\...` path only',
       'Do not replace it with a homemade status table',
+    ],
+  );
+
+  expectRepoFileContains(
+    'handoff-kit APS route catches novice colleague-handoff wording',
+    'bin/aps.js',
+    [
+      '交接工作',
+      '與同事交接',
+      '交給同事',
+      '交給協作者',
+      '同事跟進',
+      '協作者跟進',
+      'natural handoff-task intake',
     ],
   );
 
@@ -887,6 +1146,32 @@ try {
       'AI 會整理草稿、等你確認、再寫入共用 Google Drive',
       '先整理草稿，等我確認後才寫入共用 Drive',
       '不會自動通知對方，也不會自動打開對方的 AI',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public homepage exposes APS Live as handoff workbench',
+    'docs/index.html',
+    [
+      'APS Live',
+      '交接追蹤工作台',
+      '看階段',
+      '跟協作者即時對齊',
+      '收回饋',
+      '正式進度仍以 Drive 內正式交接紀錄為準',
+    ],
+  );
+
+  expectRepoFileContains(
+    'README exposes APS Live as handoff workbench',
+    'README.md',
+    [
+      '打開交接工作台',
+      '打開 APS Live',
+      '看階段',
+      '跟協作者即時對齊',
+      '收回饋',
+      '沒有必須修復的卡點不代表不能打開',
     ],
   );
 
@@ -937,7 +1222,9 @@ try {
     'docs/plans/aps-live-capability-spec.md',
     [
       'Status: product standard / local-supported APS Live capability in unreleased source',
-      'APS Live is part of the APS product standard as a bounded handoff-tracking and exception-coordination layer',
+      'APS Live is part of the APS product standard as the active handoff workbench for an APS collaboration round',
+      'not only a problem page',
+      'No mandatory Live blocker',
       'This status does not certify reliable cross-machine APS Live',
       'or full first-use product-flow coverage',
       'S105-style same-machine evidence proves only the exact scripted branch it ran',
@@ -965,6 +1252,9 @@ try {
       'APS 合作目錄',
       '用戶名稱',
       'Check APS 基準確認',
+      'APS Live 工作台',
+      'APS Live 交接工作台',
+      '正式狀態仍回到 terminal / 本機 AI 經用戶確認落帳',
       '收件方 check Drive',
       '雙機測試不是早期排錯手段',
       '真人 UAT gate',
@@ -1024,9 +1314,13 @@ try {
       'peer join / leave / reconnect',
       'A→B / B→A browser chat',
       '需先建立共同目標與分工',
-      '共同基準：未通過 / 需處理',
-      '共同基準：進行中',
-      '連接 APS Live',
+      '準備交接包：未通過 / 需處理',
+      '準備交接包：進行中',
+      '依 APS Live 階段 UX 規格顯示「準備交接包」',
+      '主行動是交給本機 AI 草擬交接包',
+      '把「目前沒有正式決策」當主訊息',
+      '讓用戶只能在協調分頁深處才找到正確下一步',
+      '重新嘗試即時對齊',
       '交接事件紀錄',
       '目前階段與正式操作',
       '協調與回應',
@@ -1040,6 +1334,7 @@ try {
   expectFirstCheckApsLiveTranscriptFixture();
   expectFormalHandoffCycleFixture();
   expectNoviceNontechnicalUxAxis();
+  expectNoviceNaturalHandoffDryRunGate();
 
   expectRepoFileContains(
     'governance map links to APS full flow map and UX matrix',
@@ -1050,6 +1345,17 @@ try {
       'APS 全流程地圖',
       'APS 單機 UX Transcript 矩陣',
       '安裝、邀請、加入、共同基準、正式交接、收件、退回與收結',
+    ],
+  );
+
+  expectRepoFileContains(
+    'public governance map keeps APS Live workbench target',
+    'docs/qc/governance-map.html',
+    [
+      'APS Live 是交接期間的階段追蹤、即時對齊、回饋與例外處理工作台',
+      'APS Live 工作台入口',
+      '沒有必須修復的卡點只代表 Live 非強制，不代表不能即時對齊',
+      '正式狀態仍須回到 terminal',
     ],
   );
 
@@ -1064,6 +1370,8 @@ try {
     ],
     ['dashboard', 'Dashboard', 'HTML dashboard', '_context/dashboard', '已退役'],
   );
+
+  expectCurrentPublicVersionMirrored();
 
   expectRepoFileContains(
     'APS Live Trystero QC requires end-to-end and 3+ one-to-one-boundary gates',
@@ -1120,18 +1428,35 @@ try {
       'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`',
       'active packet consistency across `check-aps`, `check-drive`, and APS Live',
       'controlled normal-handoff completion loop',
-      'Six-stage Product Flow Definition',
-      'APS Live is not considered product-flow complete until this exact six-stage path is proven with two APS identities',
-      'Each stage must have evidence of transition, not only a visible label on the page.',
+      'Four-stage Main Flow + Internal Product Gate',
+      '準備交接包',
+      '確認並發出',
+      '對方查看 / 處理',
+      '檢查回覆 / 收結',
+      'APS Live Stage UX Specification',
+      'APS Live is stage-led, not feature-led',
+      'Every visible state must answer these five questions in plain language',
+      'Button result contract',
+      'Every APS Live button must end in one of three user-understandable result states',
+      'The same rule applies across the four visible stages (`準備交接包`, `確認並發出`, `對方查看 / 處理`, `檢查回覆 / 收結`)',
+      'Stage-by-stage UX Contract',
+      'Shared goal is confirmed, no active formal handoff packet exists. This is not an empty state.',
+      '交給本機 AI 草擬交接包',
+      '本輪正式交接包尚未建立。你正在補充交接包資料，不是收正式任務。',
+      'The phrase `目前沒有正式決策` may appear only as secondary explanation.',
+      'For no-active-handoff alignment, receiver waiting, or next-round preparation, the textarea must start empty or use placeholder text only;',
+      'Normal user-facing UI must avoid exposing command / terminal / bridge / write jargon as the main instruction.',
+      'APS Live is not considered product-flow complete until this exact internal six-stage path is proven with two APS identities',
+      'Each internal stage must have evidence of transition. Showing the four main labels on the page is not enough.',
       '`共同基準`',
       '`已發出`',
       '`對方查看`',
       '`可開工判斷`',
       '`處理 / 補資料`',
       '`正式更新`',
-      'This six-stage path is the product-flow gate.',
-      'None of those can replace a missing six-stage transition.',
-      'the case where no `shared_goal_and_roles` baseline exists and `共同基準` must be shown as blocked rather than completed',
+      'This internal six-stage path is the product-flow gate.',
+      'None of those can replace a missing internal six-stage transition.',
+      'the case where no `shared_goal_and_roles` baseline exists and `共同基準` must be blocked in the internal state rather than treated as completed',
       'APS Live end-to-end operation flow',
       'APS Live operation smoke standard',
       'This recurring smoke is a product operation gate, not a one-time demo',
@@ -1227,8 +1552,9 @@ try {
   const jayBeforeConfirmLiveHtml = fs.readFileSync(jayBeforeConfirmLivePath, 'utf8');
   assert(jayBeforeConfirmLiveHtml.includes('共同目標與分工仍未完全確認'), 'journey jay before confirm live: missing unconfirmed shared-goal blocker', jayBeforeConfirmLiveHtml);
   assert(jayBeforeConfirmLiveHtml.includes('不可先開普通任務'), 'journey jay before confirm live: missing cannot-start warning', jayBeforeConfirmLiveHtml);
-  assert(/tracking-step active" aria-label="共同基準：進行中"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: common baseline should be in progress, not completed', jayBeforeConfirmLiveHtml);
-  assert(!/tracking-step done" aria-label="共同基準：已完成"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: common baseline must not be marked completed before confirmation', jayBeforeConfirmLiveHtml);
+  assert(/tracking-step active" aria-label="準備交接包：進行中"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: visible stage should be preparing handoff package', jayBeforeConfirmLiveHtml);
+  assert(jayBeforeConfirmLiveHtml.includes('"internal_tracking_steps"'), 'journey jay before confirm live: should preserve internal stage details for local AI', jayBeforeConfirmLiveHtml);
+  assert(jayBeforeConfirmLiveHtml.includes('"label": "共同基準"'), 'journey jay before confirm live: internal common baseline should remain available', jayBeforeConfirmLiveHtml);
 
   const jayConfirmSharedGoal = runApsProcess(['consume',
     '--hub-root', hubRoot,
@@ -1244,7 +1570,7 @@ try {
   const jayAfterConfirm = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
   const jayAfterConfirmOutput = outputOf(jayAfterConfirm);
   assert(jayAfterConfirm.status === 0, `journey jay check-aps after shared goal confirm: expected exit 0, got ${jayAfterConfirm.status}`, jayAfterConfirmOutput);
-  for (const text of ['目前沒有明確卡點', '按共同目標與分工推進', '根據目前共同目標與分工', '📌 下一輪起點', '目前沒有進行中的正式工作包；如要再合作，下一輪由這一步開始。']) {
+  for (const text of ['目前沒有正式交接卡點', '即時對齊', 'APS Live', '按共同目標與分工推進', '下一輪目標、收件人、交回物和缺口', '📌 下一輪起點', '共同基準與協作者已就緒，目前未有正式交接包。', '要合作時，先說明下一輪目標、收件人、交回物和真源。']) {
     assert(jayAfterConfirmOutput.includes(text), `journey jay check-aps after confirm: missing ${text}`, jayAfterConfirmOutput);
   }
   const jayAfterConfirmLive = runApsProcess(['live',
@@ -1255,9 +1581,9 @@ try {
   const jayAfterConfirmLiveOutput = outputOf(jayAfterConfirmLive);
   assert(jayAfterConfirmLive.status === 0, `journey jay live after shared goal confirm: expected exit 0, got ${jayAfterConfirmLive.status}`, jayAfterConfirmLiveOutput);
   const jayAfterConfirmLiveHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html'), 'utf8');
-  assert(jayAfterConfirmLiveHtml.includes('沒有進行中交接'), 'journey jay live after confirm: idle state should not look like an active handoff', jayAfterConfirmLiveHtml);
-  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(jayAfterConfirmLiveHtml), 'journey jay live after confirm: common baseline should remain completed', jayAfterConfirmLiveHtml);
-  assert(!/tracking-step active" aria-label="已發出：進行中"/.test(jayAfterConfirmLiveHtml), 'journey jay live after confirm: no outgoing handoff should be marked active', jayAfterConfirmLiveHtml);
+  assert(jayAfterConfirmLiveHtml.includes('準備交接包'), 'journey jay live after confirm: no-active state should be framed as preparing a handoff package', jayAfterConfirmLiveHtml);
+  assert(/tracking-step active" aria-label="準備交接包：進行中"/.test(jayAfterConfirmLiveHtml), 'journey jay live after confirm: visible stage should be preparing handoff package', jayAfterConfirmLiveHtml);
+  assert(!/tracking-step active" aria-label="確認並發出：進行中"/.test(jayAfterConfirmLiveHtml), 'journey jay live after confirm: no formal package should be marked as being issued', jayAfterConfirmLiveHtml);
   const jayAfterConfirmFull = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--full']);
   const jayAfterConfirmFullOutput = outputOf(jayAfterConfirmFull);
   assert(jayAfterConfirmFull.status === 0, `journey jay full check-aps after shared goal confirm: expected exit 0, got ${jayAfterConfirmFull.status}`, jayAfterConfirmFullOutput);
@@ -1301,10 +1627,10 @@ try {
   const validHandoffPacketId = extractPublishedPacketId(validHandoffOutput, 'journey valid handoff publish');
 
   for (const text of [
-    '可選即時核對',
+    'APS Live 工作台',
     '雙方各自在自己的已接 APS 項目資料夾說「Check APS」',
     '不要把本機 file:// APS Live 頁當成對方可開的網址',
-    '正式狀態仍以 Drive 內 packet / ack 為準',
+    '正式狀態仍以 Drive 內正式交接紀錄為準',
   ]) {
     assert(validHandoffOutput.includes(text), `journey valid handoff publish: missing post-publish Live routing text ${text}`, validHandoffOutput);
   }
@@ -1314,11 +1640,11 @@ try {
   const adamWaitingCheckOutput = outputOf(adamWaitingCheck);
   assert(adamWaitingCheck.status === 0, `journey adam check-aps waiting outgoing: expected exit 0, got ${adamWaitingCheck.status}`, adamWaitingCheckOutput);
   for (const text of [
-    '1 件正式工作包等對方處理',
-    '正式路徑：提醒對方在自己項目資料夾 check Drive',
-    '即時核對：雙方各自 Check APS 打開 Live',
+    '| 對方查看 / 處理 | 👉 目前位置 / ⏳ 等待 | 1 件正式交接等對方查看、處理或回覆。',
+    '正式路徑是提醒對方 check Drive',
+    '即時核對可雙方打開 APS Live',
     '正式狀態仍等對方 check Drive / 回覆',
-    'APS Live 只作即時核對，不取代 packet / ack',
+    'APS Live 作交接追蹤與即時對齊，不取代 Drive 內的正式交接紀錄',
   ]) {
     assert(adamWaitingCheckOutput.includes(text), `journey adam check-aps waiting outgoing: missing ${text}`, adamWaitingCheckOutput);
   }
@@ -1326,7 +1652,14 @@ try {
   const adamWaitingLiveOutput = outputOf(adamWaitingLive);
   assert(adamWaitingLive.status === 0, `journey adam live waiting outgoing: expected exit 0, got ${adamWaitingLive.status}`, adamWaitingLiveOutput);
   const adamWaitingLiveHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_adam.html'), 'utf8');
+  const adamWaitingLiveVisibleText = visibleTextFromHtml(adamWaitingLiveHtml);
   assert(/"formal_actions": \[\s*\]/.test(adamWaitingLiveHtml), 'journey adam waiting live: active waiting work packet should not inherit close action from an already-confirmed baseline or older packet', adamWaitingLiveHtml);
+  assert(adamWaitingLiveHtml.includes('正式交接仍是 adam → jay'), 'journey adam waiting live: sender page should show formal route from sender to receiver', adamWaitingLiveHtml);
+  assert(!adamWaitingLiveHtml.includes('正式交接仍是 jay → adam'), 'journey adam waiting live: sender page must not reverse formal handoff direction', adamWaitingLiveHtml);
+  assert(adamWaitingLiveVisibleText.includes('下一步：等待對方查看或處理；需要核對時可發即時留言，或按「重新讀取正式狀態」。'), 'journey adam waiting live: sender waiting page should not tell users to start the next-round preparation flow', adamWaitingLiveVisibleText);
+  assert(!adamWaitingLiveVisibleText.includes('下一步：先整理下一輪目標、收件人、交回物和可查真源；再交給本機 AI 草擬交接包。'), 'journey adam waiting live: active waiting handoff must not show no-active next-round instruction', adamWaitingLiveVisibleText);
+  assert(adamWaitingLiveVisibleText.includes('等待即時留言'), 'journey adam waiting live: live-comment event row should remain a neutral waiting state', adamWaitingLiveVisibleText);
+  assert(!adamWaitingLiveVisibleText.includes('留言：未通過'), 'journey adam waiting live: live-comment event row must not inherit formal blocker severity', adamWaitingLiveVisibleText);
 
   writeTempApsConfig(journeyProject, 'jay');
   const jayCheckValidHandoff = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
@@ -1339,19 +1672,23 @@ try {
   const jayValidHandoffLiveOutput = outputOf(jayValidHandoffLive);
   assert(jayValidHandoffLive.status === 0, `journey jay live valid handoff: expected exit 0, got ${jayValidHandoffLive.status}`, jayValidHandoffLiveOutput);
   const jayValidHandoffLiveHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html'), 'utf8');
-  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(jayValidHandoffLiveHtml), 'journey jay valid handoff live: confirmed common baseline should be completed', jayValidHandoffLiveHtml);
-  assert(/tracking-step active" aria-label="可開工判斷：進行中"/.test(jayValidHandoffLiveHtml), 'journey jay valid handoff live: can-start judgement should be active for normal pending handoff', jayValidHandoffLiveHtml);
+  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(jayValidHandoffLiveHtml), 'journey jay valid handoff live: preparing stage should be completed', jayValidHandoffLiveHtml);
+  assert(/tracking-step active" aria-label="對方查看 \/ 處理：進行中"/.test(jayValidHandoffLiveHtml), 'journey jay valid handoff live: receiver handling stage should be active for normal pending handoff', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('"label": "可開工判斷"'), 'journey jay valid handoff live: internal can-start judgement should remain available', jayValidHandoffLiveHtml);
   assert(jayValidHandoffLiveHtml.includes('可按交接內容開工'), 'journey jay valid handoff live: missing can-start label', jayValidHandoffLiveHtml);
   assert(!jayValidHandoffLiveHtml.includes('未見目前有效共同目標與分工基準'), 'journey jay valid handoff live: should not show no-baseline blocker after confirmation', jayValidHandoffLiveHtml);
   assert(jayValidHandoffLiveHtml.includes(`"seen_packet": "adam:${validHandoffPacketId}:v1"`), 'journey jay valid handoff live: snapshot should point to the same pending packet as terminal state', jayValidHandoffLiveHtml);
-  assert(jayValidHandoffLiveHtml.includes('正式狀態：本頁生成時快照'), 'journey jay valid handoff live: formal snapshot boundary should be visible', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('正式狀態：'), 'journey jay valid handoff live: formal status boundary should be visible', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('本頁資料：已按本機 AI 最近一次檢查更新'), 'journey jay valid handoff live: page-data freshness should be visible without technical snapshot wording', jayValidHandoffLiveHtml);
   assert(jayValidHandoffLiveHtml.includes('重新讀取正式狀態'), 'journey jay valid handoff live: stale-page refresh action should be visible', jayValidHandoffLiveHtml);
   assert(jayValidHandoffLiveHtml.includes('/formal-state'), 'journey jay valid handoff live: bridge formal refresh endpoint should be present', jayValidHandoffLiveHtml);
+  assert(jayValidHandoffLiveHtml.includes('正式交接仍是 adam → jay'), 'journey jay valid handoff live: receiver page should show formal route from sender to receiver', jayValidHandoffLiveHtml);
+  assert(!jayValidHandoffLiveHtml.includes('正式交接仍是 jay → adam'), 'journey jay valid handoff live: receiver page must not reverse formal handoff direction', jayValidHandoffLiveHtml);
 
   const jayCheckDriveValid = runCheckDrive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--from', 'adam']);
   const jayCheckDriveValidOutput = outputOf(jayCheckDriveValid);
   assert(jayCheckDriveValid.status === 0, `journey jay check-drive valid handoff: expected exit 0, got ${jayCheckDriveValid.status}`, jayCheckDriveValidOutput);
-  for (const text of ['今日收件報告', 'homepage_copy_review', validHandoffPacketId, '對方交了甚麼', '建議下一步']) {
+  for (const text of ['今日收件報告', 'homepage_copy_review', validHandoffPacketId, '對方交了甚麼', '建議下一步', '可直接貼給 AI', '請先讀完整交接內容']) {
     assert(jayCheckDriveValidOutput.includes(text), `journey jay check-drive valid handoff: missing ${text}`, jayCheckDriveValidOutput);
   }
   const controlledCompletionLedger = [
@@ -1399,7 +1736,8 @@ try {
   const jayAfterConsumeCheckAps = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
   const jayAfterConsumeCheckApsOutput = outputOf(jayAfterConsumeCheckAps);
   assert(jayAfterConsumeCheckAps.status === 0, `journey jay check-aps after consuming valid handoff: expected exit 0, got ${jayAfterConsumeCheckAps.status}`, jayAfterConsumeCheckApsOutput);
-  assert(jayAfterConsumeCheckApsOutput.includes('目前沒有明確卡點'), 'journey jay check-aps after consume: formal state should move on even if an older Live HTML remains on disk', jayAfterConsumeCheckApsOutput);
+  assert(jayAfterConsumeCheckApsOutput.includes('目前沒有正式交接卡點'), 'journey jay check-aps after consume: formal state should move on even if APS Live remains available as a workbench', jayAfterConsumeCheckApsOutput);
+  assert(jayAfterConsumeCheckApsOutput.includes('如果你想跟協作者即時討論下一步'), 'journey jay check-aps after consume: APS Live should remain available for alignment after formal pending state clears', jayAfterConsumeCheckApsOutput);
   assert(!jayAfterConsumeCheckApsOutput.includes('有 1 件交接等你處理'), 'journey jay check-aps after consume: stale generated page must not keep old pending terminal state alive', jayAfterConsumeCheckApsOutput);
   const jayAfterConsumeCheckDrive = runCheckDrive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay', '--from', 'adam']);
   const jayAfterConsumeCheckDriveOutput = outputOf(jayAfterConsumeCheckDrive);
@@ -1444,6 +1782,14 @@ try {
   for (const text of ['已收結', 'Receiver consumed homepage_copy_review through APS Live bridge smoke']) {
     assert(adamStatusAfterCloseOutput.includes(text), `journey adam status after bridge close: missing ${text}`, adamStatusAfterCloseOutput);
   }
+  writeTempApsConfig(journeyProject, 'jay');
+  const jayLiveAfterClose = runLive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
+  const jayLiveAfterCloseOutput = outputOf(jayLiveAfterClose);
+  assert(jayLiveAfterClose.status === 0, `journey jay live after sender close: expected exit 0, got ${jayLiveAfterClose.status}`, jayLiveAfterCloseOutput);
+  const jayLiveAfterCloseHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html'), 'utf8');
+  assert(jayLiveAfterCloseHtml.includes('本輪已完成'), 'journey jay live after sender close: receiver-side Live should show completed state', jayLiveAfterCloseHtml);
+  assert(!jayLiveAfterCloseHtml.includes('尚未正式收結'), 'journey jay live after sender close: receiver-side Live must not show stale not-closed timeline text', jayLiveAfterCloseHtml);
+  console.log('PASS APS Live receiver completion timeline follows formal completed state');
   controlledCompletionLedger.push({
     stage: 'bridge_close_confirmed',
     actor: 'adam',
@@ -1507,8 +1853,9 @@ try {
   const jayBadHandoffLivePath = path.join(hubRoot, journeyProject, '_context', 'aps-live_jay.html');
   assert(fs.existsSync(jayBadHandoffLivePath), 'journey jay bad handoff: check-aps should auto-generate APS Live for missing-information return');
   const jayBadHandoffLiveHtml = fs.readFileSync(jayBadHandoffLivePath, 'utf8');
-  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(jayBadHandoffLiveHtml), 'journey jay bad handoff live: common baseline should remain completed', jayBadHandoffLiveHtml);
-  assert(/tracking-step blocked" aria-label="可開工判斷：未通過 \/ 需處理"/.test(jayBadHandoffLiveHtml), 'journey jay bad handoff live: can-start judgement should be blocked for missing information', jayBadHandoffLiveHtml);
+  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(jayBadHandoffLiveHtml), 'journey jay bad handoff live: preparing stage should remain completed', jayBadHandoffLiveHtml);
+  assert(/tracking-step blocked" aria-label="對方查看 \/ 處理：未通過 \/ 需處理"/.test(jayBadHandoffLiveHtml), 'journey jay bad handoff live: receiver handling stage should be blocked for missing information', jayBadHandoffLiveHtml);
+  assert(jayBadHandoffLiveHtml.includes('"label": "可開工判斷"'), 'journey jay bad handoff live: internal can-start judgement should remain available', jayBadHandoffLiveHtml);
   assert(jayBadHandoffLiveHtml.includes('未列明真源指標或來源位置'), 'journey jay bad handoff live: missing information blocker should be visible', jayBadHandoffLiveHtml);
   assert(jayBadHandoffLiveHtml.includes('請對方補真源、範圍或驗收標準'), 'journey jay bad handoff live: missing formal return action', jayBadHandoffLiveHtml);
 
@@ -1752,6 +2099,33 @@ try {
   const noahCardAfterAdd = JSON.parse(fs.readFileSync(path.join(hubRoot, postJoinProject, '_peers', 'agents', 'noah_joiner.json'), 'utf8'));
   assert(noahCardAfterAdd.peer_state === 'confirmed', 'post-join peer add must preserve confirmed peer card', JSON.stringify(noahCardAfterAdd, null, 2));
 
+  const parallelInitProject = 'parallel_init_peer_cards';
+  const parallelSenderRoot = makeHandoffProject('parallel-init-sender-project');
+  const parallelReceiverRoot = makeHandoffProject('parallel-init-receiver-project');
+  const parallelInit = runParallelInitPair({
+    project: parallelInitProject,
+    senderRoot: parallelSenderRoot,
+    receiverRoot: parallelReceiverRoot,
+  });
+  const parallelInitOutput = outputOf(parallelInit);
+  assert(parallelInit.status === 0, `parallel init peer cards: expected exit 0, got ${parallelInit.status}`, parallelInitOutput);
+  const parallelPeerDir = path.join(hubRoot, parallelInitProject, '_peers', 'agents');
+  const parallelCards = {};
+  for (const id of ['adam', 'sandbox']) {
+    const cardPath = path.join(parallelPeerDir, `${id}.json`);
+    assert(fs.existsSync(cardPath), `parallel init peer cards: missing ${id}.json`, parallelInitOutput);
+    parallelCards[id] = JSON.parse(fs.readFileSync(cardPath, 'utf8'));
+    assert(parallelCards[id].peer_state === 'confirmed', `parallel init peer cards: ${id} should remain confirmed`, JSON.stringify(parallelCards[id], null, 2));
+  }
+  const parallelPeers = runApsProcess(
+    ['peers', '--hub-root', hubRoot, '--project', parallelInitProject, '--agent-id', 'adam'],
+    parallelSenderRoot,
+  );
+  const parallelPeersOutput = outputOf(parallelPeers);
+  assert(parallelPeers.status === 0, `parallel init peers readback: expected exit 0, got ${parallelPeers.status}`, parallelPeersOutput);
+  assert(!parallelPeersOutput.includes('不是可讀 JSON'), 'parallel init peers readback: peer cards must stay readable', parallelPeersOutput);
+  console.log('PASS parallel init keeps peer cards readable and confirmed');
+
   const postJoinSharedGoal = runPublish([
     '--hub-root', hubRoot,
     '--project', postJoinProject,
@@ -1867,6 +2241,24 @@ try {
   expectPublishCase(
     'publish blocks inactive provisional peer',
     ['--hub-root', hubRoot, '--project', 'publish_provisional_peer', '--agent-id', 'adam', '--to', 'pending_peer', '--topic', 'provisional_peer', '--body', 'should block'],
+    1,
+    ['no activity yet', 'ask your AI to generate an APS invite'],
+  );
+  writeFile(
+    apsConfigPath,
+    `${JSON.stringify({
+      hubRoot,
+      projectSlug: 'publish_provisional_peer',
+      agentId: 'adam',
+      otherAgentId: 'pending_peer',
+      role: null,
+      createdAt: '2026-06-12T00:00:00.000Z',
+      version: 1,
+    }, null, 2)}\n`,
+  );
+  expectPublishCase(
+    'publish blocks default provisional peer',
+    ['--hub-root', hubRoot, '--project', 'publish_provisional_peer', '--agent-id', 'adam', '--topic', 'default_provisional_peer', '--body', 'should block default too'],
     1,
     ['no activity yet', 'ask your AI to generate an APS invite'],
   );
@@ -2119,6 +2511,150 @@ try {
     0,
     ['已發佈', '交接完整性檢查: 通過', '已申報項目'],
   );
+
+  publishReadyProject('strict_publish_dry_run');
+  expectPublishCase(
+    'strict handoff publish dry-run does not write packet',
+    [
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_dry_run',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'handoff_dry_run',
+      '--body',
+      [
+        '## 共同目標',
+        '讓新手交接流程在資料不足時先補洞,再發正式 APS 交接包。',
+        '',
+        '## 本方任務',
+        '已完成發送方流程分析,並準備把問題交給 Jay 審閱。',
+        '',
+        '## 對方任務',
+        'Jay 需要審閱交接定義卡是否足夠保護新手。',
+        '',
+        '## 交叉點',
+        'Jay 只需審閱新手交接流程,不用接手整個專案。',
+        '',
+        '## 請對方做的事',
+        '請確認三問補洞是否足夠。',
+        '',
+        '## 不應誤解',
+        '這不是要求 Jay 發佈版本或覆寫文件。',
+        '',
+        '## 證據位置',
+        '參考共用 Drive 內 README.md 與 skills/aps/SKILL.md 的新手交接流程。',
+        '',
+        '## 接收方開工條件',
+        'Jay 能在自己的項目資料夾找到 README.md 與 skills/aps/SKILL.md，並確認這兩份檔案是最新同步版本。',
+        '',
+        '## 風險 / 未決事項',
+        '仍需真實新手演練驗證。',
+      ].join('\n'),
+      '--items', '確認三問補洞是否足夠',
+      '--strict-handoff',
+      '--dry-run',
+    ],
+    0,
+    ['dry-run 通過', '未寫入共用 Drive', '交接完整性檢查: 通過', '移除 `--dry-run`'],
+  );
+  assert(
+    !fs.existsSync(path.join(hubRoot, 'strict_publish_dry_run', 'from_adam', 'packets')),
+    'strict handoff publish dry-run: should not create packet directory',
+  );
+  assert(
+    fs.readFileSync(path.join(hubRoot, 'strict_publish_dry_run', 'from_adam', 'outbox.log.md'), 'utf8') === '',
+    'strict handoff publish dry-run: should not append outbox log',
+  );
+  console.log('PASS strict handoff publish dry-run leaves Drive unchanged');
+
+  publishReadyProject('strict_publish_eperm_recovery');
+  const originalWriteFileSyncForPublish = fs.writeFileSync;
+  fs.writeFileSync = function patchedPublishWriteFileSync(filePath, ...writeArgs) {
+    if (String(filePath).endsWith(path.join('strict_publish_eperm_recovery', 'from_adam', 'packets', '20260626T120000Z__handoff_eperm__v1', 'packet.md'))) {
+      const error = new Error('EPERM: operation not permitted, open C:\\locked\\packet.md');
+      error.code = 'EPERM';
+      throw error;
+    }
+    return originalWriteFileSyncForPublish.call(fs, filePath, ...writeArgs);
+  };
+  const originalDateNow = Date.now;
+  const OriginalDate = Date;
+  class FixedDate extends OriginalDate {
+    constructor(...args) {
+      if (args.length === 0) return new OriginalDate('2026-06-26T12:00:00Z');
+      return new OriginalDate(...args);
+    }
+    static now() { return new OriginalDate('2026-06-26T12:00:00Z').getTime(); }
+    static parse(value) { return OriginalDate.parse(value); }
+    static UTC(...args) { return OriginalDate.UTC(...args); }
+  }
+  global.Date = FixedDate;
+  let epermPublishResult;
+  try {
+    epermPublishResult = runPublish([
+      '--hub-root', hubRoot,
+      '--project', 'strict_publish_eperm_recovery',
+      '--agent-id', 'adam',
+      '--to', 'jay',
+      '--topic', 'handoff_eperm',
+      '--body',
+      [
+        '## 共同目標',
+        '驗證 Drive 寫入失敗時不會把半成品當正式交接。',
+        '',
+        '## 本方任務',
+        'Adam 準備發出測試交接。',
+        '',
+        '## 對方任務',
+        'Jay 只需確認錯誤提示分層。',
+        '',
+        '## 交叉點',
+        '正式狀態只以 packet.md 和 outbox publish 同時成功為準。',
+        '',
+        '## 請對方做的事',
+        '確認提示清楚。',
+        '',
+        '## 不應誤解',
+        '不要把空資料夾當成功。',
+        '',
+        '## 真源指標',
+        '可共享真源指標: 測試 hub 內的 packet.md 與 outbox.log.md；接收方能在自己的 APS project 讀到才算正式交接。',
+        '',
+        '## 接收方開工條件',
+        'Jay 能看到正式 packet 和 outbox 記錄才可開工。',
+        '',
+        '## 風險 / 未決事項',
+        'Drive 可能鎖檔。',
+      ].join('\n'),
+      '--items', '確認提示清楚',
+      '--strict-handoff',
+    ]);
+  } finally {
+    fs.writeFileSync = originalWriteFileSyncForPublish;
+    global.Date = OriginalDate;
+    Date.now = originalDateNow;
+  }
+  const epermPublishOutput = outputOf(epermPublishResult);
+  assert(epermPublishResult.status === 1, `strict publish EPERM recovery: expected exit 1, got ${epermPublishResult.status}`, epermPublishOutput);
+  for (const text of [
+    '這次未成功記錄到 APS；對方未必會收到這個交接包。',
+    '給本機 AI:',
+    '只有兩者都成功才算正式發佈',
+    '不要手動補 packet 或 outbox',
+    '不要把空資料夾當成交接成功',
+    '用同一條 aps publish 命令重試',
+    '排錯細節:',
+    'packet.md',
+    'outbox.log.md',
+    '沒有 publish 行',
+  ]) {
+    assert(epermPublishOutput.includes(text), `strict publish EPERM recovery: missing ${text}`, epermPublishOutput);
+  }
+  assert(
+    !fs.readFileSync(path.join(hubRoot, 'strict_publish_eperm_recovery', 'from_adam', 'outbox.log.md'), 'utf8').includes('handoff_eperm'),
+    'strict publish EPERM recovery: outbox must not claim publish success',
+  );
+  console.log('PASS strict publish EPERM recovery separates human, AI, and troubleshooting guidance');
 
   publishReadyProject('strict_publish_without_items');
   expectPublishCase(
@@ -2596,7 +3132,7 @@ try {
   );
   writeFile(
     path.join(hubRoot, 'shared_goal_inbox', 'from_adam', 'packets', '20260616T143211Z__shared_goal_and_roles__v1', 'packet.md'),
-    `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## Common Goal\n用 APS 建立 Jay 首輪共同基準，確保接收方先確認分工再處理普通交接。\n\n## Participants\nadam 負責發出基準；jay 負責確認、部分同意或提出異議。\n\n## First Round Scope\nadam 只發一對一共同目標確認包；jay 不應把它當成普通工作包。\n\n## Acceptance Criteria\nJay 的 check Drive 清楚顯示共同目標、分工、驗收標準與可選確認動作。\n\n## Open Items\nJay 仍未 consume 或 decline 這一版共同目標。\n`,
+    `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n共同目標：用 APS 建立 Jay 首輪共同基準，確保接收方先確認分工再處理普通交接。\n\n參與者與用戶名稱：adam 負責發出基準；jay 負責確認、部分同意或提出異議。\n\n第一個可做小步：adam 只發一對一共同目標確認包；jay 不應把它當成普通工作包。\n\n最小驗收方式：Jay 的 check Drive 清楚顯示共同目標、分工、驗收標準與可選確認動作。\n\n待確認：Jay 仍未 consume 或 decline 這一版共同目標。\n\n接收方開工條件：Jay 在自己的 workspace 看到這份共同基準，並能選擇同意、部分同意或提出異議。\n`,
   );
   writeFile(
     path.join(hubRoot, 'shared_goal_inbox_insufficient', 'from_adam', 'outbox.log.md'),
@@ -2669,6 +3205,41 @@ try {
   writeFile(
     path.join(hubRoot, 'dashboard_no_baseline', '_peers', 'agents', 'jay.json'),
     `${JSON.stringify({ project: 'dashboard_no_baseline', agent_id: 'jay', display_name: 'Jay', lane: 'from_jay', status: 'active', peer_state: 'confirmed' }, null, 2)}\n`,
+  );
+  const noBaselineSentProject = 'dashboard_no_baseline_sent';
+  writeTempApsConfig(noBaselineSentProject, 'adam');
+  writeFile(path.join(hubRoot, noBaselineSentProject, 'from_jay', 'outbox.log.md'), '');
+  writePeerCard(noBaselineSentProject, 'adam', 'Adam');
+  writePeerCard(noBaselineSentProject, 'jay', 'Jay');
+  inboxPacket(
+    noBaselineSentProject,
+    'adam',
+    'jay',
+    '20260624T054916Z__northshore_first_interview_brief',
+    'northshore_first_interview_brief',
+  );
+  writeTempApsConfig('live_no_active', 'adam');
+  writeFile(path.join(hubRoot, 'live_no_active', 'from_adam', 'outbox.log.md'), '2026-06-01T09:00:00Z | publish | 20260601T090000Z__shared_goal_and_roles v1 | to:jay | items:1\n');
+  writeFile(path.join(hubRoot, 'live_no_active', 'from_jay', 'outbox.log.md'), '');
+  writeFile(
+    path.join(hubRoot, 'live_no_active', 'from_adam', 'packets', '20260601T090000Z__shared_goal_and_roles__v1', 'packet.md'),
+    `---\npacket_id: 20260601T090000Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: live_no_active\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-01T09:00:00Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## 共同目標\n用 APS 測試沒有進行中工作包時，Live 頁應顯示下一輪對齊工作台。\n\n## 每人角色\nadam 發起；jay 確認共同基準。\n\n## 第一輪分工\n先確認共同基準，不建立普通工作包。\n\n## 驗收標準\n共同基準已確認後，APS Live 不應顯示假任務卡。\n`,
+  );
+  writeAck('live_no_active', 'jay', [
+    {
+      packet_id: '20260601T090000Z__shared_goal_and_roles',
+      version: 1,
+      result: 'Confirmed shared goal and roles v1',
+      at: '2026-06-01T09:10:00Z',
+    },
+  ]);
+  writeFile(
+    path.join(hubRoot, 'live_no_active', '_peers', 'agents', 'adam.json'),
+    `${JSON.stringify({ project: 'live_no_active', agent_id: 'adam', display_name: 'Adam', lane: 'from_adam', status: 'active', peer_state: 'confirmed' }, null, 2)}\n`,
+  );
+  writeFile(
+    path.join(hubRoot, 'live_no_active', '_peers', 'agents', 'jay.json'),
+    `${JSON.stringify({ project: 'live_no_active', agent_id: 'jay', display_name: 'Jay', lane: 'from_jay', status: 'active', peer_state: 'confirmed' }, null, 2)}\n`,
   );
 
   expectCase(
@@ -2803,10 +3374,13 @@ try {
     0,
     [
       'APS 整體狀態',
-      'APS 流程位置',
+      'APS 主流程',
       '| 階段 | 狀態 | 現在代表 | 下一步 |',
       '👉 目前位置',
-      'APS Live 何時用',
+      '準備交接包',
+      '確認並發出',
+      '對方查看 / 處理',
+      '檢查回覆 / 收結',
       '結論',
       '下一句可對 AI 說',
       '交接包狀態',
@@ -2816,18 +3390,18 @@ try {
       '```text',
       '[⚠️ 需退回補資料]',
       '[🔎 先核對風險]',
-      'APS 狀態已在 terminal 顯示',
+      'APS 狀態已在本機 AI 對話顯示',
       'HTML dashboard 已退役',
-      '不用打開 HTML 也可以繼續',
-      '真正操作仍在這個 AI terminal',
+      '不用打開 HTML 也可以查看正式狀態',
+      '想跟協作者即時對齊時才打開 APS Live',
       '不是背景自動監察',
       'APS Live 即時協作',
       `APS Live: ${autoGeneratedLiveProjectPath}`,
       `可點擊開啟: ${autoGeneratedLiveProjectHref}`,
       '頁面已由 Check APS 自動生成 / 更新',
       '你只需打開頁面使用',
-      'Trystero 只做即時核對',
-      '本機 live-bridge',
+      '即時對齊只協助溝通',
+      '頁內重新讀取功能',
     ],
     [
       '📊 數量摘要（排錯用）',
@@ -2864,12 +3438,15 @@ try {
     fs.writeFileSync = originalWriteFileSync;
   }
   for (const text of [
-    'APS 狀態已在 terminal 顯示',
-    'APS 流程位置',
+    'APS 狀態已在本機 AI 對話顯示',
+    'APS 主流程',
     '👉 目前位置',
     'APS Live 頁暫時未能更新',
     '正式狀態已照常讀取',
-    '請先按上方 APS 流程位置推進',
+    '請先按上方 APS 主流程推進',
+    '給本機 AI:',
+    '不要把舊 APS Live HTML 當成最新狀態',
+    '排錯細節:',
   ]) {
     assert(lockedLiveOutput.includes(text), `check-aps locked APS Live html: missing ${text}`, lockedLiveOutput);
   }
@@ -2902,11 +3479,13 @@ try {
     0,
     [
       '共同目標與分工: 未見目前有效基準',
-      'APS 流程位置',
-      '| 2. 建立共同目標與分工 | 👉 目前位置',
+      'APS 主流程',
+      '| 準備交接包 | 👉 目前位置 / ⚠️ 需處理',
       '[🔎 先建立基準]',
-      '不要先發普通任務包',
+      '先用平常話告訴本機 AI',
+      'AI 會帶你確認下一步',
       '下一句可對 AI 說',
+      '我有一份任務資料想交給協作者跟進，你先帶我下一步。',
       'APS Live 即時協作',
       '頁面已由 Check APS 自動生成 / 更新',
     ],
@@ -2916,10 +3495,81 @@ try {
   const noBaselineLiveHtml = fs.readFileSync(noBaselineLivePath, 'utf8');
   assert(noBaselineLiveHtml.includes('需先建立共同目標與分工'), 'aps live no-baseline: missing first-use baseline title', noBaselineLiveHtml);
   assert(noBaselineLiveHtml.includes('未見目前有效共同目標與分工基準'), 'aps live no-baseline: missing explicit baseline blocker', noBaselineLiveHtml);
-  assert(noBaselineLiveHtml.includes('請用 APS 建立共同目標與分工草稿'), 'aps live no-baseline: missing terminal return action', noBaselineLiveHtml);
-  assert(/tracking-step blocked" aria-label="共同基準：未通過 \/ 需處理"/.test(noBaselineLiveHtml), 'aps live no-baseline: common baseline step should be blocked', noBaselineLiveHtml);
-  assert(!/tracking-step done" aria-label="共同基準：已完成"/.test(noBaselineLiveHtml), 'aps live no-baseline: common baseline step must not be marked done', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('"flow_code": "no_baseline_no_packet"'), 'aps live no-baseline: missing explicit status code for first-use blocker', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('請交給本機 AI：我有一份任務資料想交給協作者跟進，你先帶我下一步。'), 'aps live no-baseline: missing novice natural local-AI return action', noBaselineLiveHtml);
+  assert(!noBaselineLiveHtml.includes('請先幫我建立這個 APS 項目的共同目標'), 'aps live no-baseline: should not jump straight to APS internal baseline wording', noBaselineLiveHtml);
+  assert(!noBaselineLiveHtml.includes('共同目標與分工草稿；先給我確認'), 'aps live no-baseline: should not require user to speak APS expert prompt wording', noBaselineLiveHtml);
+  assert(/tracking-step blocked" aria-label="準備交接包：未通過 \/ 需處理"/.test(noBaselineLiveHtml), 'aps live no-baseline: visible preparing stage should be blocked', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('"internal_tracking_steps"'), 'aps live no-baseline: should preserve internal stage details', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('"label": "共同基準"'), 'aps live no-baseline: internal common baseline stage should remain available', noBaselineLiveHtml);
   console.log('PASS check-aps auto-generates no-baseline APS Live with blocked common baseline');
+
+  const noBaselineSentCheck = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline_sent', '--agent-id', 'adam']);
+  const noBaselineSentOutput = outputOf(noBaselineSentCheck);
+  assert(noBaselineSentCheck.status === 0, `check-aps no-baseline sent packet: expected exit 0, got ${noBaselineSentCheck.status}`, noBaselineSentOutput);
+  for (const text of [
+    '| 準備交接包 | ✅ 已完成 / ⚠️ 基準需補 | 正式交接包已存在；共同基準未完成是補救風險，不是目前主動作。 | 本輪先跟進已發出的交接；之後補齊共同基準。 |',
+    '| 對方查看 / 處理 | 👉 目前位置 / ⏳ 等待 | 1 件正式交接等對方查看、處理或回覆。',
+    '你有 1 件交接仍在等對方處理。',
+    '正式狀態仍等對方 check Drive / 回覆',
+    'northshore first interview brief',
+  ]) {
+    assert(noBaselineSentOutput.includes(text), `check-aps no-baseline sent packet: missing ${text}`, noBaselineSentOutput);
+  }
+  assert(!noBaselineSentOutput.includes('- 未見共同目標與分工，暫時不應發普通任務交接。'), 'check-aps no-baseline sent packet: missing-baseline warning must not replace active sent packet conclusion', noBaselineSentOutput);
+  const noBaselineSentLivePath = path.join(hubRoot, 'dashboard_no_baseline_sent', '_context', 'aps-live_adam.html');
+  assert(fs.existsSync(noBaselineSentLivePath), 'check-aps no-baseline sent packet should auto-generate APS Live page');
+  const noBaselineSentLiveHtml = fs.readFileSync(noBaselineSentLivePath, 'utf8');
+  assert(noBaselineSentLiveHtml.includes('"current_case_title": "你交給 jay 的 northshore first interview brief 正在等待回覆"'), 'aps live no-baseline sent packet: primary case should be the waiting formal packet', noBaselineSentLiveHtml);
+  assert(noBaselineSentLiveHtml.includes('"flow_code": "sent_waiting_receiver"'), 'aps live no-baseline sent packet: flow code should make the formal packet primary independent of station wording', noBaselineSentLiveHtml);
+  assert(noBaselineSentLiveHtml.includes('"seen_packet": "adam:20260624T054916Z__northshore_first_interview_brief:v1"'), 'aps live no-baseline sent packet: snapshot should point to the waiting packet', noBaselineSentLiveHtml);
+  assert(noBaselineSentLiveHtml.includes('提醒：共同目標與分工未完成，屬補救風險；目前主線仍是已發出的正式交接包。'), 'aps live no-baseline sent packet: should preserve baseline risk as secondary context', noBaselineSentLiveHtml);
+  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: prepare stage should be done because a formal packet exists', noBaselineSentLiveHtml);
+  assert(/tracking-step active" aria-label="對方查看 \/ 處理：進行中"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: receiver handling stage should be active', noBaselineSentLiveHtml);
+  assert(!noBaselineSentLiveHtml.includes('"current_case_title": "需先建立共同目標與分工"'), 'aps live no-baseline sent packet: missing baseline must not be the primary ticket once a formal packet exists', noBaselineSentLiveHtml);
+  console.log('PASS sent formal packet overrides no-baseline primary Live state while keeping risk context');
+
+  const noBaselineReceiverCheck = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline_sent', '--agent-id', 'jay']);
+  const noBaselineReceiverOutput = outputOf(noBaselineReceiverCheck);
+  assert(noBaselineReceiverCheck.status === 0, `check-aps no-baseline receiver packet: expected exit 0, got ${noBaselineReceiverCheck.status}`, noBaselineReceiverOutput);
+  for (const text of [
+    '| 準備交接包 | ✅ 已完成 / ⚠️ 基準需補 | 正式交接包已存在；共同基準未完成是補救風險，不是目前主動作。 | 本輪先跟進已發出的交接；之後補齊共同基準。 |',
+    '| 對方查看 / 處理 | 👉 目前位置 / ⚠️ 需處理 | 交接需要補資料、釐清共同基準或處理退回原因。',
+    '有 1 件交接要先釐清共同目標與分工。',
+    'adam 交來: northshore first interview brief',
+  ]) {
+    assert(noBaselineReceiverOutput.includes(text), `check-aps no-baseline receiver packet: missing ${text}`, noBaselineReceiverOutput);
+  }
+  const noBaselineReceiverCheckDrive = runCheckDrive(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline_sent', '--agent-id', 'jay']);
+  const noBaselineReceiverCheckDriveOutput = outputOf(noBaselineReceiverCheckDrive);
+  assert(noBaselineReceiverCheckDrive.status === 0, `check-drive no-baseline receiver packet: expected exit 0, got ${noBaselineReceiverCheckDrive.status}`, noBaselineReceiverCheckDriveOutput);
+  for (const text of [
+    '目前有交接要先釐清共同目標與分工，不要直接開工或標記已處理。',
+    '暫時不要開工或標記已處理。判斷：先釐清共同目標。',
+    '目前未見有效共同目標與分工；不應先處理普通任務。',
+    '先要求對方發出或補發 shared_goal_and_roles。',
+    '可直接貼給 AI',
+    '我收到 adam 交來的 northshore_first_interview_brief v1。請先核對共同目標與分工是否已確認',
+    '先不要標記已處理',
+  ]) {
+    assert(noBaselineReceiverCheckDriveOutput.includes(text), `check-drive no-baseline receiver packet: missing ${text}`, noBaselineReceiverCheckDriveOutput);
+  }
+  assert(!noBaselineReceiverCheckDriveOutput.includes('✅ 通過檢查後,可以叫 AI 標記已處理'), 'check-drive no-baseline receiver packet: must not offer consume path while shared goal is missing', noBaselineReceiverCheckDriveOutput);
+  const noBaselineReceiverLive = runLive(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline_sent', '--agent-id', 'jay']);
+  const noBaselineReceiverLiveOutput = outputOf(noBaselineReceiverLive);
+  assert(noBaselineReceiverLive.status === 0, `aps live no-baseline receiver packet: expected exit 0, got ${noBaselineReceiverLive.status}`, noBaselineReceiverLiveOutput);
+  const noBaselineReceiverLiveHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_no_baseline_sent', '_context', 'aps-live_jay.html'), 'utf8');
+  assert(noBaselineReceiverLiveHtml.includes('"current_case_title": "adam 交來 northshore first interview brief，需要先判斷能否開工"'), 'aps live no-baseline receiver packet: primary case should be the received formal packet', noBaselineReceiverLiveHtml);
+  assert(noBaselineReceiverLiveHtml.includes('"flow_code": "received_needs_shared_goal"'), 'aps live no-baseline receiver packet: flow code should carry shared-goal clarification without replacing the formal packet', noBaselineReceiverLiveHtml);
+  assert(noBaselineReceiverLiveHtml.includes('"seen_packet": "adam:20260624T054916Z__northshore_first_interview_brief:v1"'), 'aps live no-baseline receiver packet: snapshot should point to the received packet', noBaselineReceiverLiveHtml);
+  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(noBaselineReceiverLiveHtml), 'aps live no-baseline receiver packet: prepare stage should be done because a formal packet exists', noBaselineReceiverLiveHtml);
+  assert(/tracking-step blocked" aria-label="對方查看 \/ 處理：未通過 \/ 需處理"/.test(noBaselineReceiverLiveHtml), 'aps live no-baseline receiver packet: receiver handling stage should carry the shared-goal clarification blocker', noBaselineReceiverLiveHtml);
+  assert(!noBaselineReceiverLiveHtml.includes('"current_case_title": "需先建立共同目標與分工"'), 'aps live no-baseline receiver packet: missing baseline must not replace received packet as primary ticket', noBaselineReceiverLiveHtml);
+  assert(noBaselineReceiverLiveHtml.includes('正式交接仍是 adam → jay'), 'aps live no-baseline receiver packet: receiver page should show sender-to-receiver formal route even when shared-goal clarification blocks handling', noBaselineReceiverLiveHtml);
+  assert(!noBaselineReceiverLiveHtml.includes('正式交接仍是 jay → adam'), 'aps live no-baseline receiver packet: receiver page must not reverse formal handoff direction', noBaselineReceiverLiveHtml);
+  const apsSourceAfterFlowHardening = fs.readFileSync(apsBin, 'utf8');
+  assert(!apsSourceAfterFlowHardening.includes('station.includes'), 'aps live flow hardening: main flow must not infer state from displayed station text');
+  console.log('PASS received formal packet keeps primary Live ticket while shared-goal clarification blocks handling');
   expectCheckApsCase(
     'check-aps demo preview shows terminal-first flow without real Drive writes',
     ['--demo-preview'],
@@ -2930,10 +3580,13 @@ try {
       '不讀 .aps/config.json',
       '不寫共用 Drive',
       'APS 整體狀態',
-      'APS 流程位置',
+      'APS 主流程',
       '| 階段 | 狀態 | 現在代表 | 下一步 |',
       '👉 目前位置',
-      'APS Live 何時用',
+      '準備交接包',
+      '確認並發出',
+      '對方查看 / 處理',
+      '檢查回覆 / 收結',
       '結論',
       '下一句可對 AI 說',
       '交接包狀態',
@@ -2947,8 +3600,8 @@ try {
       'APS Live 即時協作',
       '正式項目會由 Check APS 自動生成 APS Live 頁',
       'demo preview 不會寫入 HTML',
-      'Trystero 只做即時核對',
-      '本機 live-bridge',
+      '即時對齊只協助溝通',
+      '頁內重新讀取功能',
     ],
     [
       '📊 數量摘要（排錯用）',
@@ -2966,17 +3619,19 @@ try {
     0,
     [
       '示範場景: 共同目標與分工確認',
-      'APS 流程位置',
+      'APS 主流程',
       '| 階段 | 狀態 | 現在代表 | 下一步 |',
-      '| 3. 協作者確認共同基準 | 👉 目前位置',
-      'APS Live 何時用',
+      '| 準備交接包 | 👉 目前位置 / ⏳ 等待',
+      '確認並發出',
+      '對方查看 / 處理',
+      '檢查回覆 / 收結',
       '共同目標與分工仍未完成逐人確認',
       '第一輪正式任務要先等基準一致',
       '等待協作者確認',
       '建議開 APS Live',
       '正式項目會由 Check APS 自動生成 APS Live 頁',
       'demo preview 不會寫入 HTML',
-      '本機 live-bridge',
+      '頁內重新讀取功能',
       '請用 APS 整理還有誰未確認共同目標與分工',
     ],
     [
@@ -3024,7 +3679,7 @@ try {
       'handoff_chains',
       'context_cards',
       'evidence_refs',
-      'Trystero 是 APS Live 主流程',
+      'APS Live 會自動嘗試即時對齊',
       '共同目標與分工確認',
     ],
   );
@@ -3039,7 +3694,7 @@ try {
       '不讀 .aps/config.json',
       '不寫共用 Drive',
       '不更新 packet / outbox / ack',
-      'Trystero 是 APS Live 主流程',
+      'APS Live 會自動嘗試即時對齊',
     ],
   );
   const liveDemoHtml = fs.readFileSync(liveDemoPath, 'utf8');
@@ -3065,41 +3720,37 @@ try {
     '展開完整交接事件紀錄',
     'event-time',
     '開始',
-    '留言 / Comment',
-    '尚未正式 close',
+    '留言',
+    '尚未正式收結',
     '目前階段與正式操作',
     '目前狀態',
     '正式操作位置',
     '下一句可對 AI 說',
-    'APS decline',
     '等待 jay 確認共同目標與分工',
-    '本機 AI 帶我來 APS Live',
-    '完成協商後交給本機 AI',
-    '它只草擬下一步，不會直接寫入 APS 正式紀錄',
-    '交給本機 AI 草擬下一步',
-    '交給本機 AI 整理下一步',
-    'AI 整理方式',
+    '把本頁內容交給本機 AI',
+    '完成協調後交給本機 AI',
+    '它只整理草稿和判斷，不會直接寫入 APS 正式紀錄',
+    '把勾選對話交給本機 AI',
+    '交給本機 AI 整理本輪回饋',
+    '整理方式',
     '協調與回應',
-    '本次 Live session',
-    '接收方快速回應',
-    '✅ 已收到',
-    '⚠️ 需補資料',
-    '❌ 不同意',
-    'data-live-reply="received"',
-    'data-live-reply="need-info"',
-    'data-live-reply="disagree"',
-    'handoff-reply',
-    'reply_label',
-    'reply_detail',
-    '已送出快速回應',
-    '可交給本機 AI 整理正式下一步',
-    '這是給對方看的訊息草稿',
-    '連接 APS Live',
+    '本次頁面',
+    '協作者進入後可發送補充或追問',
+    '正式接受、退回或收結請回到「進度與決策」',
+    '重新嘗試即時對齊',
     '重新讀取正式狀態',
-    '頁面打開後會自動連接',
-    '正式狀態：本頁生成時快照',
-    'Trystero 訊息不會觸發正式寫入',
+    '頁面會自動嘗試即時對齊',
+    '正式狀態：已按本機 AI 最近一次檢查更新',
+    'APS Live：正在嘗試即時對齊',
+    '對方頁面：暫未同時開啟；不代表對方未接入 APS',
+    '頁面會自動嘗試即時對齊',
+    '本頁資料：已按本機 AI 最近一次檢查更新',
+    '下一步：按目前階段處理；任何正式寫入都會先請你確認。',
+    '進階：頁內重新讀取',
+    '正式交接仍以 Drive 內正式紀錄為準',
+    '重新嘗試即時對齊',
     'APS Live 可推進的正式狀態',
+    '正式寫入前仍要本機 AI 預檢',
     'formal_actions',
     '/formal-state',
     '/formal-action/preview',
@@ -3107,19 +3758,18 @@ try {
     '發送核對訊息',
     'id="discussionStatus"',
     'id="forwardToAgentAfterDiscussion"',
-    'disabled>等待對方進入後才能發送核對訊息',
-    '⏳ 本次 session 尚未發送核對訊息',
+    'button id="sendProjectMessageInline" type="button">保存待送草稿',
+    '⏳ 本次頁面尚未發送核對訊息',
     '清空紀錄',
     '整理共識 / 分歧 / 待決定事項',
     '產生補資料請求',
     '草擬退回理由',
     '判斷可否開工',
-    '回到本機 AI 對話繼續 APS 流程',
-    'Terminal 可做的正式選項',
+    '本機 AI 可做的備用正式選項',
     '確認 / 同意',
     '提出異議',
     '退回 / 補資料',
-    '收結 / close',
+    '收結',
     '共同目標與分工草稿 v1',
     'joinRoom',
     'makeAction',
@@ -3129,38 +3779,61 @@ try {
     '共同目標與分工確認',
     'jay: 等待確認',
     '整理對方回饋後',
-    '請用 APS 跟進以下 APS Live 交接追蹤協調內容',
-    '今次 APS Live 已帶入的交接貨單',
+    '以下是 APS Live 交接追蹤材料',
+    '今次 APS Live 已帶入的正式交接狀態',
     '目前追蹤狀態',
     '本機 AI 已知的項目背景',
     '依據摘要',
-    '交給本機 AI 整理下一步',
+    '交給本機 AI 整理本輪回饋',
     'aps-live-agent-queue',
     "bridge.url + '/queue'",
     '✅ 已發送核對訊息',
-    '✅ 已發送。等待對方回覆',
-    '等待對方進入後才能發送核對訊息',
-    '未連接，請先用上方按鈕連接',
-    '對方尚未進入 APS Live。請等對方進入後再發送',
+    '✅ 已發送。下一步：等待對方回覆',
+    '對方頁面暫未同時開啟，已保存為待送草稿',
+    '保存待送草稿',
+    '頁面正在嘗試即時對齊；可先寫補充或追問，稍後再發送。',
+    '對方頁面暫未同時開啟；可先寫補充或追問，對方進入後再發送。',
     '同一 APS 身份的另一個視窗',
     '這不是協作者，不能當成',
     '正在確認是否真的是協作者',
     '協作者已確認身份',
-    'autoConnectLive',
+    'APS Live：✅ 已可即時對齊',
     'refreshFormalPrompt',
-    '已載入本次頁面 session 記錄',
+    '頁面已載入本次記錄',
     'aps-live-session-v1:',
-    '✅ 已交給本機 AI 整理下一步',
-    '🤖 已交給本機 AI',
-    '本次 session 記錄已清空',
-    '本機 AI 佇列未連接',
+    'aps-live-local-ai-action-v1:',
+    'persistLocalAiAction',
+    'restoreLocalAiActionFeedback',
+    'clearLocalAiAction',
+    'local_ai_queue',
+    '✅ 已有本機 AI 待辦',
+    '本機 AI 待辦已存在',
+    '✅ 已放入本機 AI 待辦',
+    '✅ 已放入本機 AI 待辦',
+    '🤖 已放入本機 AI 待辦',
+    '已載入上次交給本機 AI 的待辦',
+    '如已處理，請本機 AI 封存已整理待辦',
+    '回到本機 AI 對話，貼上頁面提供的一句話',
+    '下一步：回到本機 AI 對話，貼上下面這句',
+    'Check APS，處理 APS Live 待辦',
+    '✅ 已正式記錄並讀回',
+    '⚠️ 未寫入正式紀錄',
+    '你已取消正式記錄。下一步',
+    'Check APS，讀取剛才已確認收到的交接狀態',
+    'Check APS，讀取剛才退回補資料的正式結果',
+    'Check APS，讀取剛才共同基準確認結果',
+    'Check APS，讀取剛才收結結果',
+    '貼給本機 AI 的下一句',
+    '本次頁面記錄已清空',
+    '未能直接交給本機 AI',
     '請先整理，不要直接套用',
-    '回到本機 AI',
+    '未能直接交給本機 AI',
     'local-browser-preview',
     'local-browser-preview',
   ]) {
     assert(liveDemoHtml.includes(text), `aps live demo html: missing ${text}`, liveDemoHtml);
   }
+  assert(!/bridgeStatus\.textContent[\s\S]{0,220}formalStatusText\(\)/.test(liveDemoHtml), 'aps live demo html: page-data status must not reuse formal progress text', liveDemoHtml);
   for (const text of [
     'id="consume"',
     'id="decline"',
@@ -3178,6 +3851,31 @@ try {
     '⚠️ 未連接，這只是本機草稿',
     'APS Live 診斷接收器',
     'APS Live 項目共識群聊頁',
+    '即時對方：✅ 已連接',
+    '即時通道：⏳ 未連接',
+    '即時通道：✅ 本頁已連接',
+    '正在連接 APS Live 即時通道',
+    '本頁即時通道已連接',
+    '重新連接 APS Live 即時通道',
+    '請先連接 APS Live',
+    '未連接，請先用上方按鈕連接',
+    '即時對方狀態已連接，正在等待對方進入',
+    '對方即時狀態已連接',
+    '背景同步失敗；上次狀態可能已過時',
+    '快照模式',
+    '本頁同步',
+    '對方 Live：未進入',
+    '未見對方 Live',
+    '本機 APS：',
+    '本機 APS 未連上',
+    '本機 APS 同步服務',
+    '本機同步位址',
+    '正式進度：',
+    '正式進度讀取：⚠️ 未連上本機 APS',
+    '正式進度：未能連上本機 APS；目前顯示本頁生成時快照',
+    '請用下方修復入口',
+    'APS 狀態已在 terminal 顯示',
+    '正式狀態仍會在 terminal 顯示',
     '交接資料板',
     '共同目標下的交接鏈',
     '本機 AI 已帶入的上游資訊',
@@ -3216,6 +3914,14 @@ try {
     'Trystero 未連接',
     'Trystero peer joined',
     'Trystero peer left',
+    'Trystero 訊息不會觸發正式寫入',
+    'Trystero 是 APS Live 主流程',
+    'Trystero 只做即時核對',
+    '本機 bridge 讀回',
+    '目前本機 bridge 服務的是其他合作目錄',
+    '本機 bridge 正連到其他 APS 合作目錄',
+    '關閉舊 bridge',
+    '目前 bridge 服務的是',
     '已複製整理 prompt',
     '請先在 terminal 執行 aps live-bridge',
     '目前本機 APS 狀態',
@@ -3237,9 +3943,9 @@ try {
   }
   const connectButtonCount = (liveDemoHtml.match(/id="connectLive"/g) || []).length;
   assert(connectButtonCount === 1, `aps live demo html: expected one connect button, got ${connectButtonCount}`, liveDemoHtml);
-  assert(/tracking-step active" aria-label="共同基準：進行中"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft should keep 共同基準 in progress', liveDemoHtml);
-  assert(!/tracking-step done" aria-label="共同基準：已完成"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft must not mark 共同基準 as completed', liveDemoHtml);
-  assert(liveDemoHtml.indexOf('id="connectLive"') < liveDemoHtml.indexOf('完成協商後交給本機 AI'), 'aps live demo html: local AI handoff should appear after live coordination controls', liveDemoHtml);
+  assert(/tracking-step active" aria-label="準備交接包：進行中"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft should keep preparing stage in progress', liveDemoHtml);
+  assert(liveDemoHtml.includes('"label": "共同基準"'), 'aps live demo html: internal common baseline should remain available', liveDemoHtml);
+  assert(liveDemoHtml.indexOf('id="connectLive"') < liveDemoHtml.indexOf('完成協調後交給本機 AI'), 'aps live demo html: local AI handoff should appear after live coordination controls', liveDemoHtml);
   assert(liveDemoHtml.indexOf('id="messages"') < liveDemoHtml.indexOf('id="forwardToAgentAfterDiscussion"'), 'aps live demo html: local AI handoff button should be after discussion history', liveDemoHtml);
   assert(liveDemoHtml.indexOf('💬 異常協調') < liveDemoHtml.indexOf('id="messages"'), 'aps live demo html: message history should live inside discussion flow', liveDemoHtml);
   console.log('PASS aps live demo handoff check page keeps formal APS boundary');
@@ -3267,7 +3973,8 @@ try {
     'handoff_chains',
     'context_cards',
     'evidence_refs',
-    '回到本機 AI 可直接說',
+    '頁面內可交給本機 AI 整理',
+    '備用說法',
   ]) {
     assert(liveProjectDryRunText.includes(text), `aps live project dry-run: missing ${text}`, liveProjectDryRunText);
   }
@@ -3279,14 +3986,15 @@ try {
   assert(liveOutput.status === 0, `aps live project handoff check page: expected exit 0, got ${liveOutput.status}`, liveOutputText);
   for (const text of [
     'APS Live 交接追蹤頁',
-    '本機 bridge 讀回',
+    '頁內重新讀取正式狀態後才可有限推進',
     '有限推進',
-    '回到本機 AI 可直接說',
-    '請回到本機 AI',
+    '頁面內可交給本機 AI 整理',
+    '備用說法',
   ]) {
     assert(liveOutputText.includes(text), `aps live project output: missing ${text}`, liveOutputText);
   }
   const liveProjectHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_adam.html'), 'utf8');
+  const liveProjectVisibleText = visibleTextFromHtml(liveProjectHtml);
   const livePeerOutput = runLive(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--agent-id', 'jay']);
   const livePeerOutputText = outputOf(livePeerOutput);
   assert(livePeerOutput.status === 0, `aps live peer page: expected exit 0, got ${livePeerOutput.status}`, livePeerOutputText);
@@ -3295,12 +4003,144 @@ try {
   const liveNoBaselineOutputText = outputOf(liveNoBaselineOutput);
   assert(liveNoBaselineOutput.status === 0, `aps live no-baseline page: expected exit 0, got ${liveNoBaselineOutput.status}`, liveNoBaselineOutputText);
   const liveNoBaselineHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_no_baseline', '_context', 'aps-live_adam.html'), 'utf8');
+  const liveNoActiveOutput = runLive(['--hub-root', hubRoot, '--project', 'live_no_active', '--agent-id', 'adam']);
+  const liveNoActiveOutputText = outputOf(liveNoActiveOutput);
+  assert(liveNoActiveOutput.status === 0, `aps live no-active page: expected exit 0, got ${liveNoActiveOutput.status}`, liveNoActiveOutputText);
+  const liveNoActiveHtml = fs.readFileSync(path.join(hubRoot, 'live_no_active', '_context', 'aps-live_adam.html'), 'utf8');
+  const liveNoActiveVisibleText = visibleTextFromHtml(liveNoActiveHtml);
   const liveProjectBridgePort = bridgePortFromLiveHtml(liveProjectHtml, 'aps live project html');
   const livePeerBridgePort = bridgePortFromLiveHtml(livePeerHtml, 'aps live peer html');
   const liveNoBaselineBridgePort = bridgePortFromLiveHtml(liveNoBaselineHtml, 'aps live no-baseline html');
   assert(liveProjectBridgePort === livePeerBridgePort, `aps live bridge port: same APS project should share one local bridge port, got ${liveProjectBridgePort} and ${livePeerBridgePort}`);
   assert(liveProjectBridgePort !== liveNoBaselineBridgePort, `aps live bridge port: different APS projects should not share the default local bridge port, got ${liveProjectBridgePort}`);
   assert(liveProjectBridgePort !== 47879 && liveNoBaselineBridgePort !== 47879, 'aps live bridge port: default project-derived ports should not fall back to fixed 47879');
+  for (const text of [
+    '準備交接包',
+    '尚未發出正式交接包',
+    '現在要做',
+    '已知資料',
+    '本輪正式交接包尚未建立',
+    '下一輪要交給誰、要對方做甚麼、依據哪份資料、交回甚麼才算完成',
+    '已確認共同目標與分工 v1（背景基準）',
+    '今次 APS Live 已帶入的交接包準備狀態',
+    '交給本機 AI 草擬交接包',
+  ]) {
+    assert(liveNoActiveHtml.includes(text), `aps live no-active html: missing ${text}`, liveNoActiveHtml);
+  }
+  assert(!liveNoActiveHtml.includes('這段討論是否會影響共同目標、分工、交接範圍、驗收標準或下一個正式決策？'), 'aps live no-active html: should not show generic drift question as the main task', liveNoActiveHtml);
+  assert(!/<div class="detail-row"><strong>任務<\/strong>/.test(liveNoActiveHtml), 'aps live no-active html: should not show a fake task row when no formal handoff is active', liveNoActiveHtml);
+  assert(!/<div class="detail-row"><strong>真源<\/strong>/.test(liveNoActiveHtml), 'aps live no-active html: should not show fake source row when no formal handoff is active', liveNoActiveHtml);
+  assert(!/<div class="detail-row"><strong>開工條件<\/strong>/.test(liveNoActiveHtml), 'aps live no-active html: should not show fake start-condition row when no formal handoff is active', liveNoActiveHtml);
+  for (const text of [
+    '接收方快速回應',
+    'data-live-reply=',
+    'function prepareQuickReply',
+    "querySelectorAll('[data-live-reply]')",
+    '✅ 已套入快速回應',
+    'handoff-reply',
+    '已送出快速回應',
+    '這是給對方看的訊息草稿',
+  ]) {
+    assert(!liveDemoHtml.includes(text), `aps live demo html: retired quick reply UI leaked back: ${text}`, liveDemoHtml);
+    assert(!liveNoActiveHtml.includes(text), `aps live no-active html: retired quick reply UI leaked back: ${text}`, liveNoActiveHtml);
+  }
+  for (const text of [
+    'Terminal 可做的正式選項',
+    '交接貨單',
+    'APS decline',
+    '收結 / close',
+    '尚未正式 close',
+    '正式包 / 查看',
+    '留言 / Comment',
+    '等待 Live 留言',
+    '✅ 已收到',
+    '⚠️ 需補資料',
+    '❌ 不同意',
+    '✅ 方向一致',
+    '⚠️ 需要補充',
+    '❌ 暫不同意',
+    '協作者快速回應',
+    '補充訊息草稿',
+    '這是給協作者看的對齊訊息草稿',
+    '整理方式',
+    '產生補資料請求',
+    '草擬退回理由',
+    '判斷可否開工',
+    '本機 AI 可草擬的下一步',
+    '整理下一輪目標</strong>',
+    '整理收件人與分工</strong>',
+    '整理交回物與完成標準</strong>',
+    '草擬正式交接包</strong>',
+    '交給本機 AI 草擬正式交接包',
+    '內容足夠時，按下方主按鈕交給本機 AI 草擬正式交接包',
+    '像聊天一樣寫 remarks、feedback 或 follow-up question',
+    'remarks',
+    'follow-up question',
+    '接受前補充',
+    '退回補資料',
+    '雙方看到的交接單、版本、狀態或在線情況不一致時使用。',
+    'Trystero 訊息不會觸發正式寫入',
+    '本機 bridge 讀回',
+    '關閉舊 bridge',
+    '目前 bridge 服務的是',
+  ]) {
+    assert(!liveNoActiveVisibleText.includes(text), `aps live no-active html: should not expose stale active-handoff wording ${text}`, liveNoActiveVisibleText);
+  }
+  for (const text of [
+    '即時留言',
+    '在這裏寫給協作者的補充、回覆或追問',
+    '留言對應事項（通常不用改）',
+    '留言對應事項',
+    '這段留言會連同目前 APS 階段、AI 預檢事項和你選中的對應事項送出',
+    'AI 會根據目前階段、AI 預檢事項和你勾選的對話，整理可確認內容和缺口；不需要你先分類。',
+    '本輪交接包尚未建立',
+    '下一步：先整理下一輪目標、收件人、交回物和可查真源；再交給本機 AI 草擬交接包。',
+    '按下方主按鈕後，頁面會保留一句可直接貼給本機 AI 的下一步。',
+    '這一步只會整理草稿，不會直接寫入 Drive，也不代表對方已收到正式任務。',
+    '草擬交接包',
+    '交給本機 AI 草擬交接包',
+    '下一輪目標',
+    '收件人',
+    '交回物',
+    '可查真源',
+  ]) {
+    assert(liveNoActiveHtml.includes(text), `aps live no-active html: should expose next-round alignment wording ${text}`, liveNoActiveHtml);
+  }
+  assert(!liveNoActiveVisibleText.includes('目前沒有正式決策'), 'aps live no-active html: no-active first screen must not use no-formal-decision as the dominant message', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('目前沒有可直接執行的正式決策'), 'aps live no-active html: no-active action area must not use no-formal-action as the dominant message', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('尚未作出正式決策'), 'aps live no-active html: no-active preview should not frame the stage as missing a formal decision', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('暫無可直接執行的正式動作'), 'aps live no-active html: no-active action area should not render a duplicate empty formal-action card', liveNoActiveVisibleText);
+  assert(liveNoActiveHtml.includes('formalActionsNode.hidden = true'), 'aps live no-active html: no-active formal actions list should be hidden instead of duplicating the primary action', liveNoActiveHtml);
+  assert(liveNoActiveHtml.includes('id="primaryForwardToAgent"'), 'aps live no-active html: no-active main decision card should expose a primary local-AI draft button', liveNoActiveHtml);
+  assert(liveNoActiveHtml.includes('primaryAgentForwardStatus'), 'aps live no-active html: primary local-AI button should show feedback beside the action', liveNoActiveHtml);
+  assert(!liveNoActiveVisibleText.includes('或按「請 AI 整理這次對齊」'), 'aps live no-active html: progress tab must not point users to a second primary action in the clarification tab', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('回到本機 AI 草擬交接包'), 'aps live no-active html: main card should use its own primary button instead of sending users back to AI prompt wording', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('交給 AI 整理下一步'), 'aps live no-active html: non-blocking clarification card should not duplicate the lower local-AI handoff button', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('請 AI 整理這次對齊'), 'aps live no-active html: support tab button should not use generic AI sorting wording', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('本機 AI 帶我來 APS Live'), 'aps live no-active html: local-AI return panel should not imply the AI brought the user here as the current task', liveNoActiveVisibleText);
+  assert(!liveNoActiveVisibleText.includes('頁面狀態不會自動混入'), 'aps live no-active html: AI handoff copy must not contradict that current stage context is included', liveNoActiveVisibleText);
+  assert(!liveNoActiveHtml.includes('請一起確認三件事'), 'aps live no-active html: should not contain a long handoff-draft-like message anywhere', liveNoActiveHtml);
+  assert(liveNoActiveHtml.includes("ask_who: snapshotData.has_active_handoff === false ? '先由本機 AI 整理'"), 'aps live no-active html: no-active AI prompt should route to local AI sorting instead of asking the user to question self', liveNoActiveHtml);
+  assert(liveNoActiveHtml.includes("'處理方式: ' : '要問誰: '") || liveNoActiveHtml.includes("處理方式: "), 'aps live no-active html: local AI handoff prompt should label no-active clarification as handling mode', liveNoActiveHtml);
+  assert(/<textarea id="projectMessage"[^>]*><\/textarea>/.test(liveNoActiveHtml), 'aps live no-active html: chat textarea should start empty', liveNoActiveHtml);
+  assert(!liveNoActiveHtml.includes('textarea.value = snapshot.suggested_message'), 'aps live no-active html: formal refresh must not auto-fill the chat draft from snapshot', liveNoActiveHtml);
+  assert(liveNoActiveHtml.includes('if (snapshotData && snapshotData.has_active_handoff === false)'), 'aps live no-active html: client-side formal refresh should keep next-round focus options instead of reverting to sync-difference', liveNoActiveHtml);
+  assert(liveNoActiveHtml.includes("value: 'next-goal'"), 'aps live no-active html: client-side focus options should default to next-goal after refresh', liveNoActiveHtml);
+  assert(liveProjectHtml.includes("const storageKey = 'aps-live-session-v2:' + stableStorageScope;"), 'aps live project html: conversation history should use a stable storage key that survives room regeneration', liveProjectHtml);
+  assert(!liveProjectVisibleText.includes('下一步：先整理下一輪目標、收件人、交回物和可查真源；再交給本機 AI 草擬交接包。'), 'aps live project html: active waiting handoff must not show no-active next-round instruction', liveProjectVisibleText);
+  assert(liveProjectHtml.includes('window.localStorage'), 'aps live project html: conversation history should use durable local browser storage, not only per-tab session storage', liveProjectHtml);
+  assert(liveProjectHtml.includes("postBridge('/live-history'"), 'aps live project html: conversation history should read/write the local APS restore cache through the bridge', liveProjectHtml);
+  assert(liveProjectHtml.includes('async function restoreBridgeHistory()'), 'aps live project html: should restore APS Live discussion history after reload from the local APS cache', liveProjectHtml);
+  assert(liveProjectHtml.includes('async function persistBridgeHistory()'), 'aps live project html: should persist APS Live discussion history outside volatile browser DOM state', liveProjectHtml);
+  assert(liveProjectHtml.includes("connectLive().catch(() =>"), 'aps live project html: page load should auto-attempt APS Live real-time alignment', liveProjectHtml);
+  assert(!liveProjectHtml.includes("setDiscussionStatus('🔎 已自動重新讀取正式狀態。')"), 'aps live project html: initial page load must not auto-hit the local bridge or imply automatic formal refresh', liveProjectHtml);
+  assert(!liveProjectHtml.includes("then(() => refreshFormalStateFromBridge({ silent: true }))"), 'aps live project html: initial page load must not chain live-history restore into formal-state refresh', liveProjectHtml);
+  assert(liveProjectHtml.includes("if (currentBridgeMode === 'online')"), 'aps live project html: periodic formal refresh should run only after a successful user-triggered bridge refresh', liveProjectHtml);
+  assert(liveProjectHtml.includes("legacyStorageKeys(store, 'aps-live-session-v1:')") || liveProjectHtml.includes("collectStoredRows(storageKey, legacyStorageKey, 'aps-live-session-v1:')"), 'aps live project html: should migrate old room-scoped v1 chat records after regeneration', liveProjectHtml);
+  assert(liveProjectHtml.includes('receivedLiveMessageIds.add(record.data.message_id)'), 'aps live project html: restored chat records should seed live-message de-duplication after reload', liveProjectHtml);
+  assert(liveProjectHtml.includes("data.text.startsWith('reload-persistence-check：')"), 'aps live project html: should clean accidental reload-persistence QA messages from UAT browser storage', liveProjectHtml);
+  assert(liveProjectHtml.includes("function activateTab(targetId)"), 'aps live project html: should expose a reusable tab switcher for received live messages', liveProjectHtml);
+  assert(liveProjectHtml.includes("activateTab('collaborationTab');\n          showNotice('🔔 收到對方 APS Live 訊息，已打開「對話記錄」。');"), 'aps live project html: incoming project messages should surface the discussion tab instead of hiding in progress view', liveProjectHtml);
   const liveRoomId = liveProjectHtml.match(/const roomId = "([^"]+)"/);
   const livePeerRoomId = livePeerHtml.match(/const roomId = "([^"]+)"/);
   assert(liveRoomId && livePeerRoomId, 'aps live project html: room id should be visible in generated script for QC');
@@ -3326,7 +4166,7 @@ try {
     '交接單',
     '交接單 1/1',
     '目前只顯示主要交接單',
-    '正式交接仍是 adam → jay',
+    '正式交接仍是 jay → adam',
     'tracking-step-icon',
     'tracking-step-status',
     'tracking-legend',
@@ -3341,57 +4181,58 @@ try {
     '展開完整交接事件紀錄',
     'event-time',
     '開始',
-    '留言 / Comment',
-    '尚未正式 close',
+    '留言',
+    '尚未正式收結',
     '目前階段與正式操作',
     '目前狀態',
     '正式操作位置',
     '下一句可對 AI 說',
-    'APS decline',
     '協調與回應',
-    '完成協商後交給本機 AI',
+    '完成協調後交給本機 AI',
     '今次要核對',
     '目前站點',
     '等誰行動',
     '能否開工',
     '本機 AI 已知的項目背景',
-    'Terminal 可做的正式選項',
+    '本機 AI 可做的備用正式選項',
     '確認 / 同意',
     '提出異議',
     '退回 / 補資料',
-    '收結 / close',
+    '收結',
     'feedback_status',
     'pending_decision',
     'local_drive_state',
     'blocker',
     'proposed_terminal_action',
-    '交給本機 AI 整理下一步',
-    '交給本機 AI 草擬下一步',
+    '把勾選對話交給本機 AI',
+    '交給本機 AI 整理本輪回饋',
     'id="forwardToAgentAfterDiscussion"',
-    '本機 AI 佇列未連接',
+    '未能直接交給本機 AI',
     '重新讀取正式狀態',
-    '本機 APS 連到其他合作目錄',
-    '目前本機 bridge 服務的是其他合作目錄',
-    '本機 bridge 正連到其他 APS 合作目錄',
-    '頁面打開後會自動連接',
-    '正式狀態：本頁生成時快照',
-    'Trystero 訊息不會觸發正式寫入',
+    '頁內重新讀取指向其他合作目錄',
+    '頁面會自動嘗試即時對齊',
+    '正式狀態：已按本機 AI 最近一次檢查更新',
+    '正式交接仍以 Drive 內正式紀錄為準',
+    '重新嘗試即時對齊',
     'APS Live 可推進的正式狀態',
+    '正式寫入前仍要本機 AI 預檢',
     'formal_actions',
     '/formal-state',
     '/formal-action/preview',
     '/formal-action/commit',
-    'autoConnectLive',
     'refreshFormalPrompt',
     'function remotePeerCount()',
-    '等待對方進入後才能發送核對訊息',
+    '保存待送草稿',
     '偵測到同一 APS 身份的另一個視窗',
     '這不代表協作者已進入',
     '協作者離開',
+    'APS Live：✅ 已可即時對齊',
+    '對方頁面：暫未同時開啟；不代表對方未接入 APS',
     '對方暫時離開 APS Live；你仍可先整理訊息。',
   ]) {
     assert(liveProjectHtml.includes(text), `aps live project html: missing ${text}`, liveProjectHtml);
   }
+  assert(!liveProjectHtml.includes('正式交接仍是 adam → jay'), 'aps live project html: receiver page must not reverse an incoming handoff direction', liveProjectHtml);
   for (const text of [
     '這頁只通訊，不替你完成正式紀錄',
     'Live 不可做的事',
@@ -3410,15 +4251,18 @@ try {
     '需要核對的問題',
     '<h2>交回本機 AI</h2>',
     'forwardToAgentInline',
+    'autoConnectLive',
+    '頁面打開後會自動連接',
     'id="forwardToAgentTop"',
     '交給本機 AI 判斷下一步',
     'placeholder="例：Jay',
   ]) {
     assert(!liveProjectHtml.includes(text), `aps live project html: should keep ${text} out of user UI`, liveProjectHtml);
   }
-  assert(/tracking-step done" aria-label="共同基準：已完成"/.test(liveProjectHtml), 'aps live project html: shared-goal baseline should mark 共同基準 as completed when a baseline packet exists', liveProjectHtml);
+  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(liveProjectHtml), 'aps live project html: visible preparing stage should be completed when a formal packet exists', liveProjectHtml);
+  assert(liveProjectHtml.includes('"label": "共同基準"'), 'aps live project html: internal shared-goal baseline should remain available', liveProjectHtml);
   assert(!liveProjectHtml.includes('"default_text": "對方已回覆 共同目標與分工 v1，此交接線收結。"'), 'aps live project html: should not suggest closing shared-goal confirmation while ordinary work is still waiting', liveProjectHtml);
-  assert(/<button id="sendProjectMessageInline" type="button" disabled>等待對方進入後才能發送核對訊息<\/button>/.test(liveProjectHtml), 'aps live project html: send button should start disabled until a real peer is present', liveProjectHtml);
+  assert(/<button id="sendProjectMessageInline" type="button">保存待送草稿<\/button>/.test(liveProjectHtml), 'aps live project html: send button should let users save a draft before the peer opens the page', liveProjectHtml);
   const liveBridgeTokenPath = path.join(hubRoot, 'dashboard_daily', '_context', 'live_bridge_token.json');
   assert(fs.existsSync(liveBridgeTokenPath), 'aps live project should create local bridge token');
   const liveBridgeToken = JSON.parse(fs.readFileSync(liveBridgeTokenPath, 'utf8'));
@@ -3431,8 +4275,8 @@ try {
     'APS Live 即時協作',
     `APS Live: ${liveProjectPath}`,
     `可點擊開啟: ${localFileHrefForTest(liveProjectPath)}`,
-    'Trystero 只做即時核對',
-    '本機 live-bridge',
+    '即時對齊只協助溝通',
+    '頁內重新讀取功能',
   ]) {
     assert(liveLinkCheckApsText.includes(text), `check-aps live link: missing ${text}`, liveLinkCheckApsText);
   }
@@ -3448,7 +4292,24 @@ try {
         kind: 'aps-live-agent-queue',
         task_mode: '整理共識、分歧、待決定事項',
         agent_id: 'adam',
-        prompt: '請用 APS 跟進以下 APS Live 交接追蹤協調內容。',
+        prompt: '以下是 APS Live 交接追蹤材料。請先整理，再向用戶提出下一步；不要直接寫入正式 APS 紀錄。',
+        recent_messages: [{ source: 'jay', data: { text: '共同目標 v1 需要補充驗收標準。' } }],
+      },
+    }, null, 2)}\n`,
+  );
+  writeFile(
+    path.join(hubRoot, 'dashboard_daily', '_context', 'live_queue', '20260614T130030Z__review_consensus_duplicate.json'),
+    `${JSON.stringify({
+      id: '20260614T130030Z__review_consensus_duplicate',
+      queued_at: '2026-06-14T13:00:30Z',
+      project: 'dashboard_daily',
+      source: 'aps-live',
+      payload: {
+        kind: 'aps-live-agent-queue',
+        message_id: 'different-click-id',
+        task_mode: '整理共識、分歧、待決定事項',
+        agent_id: 'adam',
+        prompt: '以下是 APS Live 交接追蹤材料。請先整理，再向用戶提出下一步；不要直接寫入正式 APS 紀錄。',
         recent_messages: [{ source: 'jay', data: { text: '共同目標 v1 需要補充驗收標準。' } }],
       },
     }, null, 2)}\n`,
@@ -3458,22 +4319,83 @@ try {
   assert(liveQueueCheckAps.status === 0, `check-aps live queue: expected exit 0, got ${liveQueueCheckAps.status}`, liveQueueCheckApsText);
   for (const text of [
     'APS Live 待本機 AI 整理',
-    'Live 討論已送入本機 AI 待處理佇列',
-    '請用 APS 讀取 APS Live 待處理佇列',
-    '已有 APS Live 討論待本機 AI 整理與判斷',
+    'Live 討論已交給本機 AI 整理',
+    '沒有正式交接卡點；但有 1 件 APS Live 討論已交給本機 AI，應先處理這個待辦。',
+    '先整理 1 件 APS Live 待辦，避免重複使用舊討論。',
+    '已合併 1 件重複 Live 待辦；不需要重複整理相同內容。',
+    '本機 AI 整理成草稿後，應封存已整理的 Live 待辦',
+    '幫我整理剛才 APS Live 的討論，先列出共識、分歧、待決定事項和缺口；需要正式動作時先給我草稿，不要直接寫入 Drive。整理成草稿後，請封存已整理的 APS Live 待辦，避免下次重複使用舊材料；不要改正式 APS 紀錄。',
+    '已有 APS Live 討論等本機 AI 整理與判斷',
   ]) {
     assert(liveQueueCheckApsText.includes(text), `check-aps live queue: missing ${text}`, liveQueueCheckApsText);
   }
+  fs.mkdirSync(path.join(hubRoot, 'live_no_active', '_context', 'live_queue'), { recursive: true });
+  writeFile(
+    path.join(hubRoot, 'live_no_active', '_context', 'live_queue', '20260614T131500Z__old_no_active_prompt.json'),
+    `${JSON.stringify({
+      id: '20260614T131500Z__old_no_active_prompt',
+      queued_at: '2026-06-14T13:15:00Z',
+      project: 'live_no_active',
+      source: 'aps-live',
+      payload: {
+        kind: 'aps-live-agent-queue',
+        task_mode: '整理下一輪目標、分工、交回物與待確認事項',
+        agent_id: 'adam',
+        prompt: '請用 APS 跟進以下 APS Live 交接追蹤協調內容。\\n\\n- 要問誰: adam\\n- 依據: 下一輪交接對齊',
+        snapshot: { has_active_handoff: false },
+        clarification_card: { source_type: 'general', ask_who: 'adam' },
+        recent_messages: [],
+      },
+    }, null, 2)}\n`,
+  );
+  const noActiveLiveQueueOutput = runLiveQueue(['--hub-root', hubRoot, '--project', 'live_no_active']);
+  const noActiveLiveQueueText = outputOf(noActiveLiveQueueOutput);
+  assert(noActiveLiveQueueOutput.status === 0, `aps live-queue no-active old prompt: expected exit 0, got ${noActiveLiveQueueOutput.status}`, noActiveLiveQueueText);
+  assert(noActiveLiveQueueText.includes('把下面這句貼回本機 AI'), 'aps live-queue no-active old prompt: should give user a copyable next line', noActiveLiveQueueText);
+  assert(!noActiveLiveQueueText.includes('請用 APS 跟進以下 APS Live 交接追蹤協調內容'), 'aps live-queue no-active old prompt: should not expose legacy internal wording', noActiveLiveQueueText);
+  assert(!noActiveLiveQueueText.includes('要問誰: adam'), 'aps live-queue no-active old prompt: should not ask the user to question self', noActiveLiveQueueText);
+  assert(!noActiveLiveQueueText.includes('AI 內部整理材料'), 'aps live-queue no-active old prompt: normal output should not expose internal prompt block', noActiveLiveQueueText);
+  assert(!noActiveLiveQueueText.includes('以下是 APS Live 交接追蹤材料。請先整理'), 'aps live-queue no-active old prompt: normal output should not expose normalized internal intro', noActiveLiveQueueText);
+  const noActiveLiveQueueFull = runLiveQueue(['--hub-root', hubRoot, '--project', 'live_no_active', '--full']);
+  const noActiveLiveQueueFullText = outputOf(noActiveLiveQueueFull);
+  assert(noActiveLiveQueueFull.status === 0, `aps live-queue no-active --full: expected exit 0, got ${noActiveLiveQueueFull.status}`, noActiveLiveQueueFullText);
+  assert(noActiveLiveQueueFullText.includes('AI 內部整理材料（排錯用，不給一般用戶照讀）'), 'aps live-queue no-active --full: should expose internal prompt only in full mode', noActiveLiveQueueFullText);
+  assert(noActiveLiveQueueFullText.includes('以下是 APS Live 交接追蹤材料。請先整理，再向用戶提出下一步；不要直接寫入正式 APS 紀錄。'), 'aps live-queue no-active --full: should normalize legacy internal intro', noActiveLiveQueueFullText);
+  assert(noActiveLiveQueueFullText.includes('處理方式: 先由本機 AI 整理'), 'aps live-queue no-active --full: should normalize self-question label into handling mode', noActiveLiveQueueFullText);
+
   const liveQueueOutput = runLiveQueue(['--hub-root', hubRoot, '--project', 'dashboard_daily']);
   const liveQueueText = outputOf(liveQueueOutput);
   assert(liveQueueOutput.status === 0, `aps live-queue: expected exit 0, got ${liveQueueOutput.status}`, liveQueueText);
   for (const text of [
     'APS Live 待本機 AI 整理',
+    '把下面這句貼回本機 AI',
+    '整理成草稿後，請執行 `npx aps live-queue --mark-reviewed`',
+    '重複提交: 已合併 2 次相同待辦。',
     '整理共識、分歧、待決定事項',
-    '請用 APS 跟進以下 APS Live 交接追蹤協調內容',
+    '幫我整理剛才 APS Live 的討論，先列出共識、分歧、待決定事項和缺口；需要正式動作時先給我草稿，不要直接寫入 Drive。整理成草稿後，請封存已整理的 APS Live 待辦，避免下次重複使用舊材料；不要改正式 APS 紀錄。',
   ]) {
     assert(liveQueueText.includes(text), `aps live-queue: missing ${text}`, liveQueueText);
   }
+  assert(!liveQueueText.includes('AI 內部整理材料'), 'aps live-queue: normal output should not expose internal prompt block', liveQueueText);
+  assert(!liveQueueText.includes('以下是 APS Live 交接追蹤材料'), 'aps live-queue: normal output should not expose internal queue prompt', liveQueueText);
+  const liveQueueFull = runLiveQueue(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--full']);
+  const liveQueueFullText = outputOf(liveQueueFull);
+  assert(liveQueueFull.status === 0, `aps live-queue --full: expected exit 0, got ${liveQueueFull.status}`, liveQueueFullText);
+  assert(liveQueueFullText.includes('AI 內部整理材料（排錯用，不給一般用戶照讀）'), 'aps live-queue --full: should expose internal prompt block for troubleshooting', liveQueueFullText);
+  assert(liveQueueFullText.includes('以下是 APS Live 交接追蹤材料'), 'aps live-queue --full: should include internal queue prompt for troubleshooting', liveQueueFullText);
+  const liveQueueReviewed = runLiveQueue(['--hub-root', hubRoot, '--project', 'dashboard_daily', '--mark-reviewed']);
+  const liveQueueReviewedText = outputOf(liveQueueReviewed);
+  assert(liveQueueReviewed.status === 0, `aps live-queue --mark-reviewed: expected exit 0, got ${liveQueueReviewed.status}`, liveQueueReviewedText);
+  for (const text of [
+    '已封存 2 件已整理 APS Live 待辦',
+    '這只封存 Live 待辦，不改正式交接紀錄',
+  ]) {
+    assert(liveQueueReviewedText.includes(text), `aps live-queue --mark-reviewed: missing ${text}`, liveQueueReviewedText);
+  }
+  const liveQueueAfterReviewed = runLiveQueue(['--hub-root', hubRoot, '--project', 'dashboard_daily']);
+  const liveQueueAfterReviewedText = outputOf(liveQueueAfterReviewed);
+  assert(liveQueueAfterReviewed.status === 0, `aps live-queue after mark-reviewed: expected exit 0, got ${liveQueueAfterReviewed.status}`, liveQueueAfterReviewedText);
+  assert(liveQueueAfterReviewedText.includes('目前沒有 APS Live 討論等本機 AI 整理。'), 'aps live-queue after mark-reviewed: should be empty', liveQueueAfterReviewedText);
   console.log('PASS aps live creates project handoff check page with diagnostic message shape');
 
   writeTempApsConfig('dashboard_dynamic_names', 'mary');
@@ -3604,12 +4526,20 @@ try {
       '用 APS 建立 Jay 首輪共同基準',
       'adam 負責發出基準；jay 負責確認、部分同意或提出異議。',
       'Jay 的 check Drive 清楚顯示共同目標、分工、驗收標準與可選確認動作。',
+      'Jay 仍未 consume 或 decline 這一版共同目標。',
       'Jay 確認共同目標與分工',
       '同意:',
       '部分同意，需要修改',
       '有異議',
       '稍後處理',
       '不要把它標成普通 done',
+    ],
+    [
+      '摘要生成不足',
+      '未在基準包內摘出角色分工',
+      '未在基準包內摘出第一輪分工',
+      '未在基準包內摘出驗收標準',
+      '未在基準包內摘出未決事項',
     ],
   );
   expectCheckDriveCase(
@@ -3619,6 +4549,8 @@ try {
     [
       '共同目標與分工確認',
       '收到共同目標與分工包，但摘要生成不足，請讀完整 packet 後再決定。',
+      '可直接貼給 AI',
+      '整理共同目標、角色分工、第一輪範圍、驗收標準和未決事項',
       '未在基準包內摘出共同目標',
       'Jay 確認共同目標與分工',
       '不要把它標成普通 done',
