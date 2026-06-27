@@ -620,13 +620,18 @@ function installSkill({ label, targetDir, dryRun, refresh }) {
   };
 }
 
+function snakeCaseMaxLength(label) {
+  return label === '--project' ? 64 : 30;
+}
+
 function validateSnakeCase(label, value) {
-  if (!/^[a-z][a-z0-9_]{0,29}$/.test(value)) {
-    return `${label} must be lowercase snake_case, start with a letter, and be 1-30 characters. Got '${value}'.`;
+  const maxLength = snakeCaseMaxLength(label);
+  const pattern = new RegExp(`^[a-z][a-z0-9_]{0,${maxLength - 1}}$`);
+  if (!pattern.test(value)) {
+    return `${label} must be lowercase snake_case, start with a letter, and be 1-${maxLength} characters. Got '${value}'.`;
   }
   return null;
 }
-
 function validateNoPlaceholder(label, value) {
   // Reject doc placeholder markers (`<...>` angle brackets and `...` ellipsis) only.
   // Square brackets `[ ]` are legal in real filesystem paths (e.g. a Google Drive
@@ -651,7 +656,7 @@ function toSnakeCase(value, fallback) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
-    .slice(0, 30);
+    .slice(0, 64);
   if (/^[a-z]/.test(normalized)) return normalized;
   return fallback;
 }
@@ -801,7 +806,7 @@ async function runInteractiveInit() {
         '請用合作項目或任務命名,不要用人名、電腦名、AI 名稱或發起人名稱。',
         '請用小寫英文字母、數字或底線。',
       ],
-      example: 'brand_refresh_2026 或 client_site_rebuild',
+      example: 'community_open_day_parent_notice 或 client_site_rebuild_launch',
     });
     const projectSlug = await askWithDefault(rl, '請輸入 APS 合作目錄名稱', defaultProject, (value) => (
       localizeValidation(validateNoPlaceholder('--project', value) || validateSnakeCase('--project', value))
@@ -894,6 +899,7 @@ function localizeValidation(message) {
     .replace(/--agent-id/g, '你的用戶名稱')
     .replace(/--other-agent-id/g, '對方用戶名稱')
     .replace(/--hub-root/g, '共用 Drive 資料夾 root path')
+    .replace(/APS 合作目錄名稱 must be lowercase snake_case, start with a letter, and be 1-64 characters\. Got/g, 'APS 合作目錄代號請用項目或任務命名，不要用人名或用戶名稱；只可使用小寫英文字母、數字與底線，長度為 1 至 64 字元。目前收到')
     .replace(/must be lowercase snake_case, start with a letter, and be 1-30 characters\. Got/g, '必須以小寫英文字母開頭,只可使用小寫英文字母、數字與底線,長度為 1 至 30 字元。目前收到')
     .replace(/still looks like a placeholder:/g, '仍像示例或佔位值:')
     .replace(/Replace it with your real value before running the command\./g, '請改用真實值後再繼續。');
@@ -8530,10 +8536,22 @@ function doctorHub({ hubRoot, projectSlug, agentId, otherAgentId }) {
   return { coreChecks, peerChecks, conflicts, identityIssues };
 }
 
+function bridgePackTemplatePath() {
+  return path.join(__dirname, '..', 'resources', 'bridge-pack', 'aps-bridge.md.template');
+}
+
+function bridgePackTemplateContent() {
+  const templatePath = bridgePackTemplatePath();
+  try {
+    return fs.readFileSync(templatePath, 'utf8');
+  } catch (err) {
+    throw new Error(`Bridge Pack runtime template missing at ${templatePath}. Reinstall @adamchanadam/aps or use a package that includes resources/bridge-pack/. ${err.message}`);
+  }
+}
+
 function bridgePackContent(role, values) {
-  const fixtureDir = role === 'B' ? 'demo-agent-b' : 'demo-agent-a';
-  const fixturePath = path.join(__dirname, '..', 'examples', fixtureDir, 'dev', 'rules', 'aps-bridge.md');
-  let content = fs.readFileSync(fixturePath, 'utf8');
+  void role;
+  let content = bridgePackTemplateContent();
   content = content.replace(/`<your_agent_id>`/g, `\`${values.agentId}\``);
   content = content.replace(/`<your_project_slug>`/g, `\`${values.projectSlug}\``);
   content = content.replace(/`<your_shared_drive_folder_absolute_path>`/g, `\`${values.hubRoot}\``);
@@ -9182,13 +9200,16 @@ if (subcommand === 'bridge-pack') {
     console.error(`❌ --role 只可使用 A 或 B。目前收到: ${process.argv[roleFlag + 1]}`);
     process.exit(1);
   }
-  const fixtureDir = roleArg === 'B' ? 'demo-agent-b' : 'demo-agent-a';
-  const fixturePath = path.join(__dirname, '..', 'examples', fixtureDir, 'dev', 'rules', 'aps-bridge.md');
   try {
-    process.stdout.write(fs.readFileSync(fixturePath, 'utf8'));
+    process.stdout.write(bridgePackContent(roleArg, {
+      agentId: '<your_agent_id>',
+      projectSlug: '<your_project_slug>',
+      hubRoot: '<your_shared_drive_folder_absolute_path>',
+      otherAgentId: '<counterpart_agent_id>',
+    }));
     process.exit(0);
   } catch (err) {
-    console.error(`Failed to read Bridge Pack fixture at ${fixturePath}: ${err.message}`);
+    console.error(`Failed to read Bridge Pack runtime template: ${err.message}`);
     process.exit(1);
   }
 }

@@ -105,7 +105,7 @@ npx --yes @adamchanadam/agent-handoff-kit@latest init
 
 第二項:
 
-> 這個合作項目的短代號是甚麼?建議用小寫英文、數字和底線,例如 `brand_refresh_2026`。
+> 這個合作項目或任務的短代號是甚麼?建議用小寫英文、數字和底線,例如 `community_open_day_parent_notice`;不要用人名或自己的用戶名稱。
 
 第三項:
 

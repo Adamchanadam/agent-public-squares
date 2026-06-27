@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -130,6 +131,7 @@ function runBridgeFormalSmoke({ project, agentId, actionType, packetId, text }) 
   const script = String.raw`
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawn } = require('child_process');
 
 const [apsBin, hubRoot, project, agentId, portText, actionType, packetId, actionText] = process.argv.slice(1);
@@ -251,6 +253,15 @@ function assert(condition, message, details = '') {
   }
 }
 
+function runProcess(command, args, options = {}) {
+  const useShell = process.platform === 'win32' && command === 'npm';
+  const executable = useShell ? 'npm.cmd' : command;
+  return spawnSync(executable, args, {
+    cwd: options.cwd || repoRoot,
+    encoding: 'utf8',
+    shell: useShell,
+  });
+}
 function outputOf(result) {
   const errorText = result.error ? `\nspawn error: ${result.error.code || ''} ${result.error.message || result.error}` : '';
   return `${result.stdout || ''}${result.stderr || ''}${errorText}`;
@@ -367,6 +378,40 @@ function expectCurrentPublicVersionMirrored() {
   console.log('PASS public docs mirror current package version');
 }
 
+
+function expectProjectSlugLengthAndNamingGuidance() {
+  const routeText = readRepoFile('bin/aps.js');
+  const readmeText = readRepoFile('README.md');
+  const skillText = readRepoFile('skills/aps/SKILL.md');
+  const setupText = readRepoFile('skills/aps/references/setup-dialogue.md');
+  const installGuideText = readRepoFile('docs/guides/aps-ai-agent-install.html');
+  const walkthroughText = readRepoFile('docs/guides/aps-onboarding-walkthrough.html');
+
+  const valid64 = 'community_open_day_parent_notice_followup_roster_checklist_2026x';
+  const invalid65 = `${valid64}x`;
+  assert(valid64.length === 64, 'test fixture should be exactly 64 characters');
+  assert(invalid65.length === 65, 'test fixture should be exactly 65 characters');
+
+  const workspaceRoot = path.join(runRoot, 'project-slug-length-workspace');
+  const devRoot = path.join(workspaceRoot, 'dev');
+  fs.mkdirSync(devRoot, { recursive: true });
+  fs.writeFileSync(path.join(workspaceRoot, 'AGENTS.md'), '# Agent Handoff Kit Core Runtime\n', 'utf8');
+  fs.writeFileSync(path.join(devRoot, 'RULE_PACKS.md'), '# Rule Packs\n', 'utf8');
+  fs.writeFileSync(path.join(devRoot, 'PROJECT_INDEX.md'), '# Project Index\n', 'utf8');
+
+  const validResult = runApsProcess(['init', '--dry-run', '--hub-root', hubRoot, '--project', valid64, '--agent-id', 'sandbox'], workspaceRoot);
+  assert(validResult.status === 0, `64-character APS project slug should pass init dry-run\n${outputOf(validResult)}`);
+
+  const invalidResult = runApsProcess(['init', '--dry-run', '--hub-root', hubRoot, '--project', invalid65, '--agent-id', 'sandbox'], workspaceRoot);
+  assert(invalidResult.status !== 0, '65-character APS project slug should be rejected');
+  assert(outputOf(invalidResult).includes('1-64 characters'), '65-character rejection should state the 64-character project limit');
+
+  assert(routeText.includes('APS 合作目錄代號請用項目或任務命名，不要用人名或用戶名稱'), 'localized project slug error should distinguish project/task code from person/user name');
+  for (const text of [routeText, readmeText, skillText, setupText, installGuideText, walkthroughText]) {
+    assert(text.includes('community_open_day_parent_notice'), 'public setup surfaces should include a realistic project/task-based slug example');
+  }
+  console.log('PASS APS project slug allows 64 chars and keeps project/task naming guidance clear');
+}
 function expectPublicDocsExcludeMaintainerQcPlans() {
   for (const relativePath of ['docs/maintainers', 'docs/qc', 'docs/plans']) {
     assert(!fs.existsSync(path.join(repoRoot, relativePath)), `public docs should not expose ${relativePath}`);
@@ -374,12 +419,72 @@ function expectPublicDocsExcludeMaintainerQcPlans() {
   for (const entry of packageJson.files || []) {
     assert(entry !== 'docs/', 'package files must not include the whole docs/ tree');
     assert(!entry.startsWith('dev/qc/'), `package files must not ship maintainer QC file ${entry}`);
-    assert(entry !== 'examples/', 'package files must not ship maintainer examples');
+    assert(!entry.startsWith('docs/qc/'), `package files must not ship maintainer QC docs ${entry}`);
+    assert(!entry.startsWith('docs/plans/'), `package files must not ship maintainer plans ${entry}`);
+    assert(!entry.startsWith('examples/'), `package files must not ship examples fixtures ${entry}`);
   }
   for (const entry of ['docs/index.html', 'docs/guides/', 'docs/assets/']) {
     assert((packageJson.files || []).includes(entry), `package files must include public docs entry ${entry}`);
   }
+  assert((packageJson.files || []).includes('resources/'), 'package files must include runtime resources');
   console.log('PASS public package excludes maintainer QC, plans, and examples');
+}
+
+function expectPackedPackageRuntimeInit() {
+  const packedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aps-packed-runtime-'));
+  const packResult = runProcess('npm', ['pack', '--json', '--pack-destination', packedRoot], { cwd: repoRoot });
+  assert(packResult.status === 0, `npm pack should succeed for packed runtime regression
+${outputOf(packResult)}`);
+  let packRows;
+  try {
+    packRows = JSON.parse(packResult.stdout || '[]');
+  } catch (err) {
+    throw new Error(`npm pack JSON output should parse: ${err.message}
+${outputOf(packResult)}`);
+  }
+  const packInfo = Array.isArray(packRows) ? packRows[0] : packRows;
+  assert(packInfo && packInfo.filename, `npm pack should report tarball filename
+${outputOf(packResult)}`);
+  const packedFiles = (packInfo.files || []).map((file) => file.path || file);
+  assert(packedFiles.includes('resources/bridge-pack/aps-bridge.md.template'), 'packed npm package must include Bridge Pack runtime template');
+  assert(!packedFiles.some((file) => file === 'examples' || file.startsWith('examples/')), 'packed npm package must not ship examples fixtures');
+
+  const tarballPath = path.join(packedRoot, packInfo.filename);
+  const installRoot = path.join(packedRoot, 'install-target');
+  fs.mkdirSync(installRoot, { recursive: true });
+  const installResult = runProcess('npm', ['install', '--prefix', installRoot, tarballPath], { cwd: repoRoot });
+  assert(installResult.status === 0, `packed npm install should succeed
+${outputOf(installResult)}`);
+
+  const cliPath = path.join(installRoot, 'node_modules', packageJson.name, 'bin', 'aps.js');
+  const bridgeResult = runProcess(process.execPath, [cliPath, 'bridge-pack'], { cwd: installRoot });
+  assert(bridgeResult.status === 0, `installed bridge-pack should run without source examples
+${outputOf(bridgeResult)}`);
+  assert(bridgeResult.stdout.includes('check-aps'), 'installed bridge-pack should emit the runtime template content');
+  assert(!outputOf(bridgeResult).includes('examples'), 'installed bridge-pack should not read or mention source-tree examples');
+
+  const workspaceRoot = path.join(packedRoot, 'workspace');
+  const devRoot = path.join(workspaceRoot, 'dev');
+  fs.mkdirSync(devRoot, { recursive: true });
+  fs.writeFileSync(path.join(workspaceRoot, 'AGENTS.md'), '# Agent Handoff Kit Core Runtime\n', 'utf8');
+  fs.writeFileSync(path.join(devRoot, 'RULE_PACKS.md'), '# Rule Packs\n', 'utf8');
+  fs.writeFileSync(path.join(devRoot, 'PROJECT_INDEX.md'), '# Project Index\n', 'utf8');
+  const hubRoot = path.join(packedRoot, 'hub');
+  const initResult = runProcess(process.execPath, [
+    cliPath,
+    'init',
+    '--dry-run',
+    '--hub-root',
+    hubRoot,
+    '--project',
+    'packed_runtime_demo',
+    '--agent-id',
+    'sandbox',
+  ], { cwd: workspaceRoot });
+  assert(initResult.status === 0, `installed init --dry-run should not depend on source examples
+${outputOf(initResult)}`);
+  assert(!outputOf(initResult).includes('examples'), 'installed init --dry-run output should not mention source-tree examples');
+  console.log('PASS packed npm runtime works without examples fixtures');
 }
 
 function expectBsideInviteTranscriptFixture() {
@@ -600,7 +705,7 @@ function expectNoviceNaturalHandoffDryRunGate() {
     '我想把這部分交給協作者處理，你先了解資料。',
   ];
   const routeText = readRepoFile('bin/aps.js');
-  const bridgeText = readRepoFile('examples/demo-agent-a/dev/rules/aps-bridge.md');
+  const bridgeText = readRepoFile('resources/bridge-pack/aps-bridge.md.template');
   const skillText = readRepoFile('skills/aps/SKILL.md');
   const skillFrontmatter = skillText.slice(0, skillText.indexOf('---', 4) + 3);
   const setupText = readRepoFile('skills/aps/references/setup-dialogue.md');
@@ -1086,7 +1191,7 @@ try {
 
   expectRepoFileContains(
     'bridge pack routes ordinary continuation wording through check-aps',
-    'examples/demo-agent-a/dev/rules/aps-bridge.md',
+    'resources/bridge-pack/aps-bridge.md.template',
     [
       '繼續 APS 交接',
       '交接工作',
@@ -1216,7 +1321,11 @@ try {
   expectNoviceNontechnicalUxAxis();
   expectNoviceNaturalHandoffDryRunGate();
 
+  expectProjectSlugLengthAndNamingGuidance();
+
   expectPublicDocsExcludeMaintainerQcPlans();
+
+  expectPackedPackageRuntimeInit();
 
   expectPublicDocsDoNotMentionDashboardHistory();
 
