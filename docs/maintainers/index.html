@@ -266,7 +266,7 @@
     </tbody>
   </table>
   <div class="callout">
-    <strong>治理邊界：</strong>新手教學不得要求用戶修改 <span class="path">RULE_PACKS.md</span>、<span class="path">dev\DOC_SYNC_REGISTRY.md</span>、<span class="path">dev\qc\triggers.md</span>、<span class="path">dev\qc\QC_COVERAGE_INDEX.md</span> 或任何內部計劃檔。這些只屬維護者與 AI 的工作材料。
+    <strong>治理邊界：</strong>新手教學不得要求用戶修改 OPS <span class="path">RULE_PACKS.md</span>、OPS <span class="path">dev\DOC_SYNC_REGISTRY.md</span>、OPS <span class="path">dev\qc\triggers.md</span>、OPS <span class="path">dev\qc\QC_COVERAGE_INDEX.md</span> 或任何內部計劃檔。這些只屬維護者與 AI 的工作材料。
   </div>
 </section>
 
@@ -355,8 +355,8 @@
     <tbody>
       <tr>
         <td>QC 觸發詞與檢查分層</td>
-        <td><span class="path">dev\qc\triggers.md</span></td>
-        <td>用戶要求快檢、外發前檢或全面檢時。</td>
+        <td><span class="path">OPS dev\qc\triggers.md</span></td>
+        <td>用戶要求快檢、外發前檢、全面檢或七道驗收關口時。</td>
       </tr>
       <tr>
         <td>QC 覆蓋登記與缺口管理</td>
@@ -413,7 +413,7 @@
 
 <section>
   <h2>最新 QC 覆蓋範圍</h2>
-  <p class="lede">QC 觸發詞與分層規則以 <span class="path">dev\qc\triggers.md</span> 為單一真源；QC 覆蓋狀態、缺口、阻塞與同步責任以維護者覆蓋登記表為單一真源。本頁只提示維護者：功能、流程或教學改動後，以下項目必須納入外發前檢與全面檢。</p>
+  <p class="lede">QC 觸發詞、分層規則與七道驗收關口觸發以 <span class="path">OPS dev\qc\triggers.md</span> 為單一真源；QC 覆蓋狀態、缺口、阻塞與同步責任以維護者覆蓋登記表為單一真源。本頁只提示維護者：功能、流程或教學改動後，以下項目必須納入外發前檢與全面檢。</p>
   <ul>
     <li>新手頁的 SVG 宏觀流程圖與能力清單，須與 README、入口頁、CLI、skill spec、QC 真源一致。</li>
     <li>日常主路徑須是自然語言請 AI 操作；命令列只可作備用、排錯或維護者驗證。</li>
@@ -421,7 +421,7 @@
     <li>合作階段驗收矩陣須覆蓋初設、開局對齊、邀請加入、首次交接、日常推進、資料不足與解難、多人分工、修訂 / 撤回 / 收結、升級維護，以及 APS Live 產品標準驗收；每階段須同時核對 Terminal UX、HTML UX 與 packet 狀態。</li>
     <li>APS 不自動發 Telegram / WhatsApp / Email，也不自動觸發對方 AI，不保證對方電腦即時同步；公開文檔與通知文字不得暗示相反能力。</li>
     <li>公眾入口與新手 HTML 只寫現有可用能力；未列入現有能力的產品路線名稱留在 Markdown 真源、維護者驗收頁與審核報告，不放入公眾頁面。</li>
-    <li>若 HTML 參考卡與 <span class="path">dev\qc\triggers.md</span> 或維護者覆蓋登記表不一致，先以對應真源為準，再立即同步 HTML。</li>
+    <li>若 HTML 參考卡與 <span class="path">OPS dev\qc\triggers.md</span> 或維護者覆蓋登記表不一致，先以對應真源為準，再立即同步 HTML。</li>
   </ul>
 </section>
 
