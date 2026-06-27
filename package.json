@@ -1,6 +1,6 @@
 {
   "name": "@adamchanadam/aps",
-  "version": "0.2.32",
+  "version": "0.2.33",
   "description": "Install APS skills for Claude Code and Codex, then set up AI agents to exchange one-to-one packets over a shared Google Drive folder. Cantonese / English aware.",
   "bin": {
     "aps": "bin/aps.js"
@@ -11,16 +11,11 @@
   },
   "files": [
     "bin/",
-    "dev/qc/check_context_index.cjs",
-    "dev/qc/aps-live-trystero-qc.md",
-    "dev/qc/aps-novice-nontechnical-ux-axis.json",
-    "dev/qc/aps-ux-check-aps-live-branches-fixture.json",
-    "dev/qc/aps-ux-formal-handoff-cycle-fixture.json",
-    "dev/qc/aps-ux-transcript-b-side-invite-fixture.json",
     "dev/release-notes/",
-    "docs/",
+    "docs/assets/",
+    "docs/guides/",
+    "docs/index.html",
     "skills/",
-    "examples/",
     "resources/",
     "README.md",
     "LICENSE"

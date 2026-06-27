@@ -92,7 +92,7 @@ Skill 觸發之初,先做本地狀態判斷,再判斷用戶 intent。**讀任何
 
 ## 4. 設置子流程
 
-觸發來源:第 3 節「初次設置」路由命中。先讀 bundled reference `references/setup-dialogue.md`,再按下列順序執行。若此 skill 是從 npm package 安裝,不要依賴 repo 內 `docs/plans/` 檔案,因為它們不在 npm tarball 內。
+觸發來源:第 3 節「初次設置」路由命中。先讀 bundled reference `references/setup-dialogue.md`,再按下列順序執行。若此 skill 是從 npm package 安裝,不要依賴維護者治理資料,因為它們不隨 runtime package 發佈。
 
 1. **打招呼 + 意圖確認**:確認兩件事 — 雲端硬碟是否已裝、用哪一個雲端硬碟。若用戶只知道 Google Drive 本機根目錄,AI 應建議在其中建立 `Agent_Public_Squares` 作 APS 共用位置,再按項目名稱建議 project slug;取得用戶確認後才建立資料夾。三問安裝只設定用戶自己這一邊,毋須現在就有對方;APS 是邊做邊加,協作對象可在設定好之後隨時用邀請流程(第 5.1 節 `peer invite`)加入。若用戶已心中有合作對象,記下人類稱呼留待設定完成後邀請即可,不必在安裝時填寫對方用戶名稱。
 2. **先決條件 interactive 檢查**:
@@ -445,7 +445,7 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
 
 ### 9.3 6 件 skill 不可代用戶執行的事(全程堅守)
 
-完整長版說明見 repo 內 dialogue script §4.7;若此 skill 由 npm package 安裝,只依本節要點執行,不得假設 `docs/plans/` 檔案存在。要點:
+完整長版說明見維護者治理資料的 dialogue script §4.7;若此 skill 由 npm package 安裝,只依本節要點執行,不得假設維護者治理資料存在。要點:
 
 1. WhatsApp 短訊由用戶手動發 — skill 只生成短訊文本。
 2. 對方電腦的 onboarding 不在當前 session 範圍。
@@ -459,7 +459,6 @@ APS 合作目錄：<名稱>；用戶名稱：<名稱>；doctor：通過。
 - `references/setup-dialogue.md` — bundled setup wording bank;npm package runtime 可讀
 - `docs/guides/aps-ai-agent-install.html` — 公開 AI 代理安裝 / 升級指引
 - `docs/guides/aps-onboarding-walkthrough.html` — 詳細設置教學
-- `docs/plans/aps-live-capability-spec.md` — APS Live 產品邊界與工作台規格;不是通過證據
-- `dev/qc/aps-live-trystero-qc.md` — APS Live 可靠跨機驗收門檻;不是新手 UAT 操作腳本
+- APS Live 產品邊界、工作台規格與可靠跨機驗收門檻屬維護者治理資料;不隨 npm runtime package 發佈,也不是新手 UAT 操作腳本
 - 共用 Drive 資料夾內的 `_hub/PROTOCOL.md` — 協定 v1.0 契約
 - 維護者歷史稿、已退役設計文件和舊審核紀錄不屬 shipped skill runtime 依賴;若需要追溯,回到維護者治理索引查證,不要把舊路徑當作目前產品指引。

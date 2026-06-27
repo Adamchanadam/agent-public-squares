@@ -357,7 +357,7 @@ function expectRepoFileContains(name, relativePath, requiredText, forbiddenText 
 function expectCurrentPublicVersionMirrored() {
   const expected = String(packageJson.version || '').trim();
   assert(expected, 'package.json must expose a version for public docs version mirror checks');
-  for (const relativePath of ['README.md', 'docs/index.html', 'docs/qc/aps-flow-map.html']) {
+  for (const relativePath of ['README.md', 'docs/index.html']) {
     const content = readRepoFile(relativePath);
     assert(content.includes(expected), `public version mirror: ${relativePath} must include ${expected}`);
     for (const oldVersion of ['0.2.27', '0.2.28', '0.2.29']) {
@@ -365,6 +365,21 @@ function expectCurrentPublicVersionMirrored() {
     }
   }
   console.log('PASS public docs mirror current package version');
+}
+
+function expectPublicDocsExcludeMaintainerQcPlans() {
+  for (const relativePath of ['docs/maintainers', 'docs/qc', 'docs/plans']) {
+    assert(!fs.existsSync(path.join(repoRoot, relativePath)), `public docs should not expose ${relativePath}`);
+  }
+  for (const entry of packageJson.files || []) {
+    assert(entry !== 'docs/', 'package files must not include the whole docs/ tree');
+    assert(!entry.startsWith('dev/qc/'), `package files must not ship maintainer QC file ${entry}`);
+    assert(entry !== 'examples/', 'package files must not ship maintainer examples');
+  }
+  for (const entry of ['docs/index.html', 'docs/guides/', 'docs/assets/']) {
+    assert((packageJson.files || []).includes(entry), `package files must include public docs entry ${entry}`);
+  }
+  console.log('PASS public package excludes maintainer QC, plans, and examples');
 }
 
 function expectBsideInviteTranscriptFixture() {
@@ -574,33 +589,6 @@ function expectNoviceNontechnicalUxAxis() {
   ]) {
     assert(combined.includes(text), `Novice non-technical UX axis: missing required text "${text}"`);
   }
-  expectRepoFileContains(
-    'public flow map exposes novice non-technical UX product-result gate',
-    'docs/qc/aps-flow-map.html',
-    [
-      '新手非技術 UX 驗收軸',
-      '非技術新手只講目的時',
-      '未過這一軸，不可宣稱產品旅程成熟',
-      '目標是完成整條合作流程，不是只建立驗收標準',
-      '單機產品流程可進入外部 gate 前檢',
-    ],
-  );
-  expectRepoFileContains(
-    'public UX matrix exposes novice non-technical UX product-result gate',
-    'docs/qc/aps-ux-transcript-matrix.html',
-    [
-      '新手非技術 UX 驗收軸',
-      '雙機測試前的產品結果閘',
-      'AI 是否有足夠引導力帶他完成整個 APS 合作流程',
-      '合格結果',
-      '只建立驗收標準、命令能跑、AI persona 局部 fixture 通過，全部都不等於新手已能完成整條合作流程',
-      '完整旅程通過',
-      '單機 fixture / regression 已覆蓋完整合作流程',
-      '真人 UAT、真兩機、真 Drive timing、外部通知仍未覆蓋',
-      'dev/qc/aps-ux-formal-handoff-cycle-fixture.json',
-      '真人 UAT 未跑',
-    ],
-  );
   console.log('PASS novice non-technical UX product-result gate is covered for single-machine fixture scope');
 }
 
@@ -1222,211 +1210,13 @@ try {
     ],
   );
 
-  expectRepoFileContains(
-    'APS Live product-standard wording keeps local-support boundary and true-two-machine blocker',
-    'docs/plans/aps-live-capability-spec.md',
-    [
-      'Status: product standard / local-supported APS Live capability in unreleased source',
-      'APS Live is part of the APS product standard as the active handoff workbench for an APS collaboration round',
-      'not only a problem page',
-      'No mandatory Live blocker',
-      'This status does not certify reliable cross-machine APS Live',
-      'or full first-use product-flow coverage',
-      'Same-machine evidence proves only the exact branch it ran',
-      'controlled normal-handoff completion loop',
-      'receiver uses live-bridge consume',
-      'status --packet-id` reads back `已收結',
-      'Local browser verification also checks that the no-baseline generated page visibly blocks `共同基準` and exposes the refresh path',
-      'It still must not be generalized to real Trystero peer-offline events, real Drive sync timing, real human comprehension, or real two-device operation',
-    ],
-  );
-
-  expectRepoFileContains(
-    'public APS flow map shows product journey gates',
-    'docs/qc/aps-flow-map.html',
-    [
-      'APS 全流程地圖與完成度檢查表',
-      '真源定位',
-      '本頁是 APS 產品旅程與完成度安排的真源',
-      '凡改動 APS 使用者流程、功能邏輯、階段順序、完成度判斷或工作優先級，必須同步更新本頁',
-      'CLI 實際行為以 <code>bin/aps.js</code> 為準',
-      'QC 覆蓋狀態、缺口與阻塞以維護者覆蓋登記表為準',
-      '用戶講目的，AI 做技術',
-      '單機產品級完成，才推雙機',
-      '本機工作目錄',
-      'APS 交換區',
-      'APS 合作目錄',
-      '用戶名稱',
-      'Check APS 基準確認',
-      'APS Live 工作台',
-      'APS Live 交接工作台',
-      '正式狀態仍回到 terminal / 本機 AI 經用戶確認落帳',
-      '收件方 check Drive',
-      '雙機測試不是早期排錯手段',
-      '真人 UAT gate',
-      '外部 timing gate',
-      '單機清零狀態與外部 gate',
-      '不新增第二套優先級真源',
-      '只可最後做雙機',
-      '七道驗收關口套用到 APS 流程',
-      '情境驗收',
-      '功能驗收',
-      '認知負荷驗收',
-      '相鄰缺口驗收',
-      '重複定義驗收',
-      '新手用戶驗收',
-      '機械錨點驗收',
-      '機械錨點只作底線，不代表 UAT 通過',
-    ],
-  );
-
-  expectRepoFileContains(
-    'public APS flow map links to UX transcript matrix',
-    'docs/qc/aps-flow-map.html',
-    [
-      'href="aps-ux-transcript-matrix.html">UX 矩陣</a>',
-      'APS 單機 UX Transcript 矩陣',
-      '單機清零狀態與外部 gate',
-    ],
-  );
-
-  expectRepoFileContains(
-    'public APS UX transcript matrix defines first-screen gates',
-    'docs/qc/aps-ux-transcript-matrix.html',
-    [
-      'APS 單機 UX Transcript 矩陣',
-      '用戶輸入',
-      '合格第一屏',
-      'AI 背後應做',
-      '不可出現',
-      '通過條件',
-      '證據狀態',
-      '下一步證據',
-      '真人 UAT gate',
-      '需補 fixture',
-      '已有本機證據',
-      '外部 gate',
-      'B 貼邀請：未安裝 APS',
-      'B 貼邀請：已有同一 APS 合作目錄',
-      'B 貼邀請：已有不同 APS 合作目錄',
-      '互邀：A 和 B 都發過邀請',
-      '加入後第一次 Check APS',
-      '第一份正式交接',
-      '收件方 check Drive：資料不足',
-      '發送方收到退回後 revise',
-      '預設建議更換、另開或改建本機工作目錄',
-      '把邀請碼說成房間、身份、共同目標或正式交接',
-      '單機清零狀態與下一個 gate',
-      '單機完整合作流程已可驗收',
-      'dev/qc/aps-ux-transcript-b-side-invite-fixture.json',
-      'dev/qc/aps-ux-check-aps-live-branches-fixture.json',
-      'APS Live 功能與分支覆蓋',
-      'APS Live operation smoke',
-      '真 Drive timing 與真兩機 / APS Live transport',
-      'APS Live operation smoke 已有本機 CLI + localhost bridge formal evidence',
-      'dev/qc/evidence/aps-live-operation-smoke/20260618T114335/',
-      '16 PASS / 0 FAIL / 2 BLOCKED',
-      'peer join / leave / reconnect',
-      'A→B / B→A browser chat',
-      '需先建立共同目標與分工',
-      '準備交接包：未通過 / 需處理',
-      '準備交接包：進行中',
-      '依 APS Live 階段 UX 規格顯示「準備交接包」',
-      '主行動是交給本機 AI 草擬交接包',
-      '把「目前沒有正式決策」當主訊息',
-      '讓用戶只能在協調分頁深處才找到正確下一步',
-      '重新嘗試即時對齊',
-      '交接事件紀錄',
-      '目前階段與正式操作',
-      '協調與回應',
-      'Live 自動寫入正式狀態',
-      '真人新手 UAT',
-      '若暴露表面困惑，需降回單機 partial 並補 regression',
-      '七道驗收關口',
-      '新手用戶驗收',
-      '認知負荷驗收',
-      '受測角色只可收到自然目標',
-      '不得把預期路線、命令答案、禁線、通過條件或維護者矩陣交給受測角色',
-    ],
-  );
-
   expectBsideInviteTranscriptFixture();
   expectFirstCheckApsLiveTranscriptFixture();
   expectFormalHandoffCycleFixture();
   expectNoviceNontechnicalUxAxis();
   expectNoviceNaturalHandoffDryRunGate();
 
-  expectRepoFileContains(
-    'governance map links to APS full flow map and UX matrix',
-    'docs/qc/governance-map.html',
-    [
-      'href="aps-flow-map.html">流程地圖</a>',
-      'href="aps-ux-transcript-matrix.html">UX 矩陣</a>',
-      'APS 全流程地圖',
-      'APS 單機 UX Transcript 矩陣',
-      '安裝、邀請、加入、共同基準、正式交接、收件、退回與收結',
-      '維護者頁是你的總入口與閱讀路線',
-      '先判斷今天要做甚麼',
-      '維護者總入口、閱讀路線、真源地圖、發佈邊界與核對入口',
-    ],
-  );
-
-  expectRepoFileContains(
-    'public governance map defines seven validation gates as reusable QC trigger',
-    'docs/qc/governance-map.html',
-    [
-      '七道驗收關口',
-      '跑七道驗收關口',
-      '觸發詞、級別定義、七道驗收關口觸發與 QC 結果收口規則之單一真源為 OPS',
-      '情境驗收',
-      '功能驗收',
-      '認知負荷驗收',
-      '相鄰缺口驗收',
-      '重複定義驗收',
-      '新手用戶驗收',
-      '機械錨點驗收',
-      '機械錨點只作底線，不代表 UAT 通過',
-      '若只跑機械錨點，必須明確寫「未通過七道驗收關口」',
-    ],
-  );
-
-  expectRepoFileContains(
-    'public governance map keeps APS Live workbench target',
-    'docs/qc/governance-map.html',
-    [
-      'APS Live 是交接期間的階段追蹤、即時對齊、回饋與例外處理工作台',
-      'APS Live 工作台入口',
-      '沒有必須修復的卡點只代表 Live 非強制，不代表不能即時對齊',
-      '正式狀態仍須回到 terminal',
-    ],
-  );
-
-  expectRepoFileContains(
-    'maintainer page provides navigation and public/private boundary for maintainer HTML',
-    'docs/maintainers/index.html',
-    [
-      '本頁是維護者入口手冊',
-      '你不需要由頭讀完所有 QC HTML',
-      '今天要做甚麼',
-      '我要判斷可否發佈',
-      '我要做新手 UAT',
-      '用戶要求快檢、外發前檢、全面檢或七道驗收關口時',
-      'QC 觸發詞、分層規則與七道驗收關口觸發以',
-      '閱讀路線',
-      '先定檢查級別',
-      '再定位產品流程',
-      '涉及新手或 UAT 才看矩陣',
-      '最後回到公開頁',
-      '維護者 HTML 導航',
-      '七道驗收關口',
-      '若某頁保留在 PUBLIC，它就會進入 GitHub repo、GitHub Pages 或 npm tarball 的公開面',
-      '保留在 PUBLIC 的維護者 HTML 可以上載',
-      '公開維護文件',
-      '若要改成只給你私人檢閱，應另開一次遷移',
-      '移到 OPS 私有治理區',
-      '從 PUBLIC 導航、npm package 與 GitHub Pages 發佈面移除',
-    ],
-  );
+  expectPublicDocsExcludeMaintainerQcPlans();
 
   expectPublicDocsDoNotMentionDashboardHistory();
 
@@ -1487,76 +1277,6 @@ try {
       'QC scope-gap ledger',
       'End-to-end flow ledger',
       'missing the six-stage product-flow gate, APS Live end-to-end operation flow, and 3+ participant one-to-one-boundary gate',
-    ],
-  );
-
-  expectRepoFileContains(
-    'APS Live capability spec requires full operation loop and 3+ group boundary',
-    'docs/plans/aps-live-capability-spec.md',
-    [
-      'The current local executable regression adds adjacent user-flow coverage for no-baseline first use through `Check APS`',
-      'active packet consistency across `check-aps`, `check-drive`, and APS Live',
-      'controlled normal-handoff completion loop',
-      'Four-stage Main Flow + Internal Product Gate',
-      '準備交接包',
-      '確認並發出',
-      '對方查看 / 處理',
-      '檢查回覆 / 收結',
-      'APS Live Stage UX Specification',
-      'APS Live is stage-led, not feature-led',
-      'Every visible state must answer these five questions in plain language',
-      'Button result contract',
-      'Every APS Live button must end in one of three user-understandable result states',
-      'The same rule applies across the four visible stages (`準備交接包`, `確認並發出`, `對方查看 / 處理`, `檢查回覆 / 收結`)',
-      'Stage-by-stage UX Contract',
-      'Shared goal is confirmed, no active formal handoff packet exists. This is not an empty state.',
-      '交給本機 AI 草擬交接包',
-      '本輪正式交接包尚未建立。你正在補充交接包資料，不是收正式任務。',
-      'The phrase `目前沒有正式決策` may appear only as secondary explanation.',
-      'For no-active-handoff alignment, receiver waiting, or next-round preparation, the textarea must start empty or use placeholder text only;',
-      'Normal user-facing UI must avoid exposing command / terminal / bridge / write jargon as the main instruction.',
-      'APS Live is not considered product-flow complete until this exact internal six-stage path is proven with two APS identities',
-      'Each internal stage must have evidence of transition. Showing the four main labels on the page is not enough.',
-      '`共同基準`',
-      '`已發出`',
-      '`對方查看`',
-      '`可開工判斷`',
-      '`處理 / 補資料`',
-      '`正式更新`',
-      'This internal six-stage path is the product-flow gate.',
-      'None of those can replace a missing internal six-stage transition.',
-      'the case where no `shared_goal_and_roles` baseline exists and `共同基準` must be blocked in the internal state rather than treated as completed',
-      'APS Live end-to-end operation flow',
-      'APS Live operation smoke standard',
-      'This recurring smoke is a product operation gate, not a one-time demo',
-      'entry path, connect / no-peer / peer-left / reconnect / wrong-project / same-identity states',
-      'bridge online / offline / invalid-token paths',
-      'formal state before / preview / commit / read-back comparisons',
-      '3+ participant one-to-one-boundary',
-      'The APS Live end-to-end operation flow gate must prove the whole path',
-      'The six-stage product-flow gate must pass before the Trystero evidence can be treated as product readiness.',
-      'The 3+ participant gate must prove small-group presence without changing the APS formal model',
-      'A third participant may clarify, supply missing information, or comment on status',
-      'active formal handoff ticket remains one sender to one receiver',
-      '`Check APS`, `check Drive`, or handoff preflight can lead into APS Live',
-      'Three or more APS identities can be present and coordinate in the same Live context',
-    ],
-  );
-
-  expectRepoFileContains(
-    'public governance map keeps APS Live product-flow gate separate from Trystero transport',
-    'docs/qc/governance-map.html',
-    [
-      'APS Live 產品標準驗收',
-      '共同基準',
-      '已發出',
-      '對方查看',
-      '可開工判斷',
-      '處理 / 補資料',
-      '正式更新',
-      '再驗 Trystero 通訊',
-      '頁面只顯示階段名稱、同機截圖、local queue 或 console clean 都不可代替流程走通',
-      '正式狀態仍須回到 terminal',
     ],
   );
 
