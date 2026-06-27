@@ -138,6 +138,58 @@
     margin: 14px 0;
   }
   .callout strong { color: var(--warn); }
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 14px 0 18px;
+  }
+  .quick-card {
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--accent);
+    border-radius: 6px;
+    background: #fff;
+    padding: 14px 16px;
+  }
+  .quick-card strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+  .quick-card p {
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .step-list {
+    counter-reset: step;
+    list-style: none;
+    padding-left: 0;
+  }
+  .step-list li {
+    counter-increment: step;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    padding: 12px 14px 12px 48px;
+    position: relative;
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    text-align: center;
+    line-height: 24px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  @media (max-width: 760px) {
+    .quick-grid { grid-template-columns: 1fr; }
+  }
   footer {
     text-align: center;
     color: var(--ink-fade);
@@ -168,6 +220,29 @@
 
 <section>
   <h2>頁面分工</h2>
+  <p class="lede">本頁是維護者入口手冊。你不需要由頭讀完所有 QC HTML；先按「今天要做甚麼」選入口，再按下方閱讀順序查對應頁。</p>
+  <div class="quick-grid">
+    <article class="quick-card">
+      <strong>我要判斷可否發佈</strong>
+      <p>先讀分層 QC，再按外發前檢或全面檢走；有新手、APS Live、正式交接或 Drive 寫入改動時，必須跑七道驗收關口。</p>
+      <a href="../qc/governance-map.html">打開分層 QC</a>
+    </article>
+    <article class="quick-card">
+      <strong>我改了流程、CLI 或 APS Live</strong>
+      <p>先讀全流程地圖，確認改動落在哪一段，再回分層 QC 決定要跑哪級檢查。</p>
+      <a href="../qc/aps-flow-map.html">打開 APS 全流程地圖</a>
+    </article>
+    <article class="quick-card">
+      <strong>我要做新手 UAT</strong>
+      <p>先讀 UX 矩陣的角色分離規則；受測者只拿自然目標，不拿預設路線、命令答案或維護者判分表。</p>
+      <a href="../qc/aps-ux-transcript-matrix.html">打開 UX 矩陣</a>
+    </article>
+    <article class="quick-card">
+      <strong>我要核對公開頁是否易懂</strong>
+      <p>先讀公眾入口與教學中心，再回本頁核對公開承諾邊界；不要把維護者語氣放進新手頁。</p>
+      <a href="../index.html">打開公眾入口</a>
+    </article>
+  </div>
   <table>
     <thead>
       <tr><th>讀者</th><th>入口</th><th>目的</th></tr>
@@ -185,7 +260,7 @@
       </tr>
       <tr>
         <td>維護者</td>
-        <td>本頁、<a href="../qc/governance-map.html">分層 QC</a>、維護者 QC 覆蓋熱圖</td>
+        <td>本頁、<a href="../qc/governance-map.html">分層 QC</a>、<a href="../qc/aps-flow-map.html">流程地圖</a>、<a href="../qc/aps-ux-transcript-matrix.html">UX 矩陣</a></td>
         <td>核對公開承諾、發佈檢查、協定實作、同步記錄與內部規格。</td>
       </tr>
     </tbody>
@@ -197,51 +272,57 @@
 
 <section>
   <h2>維護者 HTML 導航</h2>
-  <p class="lede">以下頁面都屬維護者或發佈前檢查入口。若某頁保留在 PUBLIC，它就會進入 GitHub repo、GitHub Pages 或 npm tarball 的公開面；內容必須當作公開維護文件處理，不可放本機 evidence、私有路徑、草稿結論或未清理的內部痕跡。</p>
+  <p class="lede">以下不是普通連結清單，而是閱讀路線。先看左欄判斷何時用，避免在多個 HTML 之間迷路。若某頁保留在 PUBLIC，它就會進入 GitHub repo、GitHub Pages 或 npm tarball 的公開面；內容必須當作公開維護文件處理，不可放本機 evidence、私有路徑、草稿結論或未清理的內部痕跡。</p>
+  <ol class="step-list">
+    <li><strong>先定檢查級別。</strong>打開 <a href="../qc/governance-map.html">分層 QC</a>，決定今次是快檢、外發前檢、全面檢，還是要直接跑七道驗收關口。</li>
+    <li><strong>再定位產品流程。</strong>打開 <a href="../qc/aps-flow-map.html">APS 全流程地圖</a>，找出改動影響安裝、共同基準、正式交接、check Drive、APS Live、修訂或收結哪一段。</li>
+    <li><strong>涉及新手或 UAT 才看矩陣。</strong>打開 <a href="../qc/aps-ux-transcript-matrix.html">UX 矩陣</a>，只用來設計觀察與驗收，不可原樣交給受測者。</li>
+    <li><strong>最後回到公開頁。</strong>打開 <a href="../index.html">公眾入口</a>、<a href="../guides/index.html">教學中心</a> 與相關教學頁，檢查新手是否按頁面提示就知道下一步。</li>
+  </ol>
   <table>
     <thead>
-      <tr><th>頁面</th><th>用途</th><th>公開處理</th></tr>
+      <tr><th>頁面</th><th>何時打開</th><th>讀完要決定甚麼</th></tr>
     </thead>
     <tbody>
       <tr>
         <td><a href="../qc/governance-map.html">分層 QC</a></td>
-        <td>查看 🟢 快檢、🟡 外發前檢、🔴 全面檢，以及七道驗收關口。</td>
-        <td>可公開，但只可寫可維護的檢查口徑，不放私有證據。</td>
+        <td>每次驗收、發佈前、或不確定要跑哪一級 QC 時。</td>
+        <td>今次跑快檢、外發前檢、全面檢，還是七道驗收關口；哪些未覆蓋會阻塞發佈。</td>
       </tr>
       <tr>
         <td><a href="../qc/aps-flow-map.html">APS 全流程地圖</a></td>
-        <td>檢查 APS 由安裝、加入、共同基準、正式交接、check Drive、APS Live、修訂與收結的整體旅程。</td>
-        <td>可公開，因它是產品旅程與發佈前核對頁。</td>
+        <td>改了流程、CLI、APS Live、共同基準、交接狀態或首頁宏觀圖時。</td>
+        <td>改動落在哪個 APS 階段；相鄰缺口要查哪些入口與變體。</td>
       </tr>
       <tr>
         <td><a href="../qc/aps-ux-transcript-matrix.html">APS 單機 UX Transcript 矩陣</a></td>
-        <td>檢查新手第一屏、不可出現文字、受測角色與維護者觀察是否分離。</td>
-        <td>可公開作維護者文件；真人 UAT prompt 不可直接複製此矩陣。</td>
+        <td>改了新手頁、第一屏、自然語句入口、UAT 方法或 APS Live 可見操作時。</td>
+        <td>受測者可否只拿自然目標；觀察員與維護者是否分工清楚；第一屏有沒有推技術負擔給新手。</td>
       </tr>
       <tr>
         <td><a href="../index.html">公眾入口</a></td>
-        <td>核對首頁流程圖、版本、能力邊界與新手下一步。</td>
-        <td>公開頁；不可出現內部治理語氣。</td>
+        <td>改了產品說法、版本、宏觀 SVG、能力邊界或發佈狀態時。</td>
+        <td>第一次看到 APS 的人是否知道它解決甚麼問題、下一句應叫 AI 做甚麼。</td>
       </tr>
       <tr>
         <td><a href="../guides/index.html">教學中心</a></td>
-        <td>核對公眾使用路徑、安裝、加入邀請與日常 APS 用法。</td>
-        <td>公開頁；以新手可用為準。</td>
+        <td>改了任一公眾教學或想檢查新手入口是否分層清楚時。</td>
+        <td>讀者是否能按「安裝、收到邀請、日常交接、排錯」找到正確頁。</td>
       </tr>
       <tr>
         <td><a href="../guides/aps-ai-agent-install.html">AI 安裝頁</a></td>
-        <td>核對 AI 如何替用戶安裝、加入或升級 APS。</td>
-        <td>公開頁；不得要求新手讀內部規格。</td>
+        <td>改了安裝、升級、候選版、doctor、Google Drive 或 AI 操作提示時。</td>
+        <td>AI 是否先做只讀檢查、列計劃、取得一次確認，再執行；新手是否不用讀內部規格。</td>
       </tr>
       <tr>
         <td><a href="../guides/aps-join-invite.html">加入邀請頁</a></td>
-        <td>核對受邀者第一屏、邀請碼、用戶名稱與本機路徑邊界。</td>
-        <td>公開頁；不得暴露發起方本機路徑。</td>
+        <td>改了邀請碼、受邀者加入、用戶名稱、本機路徑或互邀分流時。</td>
+        <td>受邀者是否知道用自己的電腦與自己的 Google Drive 本機路徑加入；不照抄發起方路徑。</td>
       </tr>
       <tr>
         <td><a href="../guides/aps-onboarding-walkthrough.html">第一次安裝與測試</a></td>
-        <td>核對完整 walkthrough 是否仍和 CLI、skill、QC 真源一致。</td>
-        <td>公開頁；不可承諾未發佈功能。</td>
+        <td>改了完整教學、第一次測試、共同基準、第一份交接或 check Drive 指引時。</td>
+        <td>新手是否能由安裝走到第一條正式交接線，且不誤以為 APS 會自動通知或自動打開對方 AI。</td>
       </tr>
     </tbody>
   </table>
