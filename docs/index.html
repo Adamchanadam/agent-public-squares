@@ -148,66 +148,72 @@ https://adamchanadam.github.io/agent-public-squares/docs/guides/aps-ai-agent-ins
 
 <section>
   <h2>🗺️ 宏觀流程</h2>
-  <p class="lede">這張圖用 Adam 和 Jay 作示範，講清一次交接怎樣閉環：Adam 說清意圖，AI 整理草稿，Adam 確認後發出，Jay 的 AI 判斷能否接手。</p>
+  <p class="lede">這張圖用 Adam 和 Jay 作示範，講清一次交接怎樣閉環：先建立共同基準，再發正式交接；Jay 用 check Drive 判斷能否開工，交接期間可用 APS Live 對齊，最後回到正式紀錄收結。</p>
   <div class="flow-wrap" aria-label="Agent Public Squares 宏觀操作流程圖">
-    <svg class="flow-svg" viewBox="0 0 420 620" role="img" aria-labelledby="flow-title flow-desc">
+    <svg class="flow-svg" viewBox="0 0 420 780" role="img" aria-labelledby="flow-title flow-desc">
       <title id="flow-title">Agent Public Squares 宏觀操作流程</title>
-      <desc id="flow-desc">五階段大局流程圖：以 Adam 邀請 Jay 作示範。Adam 先開局，AI 建立共同基準；Adam 確認後才用一次加入邀請碼邀請 Jay；Jay 收到邀請後，在自己的電腦和自己的項目資料夾安裝、加入或升級 APS，並由 Jay 自己確認 用戶名稱；雙方先用 Check APS 對齊共同基準；最後 Adam 明確要求用 APS 向 Jay 做任務交接，AI 整理交接草稿並等 Adam 確認後發出；Jay 再用 check Drive 讀取。</desc>
+      <desc id="flow-desc">七階段大局流程圖：Adam 建立共同目標與分工，邀請 Jay 加入，雙方用 Check APS 對齊共同基準；Adam 明確要求用 APS 向 Jay 做正式交接，AI 整理交接草稿並等 Adam 確認後寫入 Drive；Jay 用 check Drive 讀取並判斷可開工或退回補資料；交接期間 APS Live 可作階段追蹤與即時對齊；最後用 revise、回覆與 close 收結。正式真源仍是 Drive 內 packet、outbox 與 ack。</desc>
       <defs>
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
           <path d="M0,0 L0,6 L9,3 z" fill="#2f5d7c"></path>
         </marker>
       </defs>
 
-      <rect class="flow-box flow-box--person" x="34" y="24" width="352" height="82"></rect>
+      <rect class="flow-box flow-box--person" x="34" y="24" width="352" height="76"></rect>
       <text class="flow-step" x="56" y="50">01</text>
-      <text class="flow-label" x="210" y="58" text-anchor="middle">Adam 開局</text>
-      <text class="flow-small" x="210" y="76" text-anchor="middle">安裝 APS，AI 建立</text>
-      <rect class="flow-key-box" x="154" y="82" width="112" height="18" rx="4"></rect>
-      <text class="flow-key-text" x="210" y="95" text-anchor="middle">共同目標與分工</text>
+      <text class="flow-label" x="210" y="58" text-anchor="middle">建立共同目標與分工</text>
+      <text class="flow-small" x="210" y="78" text-anchor="middle">先定基準、角色、不可做事項與最小驗收</text>
 
-      <path class="flow-arrow" d="M210 108 V130"></path>
+      <path class="flow-arrow" d="M210 102 V122"></path>
 
-      <rect class="flow-box flow-box--drive" x="34" y="132" width="352" height="82"></rect>
-      <text class="flow-step" x="56" y="158">02</text>
-      <text class="flow-label" x="210" y="166" text-anchor="middle">決定是否邀請</text>
-      <text class="flow-small" x="210" y="184" text-anchor="middle">Adam 確認後，AI 才準備</text>
-      <rect class="flow-key-box" x="178" y="190" width="64" height="18" rx="4"></rect>
-      <text class="flow-key-text" x="210" y="203" text-anchor="middle">邀請 Jay</text>
+      <rect class="flow-box flow-box--drive" x="34" y="124" width="352" height="76"></rect>
+      <text class="flow-step" x="56" y="150">02</text>
+      <text class="flow-label" x="210" y="158" text-anchor="middle">邀請 / 加入協作者</text>
+      <text class="flow-small" x="210" y="178" text-anchor="middle">一次加入邀請；Jay 在自己的電腦確認用戶名稱</text>
 
-      <path class="flow-arrow flow-arrow--manual" d="M210 216 V238"></path>
+      <path class="flow-arrow flow-arrow--manual" d="M210 202 V222"></path>
 
-      <rect class="flow-box flow-box--peer" x="34" y="240" width="352" height="82"></rect>
-      <text class="flow-step" x="56" y="266">03</text>
-      <text class="flow-label" x="210" y="274" text-anchor="middle">Jay 安裝／加入 APS</text>
-      <text class="flow-small" x="210" y="296" text-anchor="middle">在自己的電腦、自己的項目資料夾完成</text>
-      <text class="flow-small" x="210" y="312" text-anchor="middle">邀請碼照抄，用戶名稱由 Jay 自己確認</text>
+      <rect class="flow-box flow-box--peer" x="34" y="224" width="352" height="76"></rect>
+      <text class="flow-step" x="56" y="250">03</text>
+      <text class="flow-label" x="210" y="258" text-anchor="middle">Check APS 對齊基準</text>
+      <text class="flow-small" x="210" y="278" text-anchor="middle">先看共同基準、協作者狀態與下一步</text>
 
-      <path class="flow-arrow" d="M210 324 V346"></path>
+      <path class="flow-arrow" d="M210 302 V322"></path>
 
-      <rect class="flow-box flow-box--warn" x="34" y="348" width="352" height="82"></rect>
-      <text class="flow-step" x="56" y="374">04</text>
-      <text class="flow-label" x="210" y="382" text-anchor="middle">先對齊共同基準</text>
-      <text class="flow-small" x="210" y="398" text-anchor="middle">Jay 先用</text>
-      <rect class="flow-key-box" x="178" y="404" width="64" height="18" rx="4"></rect>
-      <text class="flow-key-text" x="210" y="417" text-anchor="middle">Check APS</text>
+      <rect class="flow-box flow-box--person" x="34" y="324" width="352" height="76"></rect>
+      <text class="flow-step" x="56" y="350">04</text>
+      <text class="flow-label" x="210" y="358" text-anchor="middle">草擬並確認正式交接</text>
+      <text class="flow-small" x="210" y="378" text-anchor="middle">AI 整理真源、開工條件與風險；Adam 確認才寫入</text>
 
-      <path class="flow-arrow" d="M210 432 V454"></path>
+      <path class="flow-arrow" d="M210 402 V422"></path>
 
-      <rect class="flow-box flow-box--person" x="34" y="456" width="352" height="82"></rect>
-      <text class="flow-step" x="56" y="482">05</text>
-      <text class="flow-label" x="210" y="490" text-anchor="middle">用 APS 向 Jay 做任務交接</text>
-      <text class="flow-small" x="210" y="506" text-anchor="middle">AI 出草稿，Adam 確認後發出</text>
-      <text class="flow-small" x="210" y="522" text-anchor="middle">Jay 的 AI 讀取後判斷能否開工</text>
+      <rect class="flow-box flow-box--drive" x="34" y="424" width="352" height="76"></rect>
+      <text class="flow-step" x="56" y="450">05</text>
+      <text class="flow-label" x="210" y="458" text-anchor="middle">Jay 用 check Drive 收件</text>
+      <text class="flow-small" x="210" y="478" text-anchor="middle">AI 做完整性與本機對接檢查，判斷可開工或退回</text>
 
-      <rect class="flow-box flow-box--warn" x="34" y="560" width="352" height="42"></rect>
-      <text class="flow-step" x="56" y="585">邊界</text>
-      <text class="flow-small" x="210" y="584" text-anchor="middle">APS 不會自動通知對方，也不會自動打開對方 AI</text>
-      <text class="flow-small" x="210" y="598" text-anchor="middle">交接閉環：草稿 → 確認 → 通知 → 接手判斷</text>
+      <path class="flow-arrow" d="M210 502 V522"></path>
+
+      <rect class="flow-box flow-box--peer" x="34" y="524" width="352" height="76"></rect>
+      <text class="flow-step" x="56" y="550">06</text>
+      <text class="flow-label" x="210" y="558" text-anchor="middle">APS Live 即時對齊</text>
+      <text class="flow-small" x="210" y="578" text-anchor="middle">看階段、收回饋、補資料；不取代正式紀錄</text>
+
+      <path class="flow-arrow" d="M210 602 V622"></path>
+
+      <rect class="flow-box flow-box--person" x="34" y="624" width="352" height="76"></rect>
+      <text class="flow-step" x="56" y="650">07</text>
+      <text class="flow-label" x="210" y="658" text-anchor="middle">回覆 / revise / close 收結</text>
+      <text class="flow-small" x="210" y="678" text-anchor="middle">同一條交接線修訂、回覆、讀回與收結</text>
+
+      <rect class="flow-box flow-box--warn" x="34" y="722" width="352" height="42"></rect>
+      <text class="flow-step" x="56" y="747">邊界</text>
+      <text class="flow-small" x="210" y="746" text-anchor="middle">正式真源是 Drive 內 packet / outbox / ack</text>
+      <text class="flow-small" x="210" y="760" text-anchor="middle">APS 不自動通知對方，也不自動打開對方 AI</text>
     </svg>
   </div>
   <div class="callout">
-    <strong>🔎 這張圖只講大局。</strong>這裏用 Adam 邀請 Jay 作示範，方便分清兩邊；正式邀請會產生一次加入邀請碼，Jay 用自己的電腦加入，用戶名稱由本人確認。交接時，Adam 不應只說一般工作安排，而應明確說「用 APS 把這段工作交接給 Jay」。AI 會整理交接草稿，Adam 確認後才寫入 APS，Adam 再人手通知 Jay。Jay 的 AI 讀到交接後，會判斷可開工、要澄清，還是要退回補資料。
+    <strong>🔎 這張圖只講大局。</strong>這裏用 Adam 邀請 Jay 作示範，方便分清兩邊；正式邀請會產生一次加入邀請碼，Jay 用自己的電腦加入，用戶名稱由本人確認。交接時，Adam 不應只說一般工作安排，而應明確說「用 APS 把這段工作交接給 Jay」。AI 會整理交接草稿，Adam 確認後才寫入 APS，Adam 再人手通知 Jay。Jay 的 AI 透過 <code>check Drive</code> 讀到交接後，會判斷可開工、要澄清，還是要退回補資料。交接期間可用 APS Live 看階段與即時對齊；正式狀態仍以 Drive 內 packet、outbox 與 ack 為準，最後由同一條交接線 revise、回覆或 close 收結。
   </div>
 </section>
 

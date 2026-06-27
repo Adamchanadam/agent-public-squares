@@ -196,6 +196,61 @@
 </section>
 
 <section>
+  <h2>維護者 HTML 導航</h2>
+  <p class="lede">以下頁面都屬維護者或發佈前檢查入口。若某頁保留在 PUBLIC，它就會進入 GitHub repo、GitHub Pages 或 npm tarball 的公開面；內容必須當作公開維護文件處理，不可放本機 evidence、私有路徑、草稿結論或未清理的內部痕跡。</p>
+  <table>
+    <thead>
+      <tr><th>頁面</th><th>用途</th><th>公開處理</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><a href="../qc/governance-map.html">分層 QC</a></td>
+        <td>查看 🟢 快檢、🟡 外發前檢、🔴 全面檢，以及七道驗收關口。</td>
+        <td>可公開，但只可寫可維護的檢查口徑，不放私有證據。</td>
+      </tr>
+      <tr>
+        <td><a href="../qc/aps-flow-map.html">APS 全流程地圖</a></td>
+        <td>檢查 APS 由安裝、加入、共同基準、正式交接、check Drive、APS Live、修訂與收結的整體旅程。</td>
+        <td>可公開，因它是產品旅程與發佈前核對頁。</td>
+      </tr>
+      <tr>
+        <td><a href="../qc/aps-ux-transcript-matrix.html">APS 單機 UX Transcript 矩陣</a></td>
+        <td>檢查新手第一屏、不可出現文字、受測角色與維護者觀察是否分離。</td>
+        <td>可公開作維護者文件；真人 UAT prompt 不可直接複製此矩陣。</td>
+      </tr>
+      <tr>
+        <td><a href="../index.html">公眾入口</a></td>
+        <td>核對首頁流程圖、版本、能力邊界與新手下一步。</td>
+        <td>公開頁；不可出現內部治理語氣。</td>
+      </tr>
+      <tr>
+        <td><a href="../guides/index.html">教學中心</a></td>
+        <td>核對公眾使用路徑、安裝、加入邀請與日常 APS 用法。</td>
+        <td>公開頁；以新手可用為準。</td>
+      </tr>
+      <tr>
+        <td><a href="../guides/aps-ai-agent-install.html">AI 安裝頁</a></td>
+        <td>核對 AI 如何替用戶安裝、加入或升級 APS。</td>
+        <td>公開頁；不得要求新手讀內部規格。</td>
+      </tr>
+      <tr>
+        <td><a href="../guides/aps-join-invite.html">加入邀請頁</a></td>
+        <td>核對受邀者第一屏、邀請碼、用戶名稱與本機路徑邊界。</td>
+        <td>公開頁；不得暴露發起方本機路徑。</td>
+      </tr>
+      <tr>
+        <td><a href="../guides/aps-onboarding-walkthrough.html">第一次安裝與測試</a></td>
+        <td>核對完整 walkthrough 是否仍和 CLI、skill、QC 真源一致。</td>
+        <td>公開頁；不可承諾未發佈功能。</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>是否應上載 GitHub：</strong>保留在 PUBLIC 的維護者 HTML 可以上載，但前提是它被視為公開維護文件，內容已清理、可被外人閱讀、沒有本機 evidence 或私有操作痕跡。若要改成只給你私人檢閱，應另開一次遷移：移到 OPS 私有治理區，從 PUBLIC 導航、npm package 與 GitHub Pages 發佈面移除；這不應與本次 QC 對齊修補混在一起做。
+  </div>
+</section>
+
+<section>
   <h2>公開承諾邊界</h2>
   <p class="lede">任何公開頁、README、CLI help 或技能提示都不可讓讀者誤以為尚未列入現有能力的事已可使用。</p>
   <ul>

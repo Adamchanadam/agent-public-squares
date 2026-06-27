@@ -284,6 +284,23 @@
 </section>
 
 <section>
+  <h2>七道驗收關口套用到 APS 流程</h2>
+  <p class="lede">本頁負責把「七道驗收關口」套回 APS 產品旅程。維護者不需要另記一套口訣；跑全面檢時，以下七關必須跟全流程圖逐段對照。</p>
+  <table>
+    <thead><tr><th>關口</th><th>在 APS 流程中怎樣驗</th><th>不能當成通過的事</th></tr></thead>
+    <tbody>
+      <tr><td>情境驗收</td><td>同一條合作線要用自然開局、先 CLI、先 APS Live、先 check Drive、先問進度、缺資料、退回、重整與舊版本等入口重跑。</td><td>只用一條 Adam → Jay 正常路徑。</td></tr>
+      <tr><td>功能驗收</td><td>逐步核對 <code>init</code>、<code>doctor</code>、<code>upgrade</code>、<code>Check APS</code>、<code>check Drive</code>、Drive formal readback、APS Live、<code>revise</code>、<code>withdraw</code>、<code>consume</code>、<code>decline</code> 與 <code>close</code>。</td><td>只看 HTML 或只跑語法檢查。</td></tr>
+      <tr><td>認知負荷驗收</td><td>受測新手只得到自然目標；觀察員另行記錄；維護者另行判斷。長流程每階段停下核對，不把預設路線、內部禁線或 pass / fail 條件交給受測角色。</td><td>讓同一個 AI 同時扮新手、觀察員、維護者與判官。</td></tr>
+      <tr><td>相鄰缺口驗收</td><td>修一個狀態或文案後，檢查同源變體：沒有共同基準、未 confirmed peer、資料不足、退回後 revise、close 後 readback、Live HTML 未刷新、Drive 寫入失敗與舊版本。</td><td>只補眼前一個錯字或單一路徑。</td></tr>
+      <tr><td>重複定義驗收</td><td>共同目標與分工、APS Live 邊界、正式真源、三層 QC 與版本承諾只保留一個真源；其他頁面只摘要與互鏈。</td><td>在 README、HTML、skill、CLI help 各自寫一套口徑。</td></tr>
+      <tr><td>新手用戶驗收</td><td>不帶標準答案，讓新手從「我要把資料交給協作者跟進」開始，由 AI 自己引導到建立基準、發包、收件、可開工判斷、回覆與收結。</td><td>把產品級自動腳本當成新手已會用。</td></tr>
+      <tr><td>機械錨點驗收</td><td>最後才用 <code>rg</code>、fixture、schema、anchor 與 regression 鎖住最低底線。</td><td>機械錨點只作底線，不代表 UAT 通過。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
   <h2>狀態說明</h2>
   <div class="status-grid">
     <div class="status done"><strong>本機已驗</strong><span>有本地可執行測試或直接檢查，能驗證功能與主要負向例。</span></div>

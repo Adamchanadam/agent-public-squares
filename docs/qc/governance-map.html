@@ -381,6 +381,56 @@
 </section>
 
 <section>
+  <h2>七道驗收關口</h2>
+  <p class="lede">「七道驗收關口」是分層 QC 的固定檢查框架。日後可直接對 AI 說 <code>跑七道驗收關口</code>；若說 <code>跑全面檢</code>，AI 必須把以下七關全部納入，不可只用 grep、schema、fixture 或腳本代表通過。</p>
+  <table class="params">
+    <thead>
+      <tr><th>關口</th><th>維護者要看甚麼</th><th>放在哪一級</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>情境驗收</td>
+        <td>用不同自然開局、不同 APS 入口、不同次序、缺資料、退回、重整、舊版本與錯入口，檢查同一規則是否仍正確分流。</td>
+        <td>外發前檢按改動面抽樣；全面檢必跑完整核心旅程。</td>
+      </tr>
+      <tr>
+        <td>功能驗收</td>
+        <td>核對 CLI、<code>doctor</code>、<code>upgrade</code>、<code>check-aps</code>、<code>check Drive</code>、正式 Drive readback、APS Live、<code>revise</code>、<code>close</code> 與相關工作流，確認沒有表面成功或錯誤下一步。</td>
+        <td>快檢跑改動直接相關命令；外發前檢與全面檢逐步擴大。</td>
+      </tr>
+      <tr>
+        <td>認知負荷驗收</td>
+        <td>受測角色不得同時當新手、觀察員、維護者與判官；長流程須有階段停止閘，不把內部治理負擔推給新手用戶。</td>
+        <td>涉及新手頁、APS Live、CLI 輸出或 UAT 時必跑。</td>
+      </tr>
+      <tr>
+        <td>相鄰缺口驗收</td>
+        <td>補一個坑後要查同源變體，例如先 CLI、先 APS Live、先 check Drive、先問進度、資料不足、退回補資料、舊版本、重複要求與外部同步延遲。</td>
+        <td>外發前檢起必跑；全面檢須逐項記錄覆蓋與未覆蓋。</td>
+      </tr>
+      <tr>
+        <td>重複定義驗收</td>
+        <td>找唯一真源；其他 HTML、README、skill、CLI help 只引用、摘要或連回，不另立平行定義。</td>
+        <td>任何文件或治理改動都必跑。</td>
+      </tr>
+      <tr>
+        <td>新手用戶驗收</td>
+        <td>受測者只拿自然目標，不拿預設路線；觀察 AI 是否自己引導、自己用 APS、自己開 APS Live、自己完成正式交接。</td>
+        <td>外發前檢至少讀 UX 矩陣；全面檢須做不帶標準答案的 UAT。</td>
+      </tr>
+      <tr>
+        <td>機械錨點驗收</td>
+        <td><code>rg</code>、anchor、schema、fixture、腳本只作底線，證明沒有最低級漂移；機械錨點只作底線，不代表 UAT 通過。</td>
+        <td>每級都可用；永遠不能單獨宣告產品級通過。</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>最短操作法：</strong>維護者可說「跑七道驗收關口」。AI 應先說明本次改動觸及哪些關口，再列已讀真源、已跑命令、未覆蓋項與是否阻塞發佈。若只跑機械錨點，必須明確寫「未通過七道驗收關口」。
+  </div>
+</section>
+
+<section>
   <h2>APS 全面檢三條主線</h2>
   <p class="lede">Agent Public Squares 的全面檢不只是多跑幾條命令,而是要證明公開說法、外發物可信度與協定實際行為三者一致。狀態須逐項標示為通過、失敗、受阻或接受風險。</p>
   <table class="params">

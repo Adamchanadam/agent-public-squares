@@ -1159,6 +1159,11 @@ try {
       '跟協作者即時對齊',
       '收回饋',
       '正式進度仍以 Drive 內正式交接紀錄為準',
+      '七階段大局流程圖',
+      'Jay 用 check Drive 收件',
+      'APS Live 即時對齊',
+      '回覆 / revise / close 收結',
+      '正式真源是 Drive 內 packet / outbox / ack',
     ],
   );
 
@@ -1263,6 +1268,15 @@ try {
       '單機清零狀態與外部 gate',
       '不新增第二套優先級真源',
       '只可最後做雙機',
+      '七道驗收關口套用到 APS 流程',
+      '情境驗收',
+      '功能驗收',
+      '認知負荷驗收',
+      '相鄰缺口驗收',
+      '重複定義驗收',
+      '新手用戶驗收',
+      '機械錨點驗收',
+      '機械錨點只作底線，不代表 UAT 通過',
     ],
   );
 
@@ -1328,6 +1342,11 @@ try {
       'Live 自動寫入正式狀態',
       '真人新手 UAT',
       '若暴露表面困惑，需降回單機 partial 並補 regression',
+      '七道驗收關口',
+      '新手用戶驗收',
+      '認知負荷驗收',
+      '受測角色只可收到自然目標',
+      '不得把預期路線、命令答案、禁線、通過條件或維護者矩陣交給受測角色',
     ],
   );
 
@@ -1350,6 +1369,24 @@ try {
   );
 
   expectRepoFileContains(
+    'public governance map defines seven validation gates as reusable QC trigger',
+    'docs/qc/governance-map.html',
+    [
+      '七道驗收關口',
+      '跑七道驗收關口',
+      '情境驗收',
+      '功能驗收',
+      '認知負荷驗收',
+      '相鄰缺口驗收',
+      '重複定義驗收',
+      '新手用戶驗收',
+      '機械錨點驗收',
+      '機械錨點只作底線，不代表 UAT 通過',
+      '若只跑機械錨點，必須明確寫「未通過七道驗收關口」',
+    ],
+  );
+
+  expectRepoFileContains(
     'public governance map keeps APS Live workbench target',
     'docs/qc/governance-map.html',
     [
@@ -1357,6 +1394,21 @@ try {
       'APS Live 工作台入口',
       '沒有必須修復的卡點只代表 Live 非強制，不代表不能即時對齊',
       '正式狀態仍須回到 terminal',
+    ],
+  );
+
+  expectRepoFileContains(
+    'maintainer page provides navigation and public/private boundary for maintainer HTML',
+    'docs/maintainers/index.html',
+    [
+      '維護者 HTML 導航',
+      '七道驗收關口',
+      '若某頁保留在 PUBLIC，它就會進入 GitHub repo、GitHub Pages 或 npm tarball 的公開面',
+      '保留在 PUBLIC 的維護者 HTML 可以上載',
+      '公開維護文件',
+      '若要改成只給你私人檢閱，應另開一次遷移',
+      '移到 OPS 私有治理區',
+      '從 PUBLIC 導航、npm package 與 GitHub Pages 發佈面移除',
     ],
   );
 
