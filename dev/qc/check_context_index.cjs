@@ -4723,6 +4723,10 @@ try {
     0,
     [
       'APS 整體狀態',
+      '| 對方查看 / 處理 | ✅ 已完成 | 對方已正式回覆，等待本方審閱與收結。 | 進入「檢查回覆 / 收結」，先讀對方回覆正文。 |',
+      '| 檢查回覆 / 收結 | 👉 目前位置 | 1 件對方回覆等你審閱。 | 先讀對方回覆正文，再決定標記已處理、要求修訂或收結原交接。 |',
+      '有 1 件對方回覆等你審閱與收結。',
+      '[🔎 待審閱 / 收結] sandbox 回覆: parent notice draft reply',
       'parent_notice_draft_reply',
       '📖 待你查看的內容',
       '以下是正式交接包內可先閱讀的正文摘錄',
@@ -4732,12 +4736,21 @@ try {
       '下一句可對 AI 說',
     ],
     [
+      '| 對方查看 / 處理 | 👉 目前位置 | 1 件正式交接待你判斷。',
+      '[✅ 可開工] sandbox 交來: parent notice draft reply',
+      '有 1 件交接等你處理，先做本機對接檢查再決定是否開工。',
       '未列明共同目標',
       '未列明真源指標或來源位置',
       '未列明接收方開工條件',
       '需退回補資料',
     ],
   );
+  const replyReviewLiveHtml = fs.readFileSync(path.join(hubRoot, 'parent_notice_reply_inbox', '_context', 'aps-live_adam.html'), 'utf8');
+  assert(replyReviewLiveHtml.includes('"flow_code": "received_reply_review"'), 'check-aps reply review live: flow code should distinguish reply review from normal receiver work', replyReviewLiveHtml);
+  assert(/tracking-step done" aria-label="對方查看 \/ 處理：已完成"/.test(replyReviewLiveHtml), 'check-aps reply review live: receiver handling stage should be completed for a formal reply', replyReviewLiveHtml);
+  assert(/tracking-step active" aria-label="檢查回覆 \/ 收結：進行中"/.test(replyReviewLiveHtml), 'check-aps reply review live: close stage should be active for a formal reply', replyReviewLiveHtml);
+  assert(replyReviewLiveHtml.includes('等待你審閱與收結'), 'check-aps reply review live: page should tell sender to review and close rather than start work', replyReviewLiveHtml);
+  assert(!replyReviewLiveHtml.includes('需要先判斷能否開工'), 'check-aps reply review live: reply should not be framed as a can-start task', replyReviewLiveHtml);
   expectCheckDriveCase(
     'check-drive shows multiple pending packet selection and each readable excerpt',
     ['--hub-root', hubRoot, '--project', 'multi_pending_inbox', '--agent-id', 'adam', '--all'],

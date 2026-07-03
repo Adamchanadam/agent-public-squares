@@ -2943,7 +2943,7 @@ function dashboardDecisionIcon(line) {
 function actionLaneIcon(item) {
   const lane = item && item.lane ? item.lane : '';
   if (/退回|不足/.test(lane)) return '⚠️';
-  if (/核對|釐清|建立/.test(lane)) return '🔎';
+  if (/核對|釐清|建立|審閱|收結/.test(lane)) return '🔎';
   if (/等待|等對方/.test(lane)) return '⏳';
   if (/可開工/.test(lane)) return '✅';
   return '📌';
@@ -3628,15 +3628,22 @@ function dashboardActionItems({ pendingItems, outgoingPackets, riskRecords, agen
   for (const item of pendingItems.slice(0, 5)) {
     const actionability = item.actionability || assessPendingActionability(item, { sharedGoal });
     const topic = packetTopic(item.packetId);
+    const isReply = isReplyTopicName(topic);
     actions.push({
-      lane: actionability.label,
+      lane: isReply ? '待審閱 / 收結' : actionability.label,
       item: `${item.from} → ${agentId}: ${topic} v${item.version}`,
-      defaultItem: `${item.from} 交來: ${humanizeTopicForUser(topic)}`,
-      next: `${actionability.next} 可對 AI 說：「${actionabilityPromptFor(item, item.from)}」`,
-      defaultNext: actionability.next,
+      defaultItem: isReply
+        ? `${item.from} 回覆: ${humanizeTopicForUser(topic)}`
+        : `${item.from} 交來: ${humanizeTopicForUser(topic)}`,
+      next: isReply
+        ? `先讀對方回覆正文，審閱草稿、風險與未決事項；通過後再問是否標記已處理或收結原交接。 可對 AI 說：「請先讀 ${item.from} 交來的 ${humanizeTopicForUser(topic)} v${item.version} 回覆正文，整理可用處、風險句和是否需要收結。」`
+        : `${actionability.next} 可對 AI 說：「${actionabilityPromptFor(item, item.from)}」`,
+      defaultNext: isReply
+        ? '先讀對方回覆正文，審閱草稿、風險與未決事項；通過後再問是否標記已處理或收結原交接。'
+        : actionability.next,
       source: packetSourceRef(item.from, item.packetId, item.version),
       state: actionability.state,
-      reason: actionability.reason,
+      reason: isReply ? '這是對方交回的正式回覆；不應再顯示成可開工任務。' : actionability.reason,
     });
   }
   for (const item of outgoingPackets.filter((packet) => packet.state === 'waiting').slice(0, 5)) {
@@ -3690,6 +3697,14 @@ function humanizeTopicForUser(topic) {
   if (!topic) return '(未記錄)';
   if (topic === 'shared_goal_and_roles') return '共同目標與分工';
   return topic.replace(/_/g, ' ');
+}
+
+function isReplyTopicName(topic) {
+  return /(^|_)(reply|response)($|_)/i.test(String(topic || ''));
+}
+
+function isReplyPacketItem(item) {
+  return isReplyTopicName(packetTopic(item && item.packetId));
 }
 
 function defaultActionItemText(item) {
@@ -3747,7 +3762,7 @@ function checkApsPrimaryOutcome({ pendingItems, outgoingPackets, riskRecords, sh
   const closedOutgoing = outgoingPackets.filter((item) => item.state === 'closed');
   const processedReplyOutgoing = outgoingPackets.filter((item) => (
     item.state === 'consumed'
-    && /(^|_)(reply|response)($|_)/i.test(packetTopic(item.packetId))
+    && isReplyPacketItem(item)
   ));
   const operationalBlockerCount = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可/.test(record.message) && !/未見目前有效基準/.test(record.message)).length;
   if (sharedGoal && sharedGoal.state === 'incoming_pending') {
@@ -3790,6 +3805,15 @@ function checkApsPrimaryOutcome({ pendingItems, outgoingPackets, riskRecords, sh
       decision: `有 ${pendingByState.clarify_goal} 件交接要先釐清共同目標與分工。`,
       prompt: '請用 APS 比對這件交接和目前共同目標與分工，先整理共識確認問題。',
       next: '先做共識確認，不要直接開工。',
+    };
+  }
+  const pendingReplyItems = pendingItems.filter(isReplyPacketItem);
+  const nonReplyPendingItems = pendingItems.filter((item) => !isReplyPacketItem(item));
+  if (pendingReplyItems.length > 0 && nonReplyPendingItems.length === 0) {
+    return {
+      decision: `有 ${pendingReplyItems.length} 件對方回覆等你審閱與收結。`,
+      prompt: '請用 APS check Drive，先讀對方回覆正文，審閱可用處、風險與未決事項；再問我要不要標記已處理或收結原交接。',
+      next: '先審閱回覆內容；通過後才標記已處理或收結。',
     };
   }
   if (pendingItems.length > 0) {
@@ -3842,12 +3866,20 @@ function checkApsPacketStatusLines({ pendingItems, outgoingPackets, riskRecords 
     map[state] = (map[state] || 0) + 1;
     return map;
   }, {});
+  const pendingReplyItems = pendingItems.filter(isReplyPacketItem);
+  const nonReplyPendingItems = pendingItems.filter((item) => !isReplyPacketItem(item));
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
   const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
   const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
   const operationalBlockers = blockers.filter((record) => !/未見目前有效基準|peer card,但缺少 ack/.test(record.message));
   const lines = [];
-  lines.push(`- 收件: ${pendingItems.length} 件待判斷。${pendingByState.return ? `${pendingByState.return} 件資料不足，要先退回補資料。` : pendingItems.length > 0 ? '先逐件做完整性與本機對接檢查。' : '目前沒有新交接要處理。'}`);
+  const inboxSummary = (() => {
+    if (pendingByState.return) return `${pendingByState.return} 件資料不足，要先退回補資料。`;
+    if (pendingReplyItems.length > 0 && nonReplyPendingItems.length === 0) return '這是對方正式回覆；先讀正文，再決定標記已處理或收結原交接。';
+    if (pendingReplyItems.length > 0) return `${pendingReplyItems.length} 件是對方正式回覆；其餘交接仍要逐件做完整性與本機對接檢查。`;
+    return pendingItems.length > 0 ? '先逐件做完整性與本機對接檢查。' : '目前沒有新交接要處理。';
+  })();
+  lines.push(`- 收件: ${pendingItems.length} 件待判斷。${inboxSummary}`);
   lines.push(`- 發件: ${outgoingPackets.length} 件由你發出。${waitingOutgoing.length > 0 ? `${waitingOutgoing.length} 件仍等對方處理。` : '沒有看到等待對方的發件。'}`);
   if (declinedOutgoing.length > 0) {
     lines.push(`- 是否如期: 否。對方退回 ${declinedOutgoing.length} 件你交出去的事，要先處理退回原因。`);
@@ -3965,12 +3997,15 @@ function checkApsCurrentJourneyStage({ pendingItems, outgoingPackets, riskRecord
   }, {});
   const waitingOutgoing = outgoingPackets.filter((item) => item.state === 'waiting');
   const declinedOutgoing = outgoingPackets.filter((item) => item.state === 'declined');
+  const pendingReplyItems = pendingItems.filter(isReplyPacketItem);
+  const nonReplyPendingItems = pendingItems.filter((item) => !isReplyPacketItem(item));
   const blockers = riskRecords.filter((record) => /退回|異議|失敗|錯誤|缺少|不可|未見目前有效基準/.test(record.message));
   const operationalBlockers = blockers.filter((record) => !/未見目前有效基準|peer card,但缺少 ack/.test(record.message));
   const hasFormalPacket = pendingItems.some((item) => packetTopic(item.packetId) !== 'shared_goal_and_roles')
     || outgoingPackets.some((item) => packetTopic(item.packetId) !== 'shared_goal_and_roles');
   if (confirmedPeerCount === 0) return 'invite';
   if (pendingByState.return > 0 || pendingByState.clarify_goal > 0 || (hasFormalPacket && operationalBlockers.length > 0)) return 'receiver-work';
+  if (pendingReplyItems.length > 0 && nonReplyPendingItems.length === 0) return 'close';
   if (pendingItems.length > 0) return 'receiver-work';
   if (declinedOutgoing.length > 0) return 'close';
   if (waitingOutgoing.length > 0) return 'receiver-work';
@@ -3986,6 +4021,8 @@ function checkApsDetailedStageRows({ pendingItems, outgoingPackets, riskRecords,
   const liveQueueCount = Array.isArray(liveQueueItems) ? liveQueueItems.length : 0;
   const workOutgoingPackets = outgoingPackets.filter((item) => packetTopic(item.packetId) !== 'shared_goal_and_roles');
   const waitingOutgoing = workOutgoingPackets.filter((item) => item.state === 'waiting');
+  const pendingReplyItems = pendingItems.filter(isReplyPacketItem);
+  const nonReplyPendingItems = pendingItems.filter((item) => !isReplyPacketItem(item));
   const pendingByState = pendingItems.reduce((map, item) => {
     const state = item.actionability ? item.actionability.state : 'actionable';
     map[state] = (map[state] || 0) + 1;
@@ -4020,7 +4057,8 @@ function checkApsDetailedStageRows({ pendingItems, outgoingPackets, riskRecords,
     }
     if (id === 'receiver-work') {
       if (pendingByState.return > 0 || pendingByState.clarify_goal > 0) return blocked;
-      if (pendingItems.length > 0 || waitingOutgoing.length > 0) return current === 'receiver-work' ? currentLabel : waiting;
+      if (nonReplyPendingItems.length > 0 || waitingOutgoing.length > 0) return current === 'receiver-work' ? currentLabel : waiting;
+      if (pendingReplyItems.length > 0) return done;
       return notStarted;
     }
     if (id === 'close') return current === 'close' ? currentLabel : notStarted;
@@ -4028,7 +4066,8 @@ function checkApsDetailedStageRows({ pendingItems, outgoingPackets, riskRecords,
   };
   const peerText = confirmedPeerCount > 0 ? `${confirmedPeerCount} 位 confirmed peer` : '尚未有 confirmed peer';
   const receiverWorkNext = (() => {
-    if (pendingItems.length > 0) return '先用 check Drive 判斷可開工、退回或確認。';
+    if (nonReplyPendingItems.length > 0) return '先用 check Drive 判斷可開工、退回或確認。';
+    if (pendingReplyItems.length > 0) return '對方已回覆，改到「檢查回覆並收結」審閱正文。';
     if (waitingOutgoing.length > 0 && hasLiveCandidate) {
       return '正式路徑：提醒對方在自己項目資料夾 check Drive；即時核對：雙方各自 Check APS 打開 Live。';
     }
@@ -4046,8 +4085,8 @@ function checkApsDetailedStageRows({ pendingItems, outgoingPackets, riskRecords,
     { id: 'baseline', stage: '2. 建立共同目標與分工', status: statusFor('baseline'), userMeaning: sharedGoalProgressText(sharedGoal), next: sharedGoal && sharedGoal.state === 'missing' ? '先建立共同基準，不發普通任務。' : '以目前基準推進。' },
     { id: 'confirm-baseline', stage: '3. 協作者確認共同基準', status: statusFor('confirm-baseline'), userMeaning: peerText, next: sharedGoal && sharedGoal.state === 'confirmed' ? '可以準備第一份正式工作包。' : '先讓受影響協作者同意、修訂或提出異議。' },
     { id: 'formal-handoff', stage: '4. 發正式工作包', status: statusFor('formal-handoff'), userMeaning: formalHandoffMeaning, next: formalHandoffNext },
-    { id: 'receiver-work', stage: '5. 對方處理 / 退回 / 回覆', status: statusFor('receiver-work'), userMeaning: pendingItems.length > 0 ? `${pendingItems.length} 件待判斷。` : waitingOutgoing.length > 0 ? `${waitingOutgoing.length} 件正式工作包等對方處理。` : '目前沒有進行中的正式工作包。', next: receiverWorkNext },
-    { id: 'close', stage: '6. 檢查回覆並收結', status: statusFor('close'), userMeaning: '只有確認對方已處理或退回原因後，才收結交接線。', next: '由原發包方 close。' },
+    { id: 'receiver-work', stage: '5. 對方處理 / 退回 / 回覆', status: statusFor('receiver-work'), userMeaning: nonReplyPendingItems.length > 0 ? `${nonReplyPendingItems.length} 件待判斷。` : pendingReplyItems.length > 0 ? '對方已正式回覆，等待本方審閱與收結。' : waitingOutgoing.length > 0 ? `${waitingOutgoing.length} 件正式工作包等對方處理。` : '目前沒有進行中的正式工作包。', next: receiverWorkNext },
+    { id: 'close', stage: '6. 檢查回覆並收結', status: statusFor('close'), userMeaning: pendingReplyItems.length > 0 ? `${pendingReplyItems.length} 件對方回覆等你審閱。` : '只有確認對方已處理或退回原因後，才收結交接線。', next: pendingReplyItems.length > 0 ? '先讀對方回覆正文，再決定標記已處理、要求修訂或收結原交接。' : '由原發包方 close。' },
     { id: 'live', stage: 'APS Live 排錯狀態', status: liveQueueCount > 0 ? '🤖 待 AI 整理' : hasLiveCandidate ? '📡 建議打開' : '○ 無必須', userMeaning: liveQueueCount > 0 ? `已有 ${liveQueueCount} 件 APS Live 討論等本機 AI 整理；這是本輪下一步。` : hasLiveCandidate ? '有共同基準、補資料、退回或狀態需要即時核對。' : '沒有必須用 Live 修復的卡點；如你想即時對齊仍可使用。', next: liveQueueCount > 0 ? '先整理剛才 APS Live 的討論，列出共識、分歧與待決定事項。' : hasLiveCandidate ? '打開 Check APS 顯示的 APS Live 路徑。' : '想即時討論時，叫 AI 打開 APS Live；要留正式紀錄時才整理交接包。' },
   ];
 }
@@ -4060,9 +4099,11 @@ function checkApsMainStageRows({ pendingItems, outgoingPackets, riskRecords, sha
   const closedOutgoing = workOutgoingPackets.filter((item) => item.state === 'closed');
   const processedReplyOutgoing = workOutgoingPackets.filter((item) => (
     item.state === 'consumed'
-    && /(^|_)(reply|response)($|_)/i.test(packetTopic(item.packetId))
+    && isReplyPacketItem(item)
   ));
   const workPendingItems = pendingItems.filter((item) => packetTopic(item.packetId) !== 'shared_goal_and_roles');
+  const pendingReplyItems = workPendingItems.filter(isReplyPacketItem);
+  const nonReplyPendingItems = workPendingItems.filter((item) => !isReplyPacketItem(item));
   const pendingByState = pendingItems.reduce((map, item) => {
     const state = item.actionability ? item.actionability.state : 'actionable';
     map[state] = (map[state] || 0) + 1;
@@ -4157,14 +4198,18 @@ function checkApsMainStageRows({ pendingItems, outgoingPackets, riskRecords, sha
     receiverStatus = `${current} / ${blocked}`;
     receiverMeaning = '交接需要補資料、釐清共同基準或處理退回原因。';
     receiverNext = '先處理缺口；需要正式動作時先出草稿等你確認。';
-  } else if (workPendingItems.length > 0) {
+  } else if (nonReplyPendingItems.length > 0) {
     receiverStatus = current;
-    receiverMeaning = `${workPendingItems.length} 件正式交接待你判斷。`;
+    receiverMeaning = `${nonReplyPendingItems.length} 件正式交接待你判斷。`;
     receiverNext = '讀任務、真源與開工條件，再選擇可開工、退回補資料或暫不處理。';
   } else if (waitingOutgoing.length > 0) {
     receiverStatus = `${current} / ${waiting}`;
     receiverMeaning = `${waitingOutgoing.length} 件正式交接等對方查看、處理或回覆。`;
     receiverNext = '正式路徑是提醒對方 check Drive；即時核對可雙方打開 APS Live。';
+  } else if (pendingReplyItems.length > 0) {
+    receiverStatus = done;
+    receiverMeaning = '對方已正式回覆，等待本方審閱與收結。';
+    receiverNext = '進入「檢查回覆 / 收結」，先讀對方回覆正文。';
   } else if (hasFormalPacket) {
     receiverStatus = done;
     receiverMeaning = hasClosedRound ? '接收方已處理，本輪沒有待辦。' : '接收方查看 / 處理階段沒有待辦。';
@@ -4178,6 +4223,10 @@ function checkApsMainStageRows({ pendingItems, outgoingPackets, riskRecords, sha
     closeStatus = current;
     closeMeaning = `${declinedOutgoing.length} 件你發出的交接已被退回或需跟進。`;
     closeNext = '先檢查退回原因，再決定補資料、修訂或暫停。';
+  } else if (pendingReplyItems.length > 0 && nonReplyPendingItems.length === 0 && !hasReceiverIssue) {
+    closeStatus = current;
+    closeMeaning = `${pendingReplyItems.length} 件對方回覆等你審閱。`;
+    closeNext = '先讀對方回覆正文，再決定標記已處理、要求修訂或收結原交接。';
   } else if (hasFormalPacket && waitingOutgoing.length === 0 && workPendingItems.length === 0 && !hasReceiverIssue) {
     closeStatus = hasClosedRound ? done : current;
     closeMeaning = hasClosedRound ? `${completedOutgoingCount} 件正式交接已完成。` : '本輪可檢查是否需要正式收結。';
@@ -4527,7 +4576,7 @@ function trimTrailingSentencePunctuation(value) {
   return String(value || '').trim().replace(/[。.!！?？]+$/u, '');
 }
 
-function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow = false, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker }) {
+function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow = false, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker, firstPendingIsReply = false }) {
   if (isMissingSharedGoalFlow) {
     return {
       flowCode: 'no_baseline_no_packet',
@@ -4555,6 +4604,19 @@ function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfO
     };
   }
   if (firstPending) {
+    if (firstPendingIsReply) {
+      return {
+        flowCode: 'received_reply_review',
+        station: '檢查回覆 / 收結',
+        canStart: '先審閱對方回覆',
+        waitingFor: agentId,
+        nextAction: '先讀對方回覆正文，再決定標記已處理、要求修訂或收結原交接',
+        blocker: blocker || '對方已有正式回覆，等待你審閱與收結',
+        chatMode: '可即時核對',
+        impact: '收結這條交接鏈',
+        dependency: '先審閱回覆內容',
+      };
+    }
     const actionability = firstPending.actionability || {};
     if (actionability.state === 'return') {
       return {
@@ -4701,6 +4763,9 @@ function liveDetailedTrackingSteps(tracking, context = {}) {
   if (flowCode === 'received_can_start') {
     return build((label, index) => (index < 3 ? 'done' : index === 3 ? 'active' : 'todo'));
   }
+  if (flowCode === 'received_reply_review') {
+    return build((label, index) => (index < 5 ? 'done' : index === 5 ? 'active' : 'todo'));
+  }
   return build((label, index) => (index === 1 ? 'active' : 'todo'));
 }
 
@@ -4745,6 +4810,11 @@ function liveMainTrackingStages(tracking, context = {}, detailedSteps = []) {
       prepareState = 'blocked';
       issueState = firstWaiting ? 'blocked' : 'done';
       receiverState = 'blocked';
+    } else if (flowCode === 'received_reply_review') {
+      prepareState = 'done';
+      issueState = 'done';
+      receiverState = 'done';
+      closeState = 'active';
     } else {
       prepareState = 'done';
       issueState = 'done';
@@ -4826,10 +4896,11 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     item.state === 'closed'
     || (
       item.state === 'consumed'
-      && /(^|_)(reply|response)($|_)/i.test(packetTopic(item.packetId))
+      && isReplyPacketItem(item)
     )
   ));
   const firstPending = pendingItems[0] || null;
+  const firstPendingIsReply = Boolean(firstPending && isReplyPacketItem(firstPending));
   const firstWaiting = waitingOutgoing[0] || null;
   const firstCompleted = completedOutgoing[0] || null;
   const snapshotGeneratedAt = isoNow();
@@ -4910,6 +4981,8 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     ? '需先建立共同目標與分工'
     : isSharedGoalFlow
     ? (sharedGoalNeedsOwnConfirmation ? '請確認共同目標與分工' : `等待 ${targetPeer} 確認共同目標與分工`)
+    : firstPendingIsReply
+      ? `${targetPeer} 回覆 ${humanizeTopicForUser(firstTopic)}，等待你審閱與收結`
     : firstPending
       ? `${targetPeer} 交來 ${humanizeTopicForUser(firstTopic)}，需要先判斷能否開工`
       : firstWaiting
@@ -4923,6 +4996,8 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     ? 'AI 未見目前有效共同目標與分工基準。第一輪普通任務不得先開始，需先建立共同目標、角色分工、第一輪範圍與驗收標準。'
     : isSharedGoalFlow
     ? `AI 看到共同目標與分工仍未完全確認：${sharedGoalProgressText(sharedGoal)}。這頁要讓協作者確認、補充或提出異議。`
+    : firstPendingIsReply
+      ? `AI 看到 ${targetPeer} 已交回 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。這是對方正式回覆，應先讀正文、審閱風險與未決事項，再決定是否標記已處理或收結原交接。`
     : firstPending
       ? `AI 看到 ${targetPeer} 有一件待處理交接：${humanizeTopicForUser(firstTopic)} v${firstPending.version}。目前判斷是：${safeLiveDiagnosticText(blocker)}`
     : firstWaiting
@@ -4938,6 +5013,8 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     ? (sharedGoalNeedsOwnConfirmation
       ? '你是否同意目前共同目標、角色、第一輪分工和驗收標準？如不同意，需要改哪裏？'
       : `${targetPeer} 是否同意目前共同目標、角色、第一輪分工和驗收標準？如不同意，需要改哪裏？`)
+    : firstPendingIsReply
+      ? '這份回覆內容是否可接受？是否需要修訂、補資料、標記已處理，或收結原交接？'
     : firstPending
       ? `這件交接是否資料足夠？若不足，${targetPeer} 要補充哪些檔案位置、範圍或驗收標準？`
       : firstWaiting
@@ -4953,6 +5030,8 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     ? (sharedGoalNeedsOwnConfirmation
       ? `我在 APS Live 看到有共同目標與分工需要我確認：${sharedGoalProgressText(sharedGoal)}。我會先確認三件事：一、共同目標是否正確；二、我的角色與第一輪分工是否正確；三、驗收標準有沒有需要補充或反對的地方。`
       : `${targetPeer}，我在 APS Live 看到共同目標與分工仍需要確認：${sharedGoalProgressText(sharedGoal)}。請你確認三件事：一、共同目標是否正確；二、你的角色與第一輪分工是否正確；三、驗收標準有沒有需要補充或反對的地方。`)
+    : firstPendingIsReply
+      ? `我收到 ${targetPeer} 交回的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。請先讀回覆正文，整理可用處、風險句、未決事項，然後問我要標記已處理、要求修訂，還是收結原交接。`
     : firstPending
       ? `${targetPeer}，我這邊收到你交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}。AI 判斷目前可能未足夠直接開工，原因是：${trimTrailingSentencePunctuation(safeLiveDiagnosticText(blocker))}。請你補充要處理的具體位置、依據檔案或版本，以及怎樣才算完成。`
       : firstWaiting
@@ -4960,7 +5039,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         : firstCompleted
         ? '本輪交接已完成；如要再合作，請先整理下一輪目標、收件人、交回物和可查真源。'
         : '';
-  const trackingState = liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker });
+  const trackingState = liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker, firstPendingIsReply });
   const detailedTrackingSteps = liveDetailedTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, firstCompleted, isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow });
   const trackingSteps = liveTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, firstCompleted, isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow }, detailedTrackingSteps);
   const chainTitle = isOutOfOrderOrdinaryFlow
@@ -5009,7 +5088,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
   const evidenceLabels = Array.from(new Set([
     sharedGoal && sharedGoal.latest ? `${hasActiveHandoff ? '共同目標與分工草稿' : '已確認共同目標與分工'} v${sharedGoal.latest.version}${hasActiveHandoff ? '' : '（背景基準）'}` : null,
     !hasActiveHandoff ? '本輪正式交接包尚未建立' : null,
-    firstPending ? `${targetPeer} 交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}` : null,
+    firstPending ? `${targetPeer} ${firstPendingIsReply ? '回覆' : '交來'}的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}` : null,
     firstWaiting ? `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version}` : null,
     firstCompleted ? `${humanizeTopicForUser(firstTopic)} v${firstCompleted.version} 已完成` : null,
     hasOrdinaryActiveHandoff && hasMissingSharedGoalRisk ? '提醒：普通交接包已提前出現；共同目標與分工未確認前，不可視為可開工主線。' : null,
