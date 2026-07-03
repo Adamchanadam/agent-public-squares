@@ -1766,6 +1766,10 @@ function isSharedGoalInboxItem(item) {
   return sharedGoalTopicFrom({ packetId: item.packetId, summary: item }) === 'shared_goal_and_roles';
 }
 
+function isSharedGoalTopicName(topic) {
+  return topic === 'shared_goal_and_roles' || topic === 'shared_goal_and_roles_clarification';
+}
+
 function sharedGoalInboxDetails(item) {
   const summary = sharedGoalSummaryFromBody(item.body);
   const openItems = firstLineAfterHeading(item.body, /(風險\s*\/\s*未決事項|風險|未決|待確認|open items|risks and open items)/i)
@@ -3067,7 +3071,8 @@ function buildLiveFormalActions(dashboard) {
   for (const item of pendingItems.slice(0, 4)) {
     const actionability = item.actionability || assessPendingActionability(item, { sharedGoal: dashboard.sharedGoal });
     const topic = packetTopic(item.packetId);
-    if (topic === 'shared_goal_and_roles' || actionability.state === 'clarify_goal') {
+    const isSharedGoalPacket = isSharedGoalTopicName(topic);
+    if (isSharedGoalPacket) {
       const report = liveAcceptanceReportFor({
         state: 'clarify_goal',
         reason: actionability.reason,
@@ -3101,6 +3106,33 @@ function buildLiveFormalActions(dashboard) {
           verdict: '⛔ AI 檢查結果：共同基準需修訂',
           summary: '共同目標、角色分工、第一輪範圍或驗收標準仍需修改；暫時不能確認為目前基準。',
           next: '如共同基準不準確，按下方按鈕會先重新讀取最新正式狀態，再讓你確認記錄退回理由。',
+        },
+      });
+      continue;
+    }
+    if (actionability.state === 'clarify_goal') {
+      const report = liveAcceptanceReportFor({
+        state: 'return',
+        reason: actionability.reason,
+        missing: ['共同目標與分工未確認'],
+        packetId: item.packetId,
+        version: Number(item.version),
+      });
+      actions.push({
+        type: 'decline-packet',
+        label: '先退回補共同基準',
+        tone: 'danger',
+        packet_id: item.packetId,
+        version: Number(item.version),
+        from: item.from,
+        default_text: '目前未見已確認的 shared_goal_and_roles。請先補發共同目標與分工確認包；對方確認後，再重發或修訂這份普通任務交接。',
+        preview: `將以 ${agentId} 身份退回 ${item.from} 的 ${packetDisplayTitle(item.packetId)} v${item.version}，要求先補共同基準。`,
+        button_label: '退回，請先補共同基準',
+        report: {
+          ...report,
+          verdict: '⛔ AI 檢查結果：不可先處理普通任務',
+          summary: actionability.reason || '共同目標與分工尚未確認，普通任務交接不可開工。',
+          next: '按下方按鈕會先重新讀取最新正式狀態，再讓你確認是否退回並要求補發 shared_goal_and_roles。',
         },
       });
       continue;
@@ -3923,29 +3955,54 @@ function checkApsMainStageRows({ pendingItems, outgoingPackets, riskRecords, sha
   const waiting = '⏳ 等待';
   const notStarted = '○ 未開始';
   const nextRound = '📌 下一輪起點';
+  const sharedGoalMissing = !sharedGoal || sharedGoal.state === 'missing';
+  let sharedGoalStatusLabel = notStarted;
+  let sharedGoalMeaning = '尚未開始共同目標與分工確認。';
+  let sharedGoalNext = '先建立 shared_goal_and_roles，讓協作者確認共同目標、角色分工、第一輪範圍與驗收方式。';
+  if (sharedGoalMissing) {
+    sharedGoalStatusLabel = hasFormalPacket ? `${current} / ${blocked}` : `${current} / ${blocked}`;
+    sharedGoalMeaning = hasFormalPacket
+      ? '已有普通交接包提前發出，但共同目標與分工仍未確認；普通包不可作為可開工主線。'
+      : '未見共同目標與分工基準；普通任務交接不可開始。';
+    sharedGoalNext = hasFormalPacket
+      ? '先補發 shared_goal_and_roles，待對方確認後，再重發或修訂普通任務包。'
+      : '先用平常話告訴本機 AI：你有哪份資料想交給誰跟進；AI 會帶你整理共同基準草稿。';
+  } else if (sharedGoal.state !== 'confirmed') {
+    sharedGoalStatusLabel = `${current} / ${waiting}`;
+    sharedGoalMeaning = sharedGoalProgressText(sharedGoal);
+    sharedGoalNext = '先讓協作者確認、補充、修訂或提出異議；確認前不要發普通任務包。';
+  } else if (confirmedPeerCount === 0) {
+    sharedGoalStatusLabel = `${current} / ${blocked}`;
+    sharedGoalMeaning = '共同基準已有，但未見 confirmed peer。';
+    sharedGoalNext = '先邀請協作者加入並確認共同基準。';
+  } else {
+    sharedGoalStatusLabel = done;
+    sharedGoalMeaning = sharedGoalProgressText(sharedGoal);
+    sharedGoalNext = '共同基準已確認；可以準備普通任務交接包。';
+  }
   let prepareStatus = current;
   let prepareMeaning = '先整理下一輪目標、收件人、交回物和可查真源。';
   let prepareNext = '資料足夠後，交給本機 AI 草擬交接包。';
   if (hasFormalPacket) {
-    prepareStatus = sharedGoal && sharedGoal.state === 'missing' ? `${done} / ⚠️ 基準需補` : done;
-    prepareMeaning = sharedGoal && sharedGoal.state === 'missing'
-      ? '正式交接包已存在；共同基準未完成是補救風險，不是目前主動作。'
+    prepareStatus = sharedGoalMissing ? `${blocked}` : done;
+    prepareMeaning = sharedGoalMissing
+      ? '普通交接包已提前發出，但共同基準未確認；此包不應視為可開工交接。'
       : '本輪交接包已建立或已收到。';
     prepareNext = hasClosedRound
       ? '本輪已完成；如要繼續合作，再準備下一輪。'
-      : sharedGoal && sharedGoal.state === 'missing'
-      ? '本輪先跟進已發出的交接；之後補齊共同基準。'
+      : sharedGoalMissing
+      ? '先補發 shared_goal_and_roles，對方確認後再重發或修訂普通任務包。'
       : '按後續階段處理。';
-  } else if (!sharedGoal || sharedGoal.state === 'missing') {
-    prepareStatus = `${current} / ${blocked}`;
-    prepareMeaning = '未見共同目標與分工基準；普通任務交接不可開始。';
-    prepareNext = '先用平常話告訴本機 AI：你有哪份資料想交給誰跟進；AI 會帶你確認下一步。';
+  } else if (sharedGoalMissing) {
+    prepareStatus = notStarted;
+    prepareMeaning = '共同基準確認前，不應準備普通任務交接包。';
+    prepareNext = '先完成「確認共同基準」階段。';
   } else if (sharedGoal.state !== 'confirmed') {
-    prepareStatus = `${current} / ${waiting}`;
-    prepareMeaning = sharedGoalProgressText(sharedGoal);
+    prepareStatus = waiting;
+    prepareMeaning = '共同基準仍未完全確認，普通任務包暫停。';
     prepareNext = '先讓協作者確認、補充、修訂或提出異議。';
   } else if (confirmedPeerCount === 0) {
-    prepareStatus = `${current} / ${blocked}`;
+    prepareStatus = blocked;
     prepareMeaning = '共同基準已有，但未見 confirmed peer。';
     prepareNext = '先邀請協作者加入並確認共同基準。';
   } else {
@@ -4002,6 +4059,7 @@ function checkApsMainStageRows({ pendingItems, outgoingPackets, riskRecords, sha
   }
 
   return [
+    { stage: '確認共同基準', status: sharedGoalStatusLabel, userMeaning: sharedGoalMeaning, next: sharedGoalNext },
     { stage: '準備交接包', status: prepareStatus, userMeaning: prepareMeaning, next: prepareNext },
     { stage: '確認並發出', status: issueStatus, userMeaning: issueMeaning, next: issueNext },
     { stage: '對方查看 / 處理', status: receiverStatus, userMeaning: receiverMeaning, next: receiverNext },
@@ -4325,7 +4383,7 @@ function trimTrailingSentencePunctuation(value) {
   return String(value || '').trim().replace(/[。.!！?？]+$/u, '');
 }
 
-function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker }) {
+function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow = false, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker }) {
   if (isMissingSharedGoalFlow) {
     return {
       flowCode: 'no_baseline_no_packet',
@@ -4393,6 +4451,19 @@ function liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPen
     };
   }
   if (firstWaiting) {
+    if (isOutOfOrderOrdinaryFlow) {
+      return {
+        flowCode: 'sent_blocked_missing_shared_goal',
+        station: '已提前發出，需補共同基準',
+        canStart: '不可要求對方開工',
+        waitingFor: agentId,
+        nextAction: '先補發 shared_goal_and_roles，待對方確認後再重發或修訂普通任務包',
+        blocker: blocker || '共同目標與分工未確認，普通任務包不可作為可開工主線',
+        chatMode: '需要協調',
+        impact: '阻塞普通交接',
+        dependency: '先完成共同目標與分工確認',
+      };
+    }
     return {
       flowCode: 'sent_waiting_receiver',
       station: '已發出，等對方查看',
@@ -4471,6 +4542,9 @@ function liveDetailedTrackingSteps(tracking, context = {}) {
     }
     return build((label, index) => (index === 1 ? 'done' : index === 0 ? 'active' : 'todo'));
   }
+  if (flowCode === 'sent_blocked_missing_shared_goal') {
+    return build((label, index) => (index === 0 || index === 3 ? 'blocked' : index === 1 ? 'done' : 'todo'));
+  }
   if (flowCode === 'sent_waiting_receiver') {
     return build((label, index) => (index < 2 ? 'done' : index === 2 ? 'active' : 'todo'));
   }
@@ -4501,29 +4575,42 @@ function liveMainTrackingStages(tracking, context = {}, detailedSteps = []) {
     return { state, icon: meta.icon, status_label: meta.label };
   };
   const noActive = flowCode === 'prepare_next_packet' && !hasFormalPacket;
+  let baselineState = 'todo';
   let prepareState = 'todo';
   let issueState = 'todo';
   let receiverState = 'todo';
   let closeState = 'todo';
 
   if (!hasSharedGoalPacket || sharedGoalState === 'missing') {
-    prepareState = 'blocked';
+    baselineState = 'blocked';
+    prepareState = hasFormalPacket ? 'blocked' : 'todo';
   } else if (sharedGoalState === 'declined') {
+    baselineState = 'blocked';
     prepareState = 'blocked';
   } else if (sharedGoalState === 'confirmed') {
+    baselineState = 'done';
     prepareState = noActive ? 'active' : 'done';
   } else {
-    prepareState = 'active';
+    baselineState = 'active';
+    prepareState = 'todo';
   }
 
   if (hasFormalPacket) {
-    prepareState = 'done';
-    issueState = 'done';
-    receiverState = flowCode === 'received_needs_missing_info' || flowCode === 'received_needs_shared_goal'
+    if (flowCode === 'sent_blocked_missing_shared_goal' || flowCode === 'received_needs_shared_goal') {
+      baselineState = 'blocked';
+      prepareState = 'blocked';
+      issueState = firstWaiting ? 'blocked' : 'done';
+      receiverState = 'blocked';
+    } else {
+      prepareState = 'done';
+      issueState = 'done';
+      receiverState = flowCode === 'received_needs_missing_info'
       ? 'blocked'
       : 'active';
+    }
   }
   if (flowCode === 'handoff_completed') {
+    baselineState = 'done';
     prepareState = 'done';
     issueState = 'done';
     receiverState = 'done';
@@ -4538,7 +4625,8 @@ function liveMainTrackingStages(tracking, context = {}, detailedSteps = []) {
   if (detailSummary) done.push(detailSummary);
 
   return [
-    { label: '準備交接包', detail_labels: ['共同基準'], ...stageState(prepareState) },
+    { label: '確認共同基準', detail_labels: ['共同基準'], ...stageState(baselineState) },
+    { label: '準備交接包', detail_labels: ['已確認基準後才整理普通任務'], ...stageState(prepareState) },
     { label: '確認並發出', detail_labels: ['已發出'], ...stageState(issueState) },
     { label: '對方查看 / 處理', detail_labels: ['對方查看', '可開工判斷', '處理 / 補資料'], ...stageState(receiverState) },
     { label: '檢查回覆 / 收結', detail_labels: ['正式更新'], ...stageState(closeState) },
@@ -4628,11 +4716,12 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         ? firstCompletedPeer || targetPeer
         : '';
   const hasOrdinaryActiveHandoff = Boolean(
-    (firstPending && packetTopic(firstPending.packetId) !== 'shared_goal_and_roles')
-    || (firstWaiting && firstWaitingTopic !== 'shared_goal_and_roles')
-    || (firstCompleted && firstCompletedTopic !== 'shared_goal_and_roles')
+    (firstPending && !isSharedGoalTopicName(packetTopic(firstPending.packetId)))
+    || (firstWaiting && !isSharedGoalTopicName(firstWaitingTopic))
+    || (firstCompleted && !isSharedGoalTopicName(firstCompletedTopic))
   );
   const hasMissingSharedGoalRisk = Boolean(sharedGoal && sharedGoal.state === 'missing');
+  const isOutOfOrderOrdinaryFlow = Boolean(hasMissingSharedGoalRisk && hasOrdinaryActiveHandoff);
   const isMissingSharedGoalFlow = Boolean(sharedGoal && sharedGoal.state === 'missing' && !hasOrdinaryActiveHandoff);
   const isSharedGoalFlow = !hasOrdinaryActiveHandoff && sharedGoal && (
     sharedGoal.state === 'partial'
@@ -4650,8 +4739,8 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
   const blocker = firstPending && firstPending.actionability
     ? firstPending.actionability.reason || firstPending.actionability.next
     : firstWaiting
-      ? hasMissingSharedGoalRisk
-        ? '有交接等待對方處理；共同目標與分工仍需補齊，但這不改變已發出交接包正在等待對方的正式狀態。'
+      ? isOutOfOrderOrdinaryFlow
+        ? '普通交接包已提前發出，但共同目標與分工未確認；此包不可作為可開工主線。'
         : '有交接等待對方處理；Live 用來即時核對雙方看到的狀態、回饋和分歧，不代表對方已正式確認。'
       : firstCompleted
       ? '本輪交接已完成；目前沒有待你或對方處理的正式交接。'
@@ -4669,7 +4758,11 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         ? packetTopic(firstCompleted.packetId)
       : 'project_consensus';
   const sharedGoalNeedsOwnConfirmation = isSharedGoalFlow && sharedGoal && sharedGoal.state === 'incoming_pending';
-  const caseTitle = isMissingSharedGoalFlow
+  const caseTitle = isOutOfOrderOrdinaryFlow
+    ? firstPending
+      ? `${targetPeer} 交來 ${humanizeTopicForUser(firstTopic)}，但共同基準未確認`
+      : `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} 已提前發出，但共同基準未確認`
+    : isMissingSharedGoalFlow
     ? '需先建立共同目標與分工'
     : isSharedGoalFlow
     ? (sharedGoalNeedsOwnConfirmation ? '請確認共同目標與分工' : `等待 ${targetPeer} 確認共同目標與分工`)
@@ -4680,7 +4773,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         : firstCompleted
         ? `${humanizeTopicForUser(firstTopic)} 已完成`
         : '準備下一輪交接包';
-  const caseSummary = isMissingSharedGoalFlow
+  const caseSummary = isOutOfOrderOrdinaryFlow
+    ? 'AI 看到普通任務交接包已存在，但目前未見已確認的共同目標與分工。這條交接不可作為可開工主線；需先補發 shared_goal_and_roles，對方確認後再重發或修訂普通任務包。'
+    : isMissingSharedGoalFlow
     ? 'AI 未見目前有效共同目標與分工基準。第一輪普通任務不得先開始，需先建立共同目標、角色分工、第一輪範圍與驗收標準。'
     : isSharedGoalFlow
     ? `AI 看到共同目標與分工仍未完全確認：${sharedGoalProgressText(sharedGoal)}。這頁要讓協作者確認、補充或提出異議。`
@@ -4691,7 +4786,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         : firstCompleted
         ? `AI 看到 ${humanizeTopicForUser(firstTopic)} v${firstCompleted.version} 已完成；目前沒有待辦。`
         : '本輪正式交接包尚未建立。這頁用來先整理下一輪目標、收件人、交回物、可查真源和仍需確認的缺口。';
-  const currentQuestion = isMissingSharedGoalFlow
+  const currentQuestion = isOutOfOrderOrdinaryFlow
+    ? '這份普通任務包已提前出現。是否要先補發共同目標與分工確認包，並要求對方暫時不要開工？'
+    : isMissingSharedGoalFlow
     ? '目前尚未有共同目標與分工基準。是否要先請本機 AI 起草共同目標、角色分工、第一輪範圍與驗收標準？'
     : isSharedGoalFlow
     ? (sharedGoalNeedsOwnConfirmation
@@ -4704,7 +4801,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         : firstCompleted
         ? '本輪已完成；如要再合作，下一輪要交給誰、要對方做甚麼、交回甚麼才算完成？'
         : '下一輪要交給誰、要對方做甚麼、依據哪份資料、交回甚麼才算完成？還有哪些內容未足夠正式發出？';
-  const suggestedMessage = isMissingSharedGoalFlow
+  const suggestedMessage = isOutOfOrderOrdinaryFlow
+    ? `請先補發 shared_goal_and_roles 給 ${targetPeer} 確認共同目標與分工；在對方確認前，${humanizeTopicForUser(firstTopic)} 不可作為可開工任務。`
+    : isMissingSharedGoalFlow
     ? '請交給本機 AI：我有一份任務資料想交給協作者跟進，你先帶我下一步。'
     : isSharedGoalFlow
     ? (sharedGoalNeedsOwnConfirmation
@@ -4717,10 +4816,12 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         : firstCompleted
         ? '本輪交接已完成；如要再合作，請先整理下一輪目標、收件人、交回物和可查真源。'
         : '';
-  const trackingState = liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker });
-  const detailedTrackingSteps = liveDetailedTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, firstCompleted, isMissingSharedGoalFlow, isSharedGoalFlow });
-  const trackingSteps = liveTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, firstCompleted, isMissingSharedGoalFlow, isSharedGoalFlow }, detailedTrackingSteps);
-  const chainTitle = isMissingSharedGoalFlow
+  const trackingState = liveTrackingState({ isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow, firstPending, firstWaiting, firstCompleted, targetPeer, agentId, blocker });
+  const detailedTrackingSteps = liveDetailedTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, firstCompleted, isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow });
+  const trackingSteps = liveTrackingSteps(trackingState, { sharedGoal, firstPending, firstWaiting, firstCompleted, isMissingSharedGoalFlow, isSharedGoalFlow, isOutOfOrderOrdinaryFlow }, detailedTrackingSteps);
+  const chainTitle = isOutOfOrderOrdinaryFlow
+    ? '普通交接已提前出現，需補共同基準'
+    : isMissingSharedGoalFlow
     ? '共同目標與分工未建立'
     : isSharedGoalFlow
     ? '共同目標與分工確認'
@@ -4767,7 +4868,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     firstPending ? `${targetPeer} 交來的 ${humanizeTopicForUser(firstTopic)} v${firstPending.version}` : null,
     firstWaiting ? `你交給 ${targetPeer} 的 ${humanizeTopicForUser(firstTopic)} v${firstWaiting.version}` : null,
     firstCompleted ? `${humanizeTopicForUser(firstTopic)} v${firstCompleted.version} 已完成` : null,
-    hasOrdinaryActiveHandoff && hasMissingSharedGoalRisk ? '提醒：共同目標與分工未完成，屬補救風險；目前主線仍是已發出的正式交接包。' : null,
+    hasOrdinaryActiveHandoff && hasMissingSharedGoalRisk ? '提醒：普通交接包已提前出現；共同目標與分工未確認前，不可視為可開工主線。' : null,
   ].filter(Boolean)));
   const liveQueueItems = Array.isArray(options.liveQueueItems) ? options.liveQueueItems : [];
   const latestLiveQueue = liveQueueItems[0] || null;
@@ -4777,7 +4878,7 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     agent_id: safeLiveDiagnosticText(options.agentId || agentId),
     live_participants: liveParticipants.map((value) => safeLiveDiagnosticText(value)),
     has_active_handoff: hasActiveHandoff,
-    live_focus: isMissingSharedGoalFlow || isSharedGoalFlow ? '共同目標與分工確認' : hasActiveHandoff ? '任務交接狀態核對' : '準備交接包',
+    live_focus: isMissingSharedGoalFlow || isSharedGoalFlow || isOutOfOrderOrdinaryFlow ? '共同目標與分工確認' : hasActiveHandoff ? '任務交接狀態核對' : '準備交接包',
     target_peer: safeLiveDiagnosticText(targetPeer, '協作者'),
     formal_from: safeLiveDiagnosticText(formalFrom, 'none'),
     formal_to: safeLiveDiagnosticText(formalTo, 'none'),
@@ -4812,7 +4913,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
     shared_goal_acceptance: safeLiveDiagnosticText(sharedGoalSummary.acceptance || '未見驗收標準摘要'),
     seen_packet: safeLiveDiagnosticText(seenPacket, 'none'),
     seen_ack: firstWaiting && firstWaiting.state ? safeLiveDiagnosticText(firstWaiting.state) : 'none',
-    feedback_status: isMissingSharedGoalFlow
+    feedback_status: isOutOfOrderOrdinaryFlow
+      ? '普通任務包已提前出現；需先完成共同目標與分工確認。'
+      : isMissingSharedGoalFlow
       ? '目前沒有可供協作者確認的共同目標與分工草稿。'
       : isSharedGoalFlow
       ? safeLiveDiagnosticText((sharedGoal.confirmations || []).map((item) => `${item.peerId}: ${item.label}`).join('；') || sharedGoalProgressText(sharedGoal))
@@ -4823,7 +4926,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
         : firstCompleted
           ? '本輪交接已完成；目前沒有待辦。'
         : '本輪正式交接包尚未建立；先對齊下一輪目標、收件人、交回物和可查真源。',
-    pending_decision: isMissingSharedGoalFlow
+    pending_decision: isOutOfOrderOrdinaryFlow
+      ? '先補發 shared_goal_and_roles；對方確認前，不應要求處理普通任務。'
+      : isMissingSharedGoalFlow
       ? '先讀任務資料並整理共同目標與分工草稿；在協作者確認前，不應把普通任務視為可開工。'
       : isSharedGoalFlow
       ? '整理對方回饋後，決定同意原草稿、修訂共同目標與分工、補發給其他協作者，或暫停第一輪任務交接。'
@@ -4838,7 +4943,9 @@ function buildApsLiveDiagnosticSnapshot(dashboard, options = {}) {
       ? 'demo preview：本機假資料，不代表 Google Drive 同步。'
       : '本頁按開啟時本機已同步資料生成；不是背景監察，也不代表對方已同步。',
     blocker: safeLiveDiagnosticText(blocker, 'unknown'),
-    proposed_terminal_action: isMissingSharedGoalFlow
+    proposed_terminal_action: isOutOfOrderOrdinaryFlow
+      ? '幫我補發 shared_goal_and_roles 共同目標與分工確認包；在對方確認前，不要把已提前發出的普通任務視為可開工。'
+      : isMissingSharedGoalFlow
       ? '我有一份任務資料想交給協作者跟進，你先帶我下一步。'
       : isSharedGoalFlow
       ? '幫我整理對方對共同目標與分工的回饋，看看要同意、修訂，還是先暫停下一輪。'
@@ -9509,6 +9616,26 @@ if (subcommand === 'publish') {
         throw new Error(reach.reason);
     } else if (reach.warn) {
         console.log(`⚠️ ${reach.warn}`);
+      }
+    }
+    if (!isSharedGoalTopicName(topic)) {
+      let peers = [];
+      try {
+        peers = listProjectPeers({ hubRoot, projectSlug, config: { ...config, agentId: fromId } }).peers;
+      } catch (err) {
+        peers = [];
+      }
+      const sharedGoal = sharedGoalStatus({ hubRoot, projectSlug, agentId: fromId, peers });
+      if (sharedGoal.state !== 'confirmed') {
+        const message = [
+          '普通任務交接需要先完成共同目標與分工確認。',
+          `目前狀態:${sharedGoalCanStartText(sharedGoal)}`,
+          `請先用 topic shared_goal_and_roles 發給 ${toId} 確認共同基準；對方確認後，再發 ${topic}。`,
+        ].join('\n');
+        if (strictHandoff) {
+          throw new Error(message);
+        }
+        console.log(`⚠️ ${message}`);
       }
     }
     if (!strictHandoff && !handoffReport.ready) {

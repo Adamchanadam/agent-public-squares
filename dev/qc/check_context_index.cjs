@@ -924,6 +924,26 @@ function publishReadyProject(project) {
   );
 }
 
+function seedConfirmedSharedGoal(project, fromAgent = 'adam', toAgent = 'jay') {
+  const packetId = `20260601T000000Z__shared_goal_and_roles`;
+  writeFile(
+    path.join(hubRoot, project, `from_${fromAgent}`, 'outbox.log.md'),
+    `2026-06-01T00:00:00Z | publish | ${packetId} v1 | to:${toAgent} | items:1\n`,
+  );
+  writeFile(
+    path.join(hubRoot, project, `from_${fromAgent}`, 'packets', `${packetId}__v1`, 'packet.md'),
+    `---\npacket_id: ${packetId}\nversion: 1\nfrom: ${fromAgent}\nto: ${toAgent}\nproject: ${project}\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-01T00:00:00Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\n## 共同目標\n用 APS 在已確認共同基準後測試普通交接流程。\n\n## 每人角色\n${fromAgent} 負責發出普通交接；${toAgent} 負責確認、退回或處理。\n\n## 第一輪分工\n先確認共同基準，再測試普通任務包。\n\n## 驗收標準\n普通任務只可在共同基準確認後發出。\n`,
+  );
+  writeAck(project, toAgent, [
+    {
+      packet_id: packetId,
+      version: 1,
+      result: 'Confirmed shared goal and roles fixture',
+      at: '2026-06-01T00:05:00Z',
+    },
+  ]);
+}
+
 function writeTempApsConfig(project, agentId) {
   writeFile(
     apsConfigPath,
@@ -1404,6 +1424,48 @@ try {
   writePeerCard(journeyProject, 'jay', 'Jay');
 
   writeTempApsConfig(journeyProject, 'adam');
+  const ordinaryBeforeBaselinePublish = runPublish([
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'adam',
+    '--to', 'jay',
+    '--topic', 'homepage_copy_review',
+    '--body',
+    [
+      '## 共同目標',
+      'Adam 和 Jay 用 APS 完成一次可追蹤的任務交接。',
+      '## 本方任務',
+      'Adam 已整理首頁文案草稿，等待 Jay 審閱。',
+      '## 對方任務',
+      'Jay 審閱首頁文案是否清楚，並指出必須修改的句子。',
+      '## 交叉點',
+      'Jay 的回覆會決定 Adam 是否修訂首頁文案。',
+      '## 請對方做的事',
+      '請 Jay 檢查首頁標題、副標與第一段是否適合新手理解。',
+      '## 不應誤解的事',
+      '不要改整個網站架構，不要直接發佈。',
+      '## 真源指標',
+      'Google Docs: https://docs.google.com/document/d/demo-homepage-copy-v1；段落: 首屏標題、副標、第一段。',
+      '## 接收方開工條件',
+      'Jay 在自己電腦能打開上述 Google Docs，確認版本是 demo-homepage-copy-v1，並知道只需回覆修改建議。',
+      '## 風險 / 未決事項',
+      '若 Jay 無法打開文件，應退回要求 Adam 補共享來源。',
+    ].join('\n'),
+    '--items', '審閱首頁標題;審閱首頁副標;指出第一段必改句子',
+    '--strict-handoff',
+    '--dry-run',
+  ]);
+  const ordinaryBeforeBaselineOutput = outputOf(ordinaryBeforeBaselinePublish);
+  assert(ordinaryBeforeBaselinePublish.status !== 0, 'ordinary publish before shared_goal_and_roles should fail strict dry-run', ordinaryBeforeBaselineOutput);
+  for (const text of [
+    '普通任務交接需要先完成共同目標與分工確認。',
+    'shared_goal_and_roles',
+    '對方確認後，再發 homepage_copy_review。',
+  ]) {
+    assert(ordinaryBeforeBaselineOutput.includes(text), `ordinary publish before baseline: missing ${text}`, ordinaryBeforeBaselineOutput);
+  }
+  assert(!ordinaryBeforeBaselineOutput.includes('dry-run 通過'), 'ordinary publish before baseline must not pass dry-run', ordinaryBeforeBaselineOutput);
+
   const sharedGoalPublish = runPublish([
     '--hub-root', hubRoot,
     '--project', journeyProject,
@@ -1438,6 +1500,42 @@ try {
   assert(sharedGoalPublish.status === 0, `journey shared goal publish: expected exit 0, got ${sharedGoalPublish.status}`, sharedGoalPublishOutput);
   const sharedGoalPacketId = extractPublishedPacketId(sharedGoalPublishOutput, 'journey shared goal publish');
 
+  const ordinaryBeforePeerConfirm = runPublish([
+    '--hub-root', hubRoot,
+    '--project', journeyProject,
+    '--agent-id', 'adam',
+    '--to', 'jay',
+    '--topic', 'homepage_copy_review',
+    '--body',
+    [
+      '## 共同目標',
+      'Adam 和 Jay 用 APS 完成一次可追蹤的任務交接。',
+      '## 本方任務',
+      'Adam 已整理首頁文案草稿，等待 Jay 審閱。',
+      '## 對方任務',
+      'Jay 審閱首頁文案是否清楚，並指出必須修改的句子。',
+      '## 交叉點',
+      'Jay 的回覆會決定 Adam 是否修訂首頁文案。',
+      '## 請對方做的事',
+      '請 Jay 檢查首頁標題、副標與第一段是否適合新手理解。',
+      '## 不應誤解的事',
+      '不要改整個網站架構，不要直接發佈。',
+      '## 真源指標',
+      'Google Docs: https://docs.google.com/document/d/demo-homepage-copy-v1；段落: 首屏標題、副標、第一段。',
+      '## 接收方開工條件',
+      'Jay 在自己電腦能打開上述 Google Docs，確認版本是 demo-homepage-copy-v1，並知道只需回覆修改建議。',
+      '## 風險 / 未決事項',
+      '若 Jay 無法打開文件，應退回要求 Adam 補共享來源。',
+    ].join('\n'),
+    '--items', '審閱首頁標題;審閱首頁副標;指出第一段必改句子',
+    '--strict-handoff',
+    '--dry-run',
+  ]);
+  const ordinaryBeforePeerConfirmOutput = outputOf(ordinaryBeforePeerConfirm);
+  assert(ordinaryBeforePeerConfirm.status !== 0, 'ordinary publish before peer confirms shared goal should fail strict dry-run', ordinaryBeforePeerConfirmOutput);
+  assert(ordinaryBeforePeerConfirmOutput.includes('普通任務交接需要先完成共同目標與分工確認。'), 'ordinary publish before peer confirm: missing shared-goal gate', ordinaryBeforePeerConfirmOutput);
+  assert(!ordinaryBeforePeerConfirmOutput.includes('dry-run 通過'), 'ordinary publish before peer confirm must not pass dry-run', ordinaryBeforePeerConfirmOutput);
+
   writeTempApsConfig(journeyProject, 'jay');
   const jayBeforeConfirm = runCheckAps(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'jay']);
   const jayBeforeConfirmOutput = outputOf(jayBeforeConfirm);
@@ -1450,7 +1548,7 @@ try {
   const jayBeforeConfirmLiveHtml = fs.readFileSync(jayBeforeConfirmLivePath, 'utf8');
   assert(jayBeforeConfirmLiveHtml.includes('共同目標與分工仍未完全確認'), 'journey jay before confirm live: missing unconfirmed shared-goal blocker', jayBeforeConfirmLiveHtml);
   assert(jayBeforeConfirmLiveHtml.includes('不可先開普通任務'), 'journey jay before confirm live: missing cannot-start warning', jayBeforeConfirmLiveHtml);
-  assert(/tracking-step active" aria-label="準備交接包：進行中"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: visible stage should be preparing handoff package', jayBeforeConfirmLiveHtml);
+  assert(/tracking-step active" aria-label="確認共同基準：進行中"/.test(jayBeforeConfirmLiveHtml), 'journey jay before confirm live: visible stage should be confirming shared baseline', jayBeforeConfirmLiveHtml);
   assert(jayBeforeConfirmLiveHtml.includes('"internal_tracking_steps"'), 'journey jay before confirm live: should preserve internal stage details for local AI', jayBeforeConfirmLiveHtml);
   assert(jayBeforeConfirmLiveHtml.includes('"label": "共同基準"'), 'journey jay before confirm live: internal common baseline should remain available', jayBeforeConfirmLiveHtml);
 
@@ -2162,10 +2260,7 @@ try {
   );
 
   publishReadyProject('decline_packet_demo');
-  writeFile(
-    path.join(hubRoot, 'decline_packet_demo', '_ack', 'jay.ack.json'),
-    `${JSON.stringify({ agent: 'jay', project: 'decline_packet_demo', consumed: [], declined: [], open_questions: [] }, null, 2)}\n`,
-  );
+  seedConfirmedSharedGoal('decline_packet_demo');
   const declinePublish = runPublish([
     '--hub-root', hubRoot,
     '--project', 'decline_packet_demo',
@@ -2366,6 +2461,7 @@ try {
   console.log('PASS identity conflict and Drive sync delay scan catches ack, lane, peer-card, wrong-project, and incomplete peer artifacts');
 
   publishReadyProject('strict_publish_complete');
+  seedConfirmedSharedGoal('strict_publish_complete');
   expectPublishCase(
     'strict handoff allows complete packet',
     [
@@ -2411,6 +2507,7 @@ try {
   );
 
   publishReadyProject('strict_publish_dry_run');
+  seedConfirmedSharedGoal('strict_publish_dry_run');
   expectPublishCase(
     'strict handoff publish dry-run does not write packet',
     [
@@ -2456,16 +2553,17 @@ try {
     ['dry-run 通過', '未寫入共用 Drive', '交接完整性檢查: 通過', '移除 `--dry-run`'],
   );
   assert(
-    !fs.existsSync(path.join(hubRoot, 'strict_publish_dry_run', 'from_adam', 'packets')),
-    'strict handoff publish dry-run: should not create packet directory',
+    !fs.readdirSync(path.join(hubRoot, 'strict_publish_dry_run', 'from_adam', 'packets')).some((name) => name.includes('__handoff_dry_run__')),
+    'strict handoff publish dry-run: should not create ordinary packet directory',
   );
   assert(
-    fs.readFileSync(path.join(hubRoot, 'strict_publish_dry_run', 'from_adam', 'outbox.log.md'), 'utf8') === '',
-    'strict handoff publish dry-run: should not append outbox log',
+    !fs.readFileSync(path.join(hubRoot, 'strict_publish_dry_run', 'from_adam', 'outbox.log.md'), 'utf8').includes('__handoff_dry_run'),
+    'strict handoff publish dry-run: should not append ordinary outbox log',
   );
   console.log('PASS strict handoff publish dry-run leaves Drive unchanged');
 
   publishReadyProject('strict_publish_eperm_recovery');
+  seedConfirmedSharedGoal('strict_publish_eperm_recovery');
   const originalWriteFileSyncForPublish = fs.writeFileSync;
   fs.writeFileSync = function patchedPublishWriteFileSync(filePath, ...writeArgs) {
     if (String(filePath).endsWith(path.join('strict_publish_eperm_recovery', 'from_adam', 'packets', '20260626T120000Z__handoff_eperm__v1', 'packet.md'))) {
@@ -3378,10 +3476,11 @@ try {
     [
       '共同目標與分工: 未見目前有效基準',
       'APS 主流程',
-      '| 準備交接包 | 👉 目前位置 / ⚠️ 需處理',
+      '| 確認共同基準 | 👉 目前位置 / ⚠️ 需處理',
+      '| 準備交接包 | ○ 未開始 | 共同基準確認前，不應準備普通任務交接包。',
       '[🔎 先建立基準]',
       '先用平常話告訴本機 AI',
-      'AI 會帶你確認下一步',
+      'AI 會帶你整理共同基準草稿',
       '下一句可對 AI 說',
       '我有一份任務資料想交給協作者跟進，你先帶我下一步。',
       'APS Live 即時協作',
@@ -3397,7 +3496,8 @@ try {
   assert(noBaselineLiveHtml.includes('請交給本機 AI：我有一份任務資料想交給協作者跟進，你先帶我下一步。'), 'aps live no-baseline: missing novice natural local-AI return action', noBaselineLiveHtml);
   assert(!noBaselineLiveHtml.includes('請先幫我建立這個 APS 項目的共同目標'), 'aps live no-baseline: should not jump straight to APS internal baseline wording', noBaselineLiveHtml);
   assert(!noBaselineLiveHtml.includes('共同目標與分工草稿；先給我確認'), 'aps live no-baseline: should not require user to speak APS expert prompt wording', noBaselineLiveHtml);
-  assert(/tracking-step blocked" aria-label="準備交接包：未通過 \/ 需處理"/.test(noBaselineLiveHtml), 'aps live no-baseline: visible preparing stage should be blocked', noBaselineLiveHtml);
+  assert(/tracking-step blocked" aria-label="確認共同基準：未通過 \/ 需處理"/.test(noBaselineLiveHtml), 'aps live no-baseline: visible shared-baseline stage should be blocked', noBaselineLiveHtml);
+  assert(noBaselineLiveHtml.includes('aria-label="準備交接包：未開始"'), 'aps live no-baseline: ordinary handoff preparation should not start before baseline confirmation', noBaselineLiveHtml);
   assert(noBaselineLiveHtml.includes('"internal_tracking_steps"'), 'aps live no-baseline: should preserve internal stage details', noBaselineLiveHtml);
   assert(noBaselineLiveHtml.includes('"label": "共同基準"'), 'aps live no-baseline: internal common baseline stage should remain available', noBaselineLiveHtml);
   console.log('PASS check-aps auto-generates no-baseline APS Live with blocked common baseline');
@@ -3406,32 +3506,35 @@ try {
   const noBaselineSentOutput = outputOf(noBaselineSentCheck);
   assert(noBaselineSentCheck.status === 0, `check-aps no-baseline sent packet: expected exit 0, got ${noBaselineSentCheck.status}`, noBaselineSentOutput);
   for (const text of [
-    '| 準備交接包 | ✅ 已完成 / ⚠️ 基準需補 | 正式交接包已存在；共同基準未完成是補救風險，不是目前主動作。 | 本輪先跟進已發出的交接；之後補齊共同基準。 |',
+    '| 確認共同基準 | 👉 目前位置 / ⚠️ 需處理 | 已有普通交接包提前發出，但共同目標與分工仍未確認；普通包不可作為可開工主線。 | 先補發 shared_goal_and_roles，待對方確認後，再重發或修訂普通任務包。 |',
+    '| 準備交接包 | ⚠️ 需處理 | 普通交接包已提前發出，但共同基準未確認；此包不應視為可開工交接。 | 先補發 shared_goal_and_roles，對方確認後再重發或修訂普通任務包。 |',
     '| 對方查看 / 處理 | 👉 目前位置 / ⏳ 等待 | 1 件正式交接等對方查看、處理或回覆。',
-    '你有 1 件交接仍在等對方處理。',
+    '普通交接包已提前發出',
     '正式狀態仍等對方 check Drive / 回覆',
     'northshore first interview brief',
   ]) {
     assert(noBaselineSentOutput.includes(text), `check-aps no-baseline sent packet: missing ${text}`, noBaselineSentOutput);
   }
-  assert(!noBaselineSentOutput.includes('- 未見共同目標與分工，暫時不應發普通任務交接。'), 'check-aps no-baseline sent packet: missing-baseline warning must not replace active sent packet conclusion', noBaselineSentOutput);
+  assert(!noBaselineSentOutput.includes('本輪先跟進已發出的交接；之後補齊共同基準。'), 'check-aps no-baseline sent packet: must not normalize out-of-order packet as main flow', noBaselineSentOutput);
   const noBaselineSentLivePath = path.join(hubRoot, 'dashboard_no_baseline_sent', '_context', 'aps-live_adam.html');
   assert(fs.existsSync(noBaselineSentLivePath), 'check-aps no-baseline sent packet should auto-generate APS Live page');
   const noBaselineSentLiveHtml = fs.readFileSync(noBaselineSentLivePath, 'utf8');
-  assert(noBaselineSentLiveHtml.includes('"current_case_title": "你交給 jay 的 northshore first interview brief 正在等待回覆"'), 'aps live no-baseline sent packet: primary case should be the waiting formal packet', noBaselineSentLiveHtml);
-  assert(noBaselineSentLiveHtml.includes('"flow_code": "sent_waiting_receiver"'), 'aps live no-baseline sent packet: flow code should make the formal packet primary independent of station wording', noBaselineSentLiveHtml);
+  assert(noBaselineSentLiveHtml.includes('"current_case_title": "你交給 jay 的 northshore first interview brief 已提前發出，但共同基準未確認"'), 'aps live no-baseline sent packet: primary case should flag the out-of-order packet', noBaselineSentLiveHtml);
+  assert(noBaselineSentLiveHtml.includes('"flow_code": "sent_blocked_missing_shared_goal"'), 'aps live no-baseline sent packet: flow code should block out-of-order ordinary handoff', noBaselineSentLiveHtml);
   assert(noBaselineSentLiveHtml.includes('"seen_packet": "adam:20260624T054916Z__northshore_first_interview_brief:v1"'), 'aps live no-baseline sent packet: snapshot should point to the waiting packet', noBaselineSentLiveHtml);
-  assert(noBaselineSentLiveHtml.includes('提醒：共同目標與分工未完成，屬補救風險；目前主線仍是已發出的正式交接包。'), 'aps live no-baseline sent packet: should preserve baseline risk as secondary context', noBaselineSentLiveHtml);
-  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: prepare stage should be done because a formal packet exists', noBaselineSentLiveHtml);
-  assert(/tracking-step active" aria-label="對方查看 \/ 處理：進行中"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: receiver handling stage should be active', noBaselineSentLiveHtml);
-  assert(!noBaselineSentLiveHtml.includes('"current_case_title": "需先建立共同目標與分工"'), 'aps live no-baseline sent packet: missing baseline must not be the primary ticket once a formal packet exists', noBaselineSentLiveHtml);
-  console.log('PASS sent formal packet overrides no-baseline primary Live state while keeping risk context');
+  assert(noBaselineSentLiveHtml.includes('提醒：普通交接包已提前出現；共同目標與分工未確認前，不可視為可開工主線。'), 'aps live no-baseline sent packet: should preserve out-of-order warning', noBaselineSentLiveHtml);
+  assert(/tracking-step blocked" aria-label="確認共同基準：未通過 \/ 需處理"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: shared-baseline stage should be blocked', noBaselineSentLiveHtml);
+  assert(/tracking-step blocked" aria-label="準備交接包：未通過 \/ 需處理"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: prepare stage should be blocked until baseline is confirmed', noBaselineSentLiveHtml);
+  assert(/tracking-step blocked" aria-label="確認並發出：未通過 \/ 需處理"/.test(noBaselineSentLiveHtml), 'aps live no-baseline sent packet: issue stage should be blocked for out-of-order ordinary packet', noBaselineSentLiveHtml);
+  assert(!noBaselineSentLiveHtml.includes('"flow_code": "sent_waiting_receiver"'), 'aps live no-baseline sent packet: must not show normal waiting flow', noBaselineSentLiveHtml);
+  console.log('PASS sent ordinary packet without baseline is blocked as out-of-order flow');
 
   const noBaselineReceiverCheck = runCheckAps(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline_sent', '--agent-id', 'jay']);
   const noBaselineReceiverOutput = outputOf(noBaselineReceiverCheck);
   assert(noBaselineReceiverCheck.status === 0, `check-aps no-baseline receiver packet: expected exit 0, got ${noBaselineReceiverCheck.status}`, noBaselineReceiverOutput);
   for (const text of [
-    '| 準備交接包 | ✅ 已完成 / ⚠️ 基準需補 | 正式交接包已存在；共同基準未完成是補救風險，不是目前主動作。 | 本輪先跟進已發出的交接；之後補齊共同基準。 |',
+    '| 確認共同基準 | 👉 目前位置 / ⚠️ 需處理 | 已有普通交接包提前發出，但共同目標與分工仍未確認；普通包不可作為可開工主線。 | 先補發 shared_goal_and_roles，待對方確認後，再重發或修訂普通任務包。 |',
+    '| 準備交接包 | ⚠️ 需處理 | 普通交接包已提前發出，但共同基準未確認；此包不應視為可開工交接。 | 先補發 shared_goal_and_roles，對方確認後再重發或修訂普通任務包。 |',
     '| 對方查看 / 處理 | 👉 目前位置 / ⚠️ 需處理 | 交接需要補資料、釐清共同基準或處理退回原因。',
     '有 1 件交接要先釐清共同目標與分工。',
     'adam 交來: northshore first interview brief',
@@ -3457,12 +3560,15 @@ try {
   const noBaselineReceiverLiveOutput = outputOf(noBaselineReceiverLive);
   assert(noBaselineReceiverLive.status === 0, `aps live no-baseline receiver packet: expected exit 0, got ${noBaselineReceiverLive.status}`, noBaselineReceiverLiveOutput);
   const noBaselineReceiverLiveHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_no_baseline_sent', '_context', 'aps-live_jay.html'), 'utf8');
-  assert(noBaselineReceiverLiveHtml.includes('"current_case_title": "adam 交來 northshore first interview brief，需要先判斷能否開工"'), 'aps live no-baseline receiver packet: primary case should be the received formal packet', noBaselineReceiverLiveHtml);
+  assert(noBaselineReceiverLiveHtml.includes('"current_case_title": "adam 交來 northshore first interview brief，但共同基準未確認"'), 'aps live no-baseline receiver packet: primary case should flag the received ordinary packet as blocked by missing baseline', noBaselineReceiverLiveHtml);
   assert(noBaselineReceiverLiveHtml.includes('"flow_code": "received_needs_shared_goal"'), 'aps live no-baseline receiver packet: flow code should carry shared-goal clarification without replacing the formal packet', noBaselineReceiverLiveHtml);
   assert(noBaselineReceiverLiveHtml.includes('"seen_packet": "adam:20260624T054916Z__northshore_first_interview_brief:v1"'), 'aps live no-baseline receiver packet: snapshot should point to the received packet', noBaselineReceiverLiveHtml);
-  assert(/tracking-step done" aria-label="準備交接包：已完成"/.test(noBaselineReceiverLiveHtml), 'aps live no-baseline receiver packet: prepare stage should be done because a formal packet exists', noBaselineReceiverLiveHtml);
+  assert(/tracking-step blocked" aria-label="確認共同基準：未通過 \/ 需處理"/.test(noBaselineReceiverLiveHtml), 'aps live no-baseline receiver packet: shared-baseline stage should be blocked', noBaselineReceiverLiveHtml);
+  assert(/tracking-step blocked" aria-label="準備交接包：未通過 \/ 需處理"/.test(noBaselineReceiverLiveHtml), 'aps live no-baseline receiver packet: prepare stage should be blocked while baseline is missing', noBaselineReceiverLiveHtml);
   assert(/tracking-step blocked" aria-label="對方查看 \/ 處理：未通過 \/ 需處理"/.test(noBaselineReceiverLiveHtml), 'aps live no-baseline receiver packet: receiver handling stage should carry the shared-goal clarification blocker', noBaselineReceiverLiveHtml);
-  assert(!noBaselineReceiverLiveHtml.includes('"current_case_title": "需先建立共同目標與分工"'), 'aps live no-baseline receiver packet: missing baseline must not replace received packet as primary ticket', noBaselineReceiverLiveHtml);
+  assert(!noBaselineReceiverLiveHtml.includes('"type": "confirm-shared-goal"'), 'aps live no-baseline receiver packet: ordinary packet must not offer shared-goal confirmation action', noBaselineReceiverLiveHtml);
+  assert(noBaselineReceiverLiveHtml.includes('"type": "decline-packet"'), 'aps live no-baseline receiver packet: should only allow returning the ordinary packet for missing baseline', noBaselineReceiverLiveHtml);
+  assert(noBaselineReceiverLiveHtml.includes('退回，請先補共同基準'), 'aps live no-baseline receiver packet: missing baseline formal action should ask sender to補 shared_goal_and_roles', noBaselineReceiverLiveHtml);
   assert(noBaselineReceiverLiveHtml.includes('正式交接仍是 adam → jay'), 'aps live no-baseline receiver packet: receiver page should show sender-to-receiver formal route even when shared-goal clarification blocks handling', noBaselineReceiverLiveHtml);
   assert(!noBaselineReceiverLiveHtml.includes('正式交接仍是 jay → adam'), 'aps live no-baseline receiver packet: receiver page must not reverse formal handoff direction', noBaselineReceiverLiveHtml);
   const apsSourceAfterFlowHardening = fs.readFileSync(apsBin, 'utf8');
@@ -3519,7 +3625,8 @@ try {
       '示範場景: 共同目標與分工確認',
       'APS 主流程',
       '| 階段 | 狀態 | 現在代表 | 下一步 |',
-      '| 準備交接包 | 👉 目前位置 / ⏳ 等待',
+      '| 確認共同基準 | 👉 目前位置 / ⏳ 等待',
+      '| 準備交接包 | ⏳ 等待',
       '確認並發出',
       '對方查看 / 處理',
       '檢查回覆 / 收結',
@@ -3841,7 +3948,7 @@ try {
   }
   const connectButtonCount = (liveDemoHtml.match(/id="connectLive"/g) || []).length;
   assert(connectButtonCount === 1, `aps live demo html: expected one connect button, got ${connectButtonCount}`, liveDemoHtml);
-  assert(/tracking-step active" aria-label="準備交接包：進行中"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft should keep preparing stage in progress', liveDemoHtml);
+  assert(/tracking-step active" aria-label="確認共同基準：進行中"/.test(liveDemoHtml), 'aps live demo html: unconfirmed shared-goal draft should keep shared-baseline stage in progress', liveDemoHtml);
   assert(liveDemoHtml.includes('"label": "共同基準"'), 'aps live demo html: internal common baseline should remain available', liveDemoHtml);
   assert(liveDemoHtml.indexOf('id="connectLive"') < liveDemoHtml.indexOf('完成協調後交給本機 AI'), 'aps live demo html: local AI handoff should appear after live coordination controls', liveDemoHtml);
   assert(liveDemoHtml.indexOf('id="messages"') < liveDemoHtml.indexOf('id="forwardToAgentAfterDiscussion"'), 'aps live demo html: local AI handoff button should be after discussion history', liveDemoHtml);
