@@ -1762,6 +1762,9 @@ try {
   const adamLiveAfterConsume = runLive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
   const adamLiveAfterConsumeOutput = outputOf(adamLiveAfterConsume);
   assert(adamLiveAfterConsume.status === 0, `journey adam live after bridge consume: expected exit 0, got ${adamLiveAfterConsume.status}`, adamLiveAfterConsumeOutput);
+  const adamLiveAfterConsumeHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_adam.html'), 'utf8');
+  assert(adamLiveAfterConsumeHtml.includes('對方已有正式回覆：Reviewed homepage_copy_review through APS Live bridge smoke'), 'journey adam live after consume: close card should show receiver reply before sender decides', adamLiveAfterConsumeHtml);
+  assert(adamLiveAfterConsumeHtml.includes('對方回覆內容：Reviewed homepage_copy_review through APS Live bridge smoke'), 'journey adam live after consume: close checks should show receiver reply content', adamLiveAfterConsumeHtml);
   const bridgeCloseValid = runBridgeFormalSmoke({
     project: journeyProject,
     agentId: 'adam',
@@ -1854,6 +1857,8 @@ try {
   assert(jayBadHandoffLiveHtml.includes('"label": "可開工判斷"'), 'journey jay bad handoff live: internal can-start judgement should remain available', jayBadHandoffLiveHtml);
   assert(jayBadHandoffLiveHtml.includes('未列明真源指標或來源位置'), 'journey jay bad handoff live: missing information blocker should be visible', jayBadHandoffLiveHtml);
   assert(jayBadHandoffLiveHtml.includes('請對方補真源、範圍或驗收標準'), 'journey jay bad handoff live: missing formal return action', jayBadHandoffLiveHtml);
+  assert(jayBadHandoffLiveHtml.includes('交接正文摘錄：'), 'journey jay bad handoff live: formal decision card should show packet excerpt before receiver decides', jayBadHandoffLiveHtml);
+  assert(jayBadHandoffLiveHtml.includes('Adam 和 Jay 用 APS 完成一次可追蹤的任務交接。'), 'journey jay bad handoff live: formal decision card should include readable packet content', jayBadHandoffLiveHtml);
 
   const bridgeDeclineBad = runBridgeFormalSmoke({
     project: journeyProject,
@@ -1873,6 +1878,12 @@ try {
   for (const text of ['對方退回了', 'Missing receiver-readable source pointer', 'revise']) {
     assert(adamSeesDeclineOutput.includes(text), `journey adam check after decline: missing ${text}`, adamSeesDeclineOutput);
   }
+  const adamLiveAfterDecline = runLive(['--hub-root', hubRoot, '--project', journeyProject, '--agent-id', 'adam']);
+  const adamLiveAfterDeclineOutput = outputOf(adamLiveAfterDecline);
+  assert(adamLiveAfterDecline.status === 0, `journey adam live after decline: expected exit 0, got ${adamLiveAfterDecline.status}`, adamLiveAfterDeclineOutput);
+  const adamLiveAfterDeclineHtml = fs.readFileSync(path.join(hubRoot, journeyProject, '_context', 'aps-live_adam.html'), 'utf8');
+  assert(adamLiveAfterDeclineHtml.includes('對方已明確退回：Missing receiver-readable source pointer and receiver start condition'), 'journey adam live after decline: close card should show decline reason before sender decides', adamLiveAfterDeclineHtml);
+  assert(adamLiveAfterDeclineHtml.includes('對方回覆內容：Missing receiver-readable source pointer and receiver start condition'), 'journey adam live after decline: close checks should show decline reason', adamLiveAfterDeclineHtml);
   console.log('PASS shared-goal draft, normal handoff, and missing-info return journey variants are regression-covered');
 
   publishReadyProject('strict_publish_incomplete');
@@ -2934,6 +2945,54 @@ try {
   writePeerCard(statusMatrixProject, 'adam', 'Adam');
   writePeerCard(statusMatrixProject, 'jay', 'Jay');
 
+  const helpTextResult = runApsProcess(['--help']);
+  const helpText = outputOf(helpTextResult);
+  assert(helpTextResult.status === 0, `aps help decision-surface boundary: expected exit 0, got ${helpTextResult.status}`, helpText);
+  for (const text of [
+    'npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff] [--dry-run]',
+    'npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items] [--dry-run]',
+    '直接寫入命令只作熟悉 CLI / 排錯備用',
+  ]) {
+    assert(helpText.includes(text), `aps help decision-surface boundary: missing ${text}`, helpText);
+  }
+
+  writeTempApsConfig(statusMatrixProject, 'adam');
+  const replyPublishDryRun = runPublish([
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'adam',
+    '--to', 'jay',
+    '--topic', 'parent_notice_draft_reply',
+    '--body', [
+      '回覆內容:',
+      'Jay 已交回家長通知草稿第一版，請 Adam 審閱語氣、日期時間和是否需要預先留名。',
+      '',
+      '請對方做的事:',
+      '先看正文，再決定是否標記已讀或要求修訂。',
+      '',
+      '真源指標:',
+      'from_jay/packets/20260703T174740Z__parent_notice_draft_reply__v1/packet.md',
+      '',
+      '接收方開工條件:',
+      'Adam 已看到回覆正文，才可決定下一步。',
+    ].join('\n'),
+    '--items', '審閱回覆正文',
+    '--dry-run',
+  ]);
+  const replyPublishDryRunText = outputOf(replyPublishDryRun);
+  assert(replyPublishDryRun.status === 0, `reply publish dry-run confirmation card: expected exit 0, got ${replyPublishDryRun.status}`, replyPublishDryRunText);
+  for (const text of [
+    'dry-run 通過：正式交接包預檢完成',
+    '發送前確認卡',
+    '正文摘錄',
+    'Jay 已交回家長通知草稿第一版',
+    '未寫入 packet / outbox',
+    '回覆邊界',
+    '這會成為新的正式交接包',
+  ]) {
+    assert(replyPublishDryRunText.includes(text), `reply publish dry-run confirmation card: missing ${text}`, replyPublishDryRunText);
+  }
+
   const publishLifecyclePacket = (topic, body) => {
     writeTempApsConfig(statusMatrixProject, 'adam');
     const result = runPublish([
@@ -2963,6 +3022,31 @@ try {
   const reviewPacketId = publishLifecyclePacket('status_matrix_review', '請 Jay 審閱 lifecycle 狀態矩陣案例。');
   expectLifecycleStatus('status matrix pending v1', reviewPacketId, ['最新版本: v1', '尚未看到收件方處理此最新版本']);
   writeTempApsConfig(statusMatrixProject, 'adam');
+  const revisePreview = runApsProcess(['revise',
+    '--hub-root', hubRoot,
+    '--project', statusMatrixProject,
+    '--agent-id', 'adam',
+    '--packet-id', reviewPacketId,
+    '--body', 'v2 補充 Jay 需要的開工條件。',
+    '--reason', '補齊 receiver start condition for lifecycle matrix',
+    '--items', '重新審閱 lifecycle 狀態矩陣案例',
+    '--dry-run',
+  ]);
+  const revisePreviewText = outputOf(revisePreview);
+  assert(revisePreview.status === 0, `status matrix revise dry-run: expected exit 0, got ${revisePreview.status}`, revisePreviewText);
+  for (const text of [
+    'dry-run 通過：修訂預檢完成',
+    '修訂前確認卡',
+    `${reviewPacketId} v1 -> v2`,
+    '補齊 receiver start condition for lifecycle matrix',
+    '新正文摘錄',
+    'dry-run 未建立新版本',
+    '決策前請先確認用戶已看見原交接、對方回覆或退回理由',
+  ]) {
+    assert(revisePreviewText.includes(text), `status matrix revise dry-run: missing ${text}`, revisePreviewText);
+  }
+  expectLifecycleStatus('status matrix still pending v1 after revise dry-run', reviewPacketId, ['最新版本: v1', '尚未看到收件方處理此最新版本']);
+  writeTempApsConfig(statusMatrixProject, 'adam');
   const reviseMatrix = runApsProcess(['revise',
     '--hub-root', hubRoot,
     '--project', statusMatrixProject,
@@ -2974,6 +3058,7 @@ try {
   ]);
   assert(reviseMatrix.status === 0, `status matrix revise: expected exit 0, got ${reviseMatrix.status}`, outputOf(reviseMatrix));
   assert(outputOf(reviseMatrix).includes('已修訂'), 'status matrix revise: missing revised output', outputOf(reviseMatrix));
+  assert(outputOf(reviseMatrix).includes('命令列直接寫入只作熟悉 CLI / 排錯備用'), 'status matrix revise: missing direct CLI boundary', outputOf(reviseMatrix));
   expectLifecycleStatus('status matrix pending v2', reviewPacketId, ['最新版本: v2', '尚未看到收件方處理此最新版本']);
   writeTempApsConfig(statusMatrixProject, 'jay');
   const declineMatrix = runApsProcess(['decline',
@@ -2985,6 +3070,7 @@ try {
     '--reason', 'Need one more receiver-readable source pointer',
   ]);
   assert(declineMatrix.status === 0, `status matrix decline v2: expected exit 0, got ${declineMatrix.status}`, outputOf(declineMatrix));
+  assert(outputOf(declineMatrix).includes('命令列直接寫入只作熟悉 CLI / 排錯備用'), 'status matrix decline: missing direct CLI boundary', outputOf(declineMatrix));
   expectLifecycleStatus('status matrix declined v2', reviewPacketId, ['最新版本: v2', '收件方已退回 / 不能處理', 'Need one more receiver-readable source pointer']);
   writeTempApsConfig(statusMatrixProject, 'adam');
   const withdrawOldVersion = runApsProcess(['withdraw',
@@ -3008,6 +3094,7 @@ try {
     '--reason', 'No longer needed for lifecycle matrix',
   ]);
   assert(withdrawMatrix.status === 0, `status matrix withdraw latest: expected exit 0, got ${withdrawMatrix.status}`, outputOf(withdrawMatrix));
+  assert(outputOf(withdrawMatrix).includes('命令列直接寫入只作熟悉 CLI / 排錯備用'), 'status matrix withdraw: missing direct CLI boundary', outputOf(withdrawMatrix));
   expectLifecycleStatus('status matrix withdrawn', withdrawPacketId, ['最新版本: v1', '最新版本已撤回']);
 
   const closePacketId = publishLifecyclePacket('status_matrix_close', '請 Jay 處理後讓 Adam 收結這個案例。');
@@ -3021,6 +3108,7 @@ try {
     '--result', 'Handled lifecycle matrix close case',
   ]);
   assert(consumeMatrix.status === 0, `status matrix consume: expected exit 0, got ${consumeMatrix.status}`, outputOf(consumeMatrix));
+  assert(outputOf(consumeMatrix).includes('命令列直接寫入只作熟悉 CLI / 排錯備用'), 'status matrix consume: missing direct CLI boundary', outputOf(consumeMatrix));
   expectLifecycleStatus('status matrix consumed', closePacketId, ['最新版本: v1', '收件方已標記處理', 'Handled lifecycle matrix close case']);
   writeTempApsConfig(statusMatrixProject, 'adam');
   const closeMatrix = runApsProcess(['close',
@@ -3031,6 +3119,7 @@ try {
     '--reason', 'Accepted receiver result for lifecycle matrix',
   ]);
   assert(closeMatrix.status === 0, `status matrix close: expected exit 0, got ${closeMatrix.status}`, outputOf(closeMatrix));
+  assert(outputOf(closeMatrix).includes('命令列直接寫入只作熟悉 CLI / 排錯備用'), 'status matrix close: missing direct CLI boundary', outputOf(closeMatrix));
   expectLifecycleStatus('status matrix closed', closePacketId, ['最新版本: v1', '已收結', 'Accepted receiver result for lifecycle matrix']);
   console.log('PASS status, revise, withdraw, close lifecycle matrix is regression-covered');
 
@@ -3137,6 +3226,38 @@ try {
   writeFile(
     path.join(hubRoot, 'shared_goal_inbox_insufficient', 'from_adam', 'packets', '20260616T143211Z__shared_goal_and_roles__v1', 'packet.md'),
     `---\npacket_id: 20260616T143211Z__shared_goal_and_roles\nversion: 1\nfrom: adam\nto: jay\nproject: shared_goal_inbox_insufficient\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-16T14:32:11Z\nssot_refs: []\nscope: \"shared_goal_and_roles\"\nitems:\n  - id: \"Jay 確認共同目標與分工\"\n---\n\n# shared_goal_and_roles\n\nProject: incomplete_placeholder\n`,
+  );
+  writePeerCard('parent_notice_reply_inbox', 'sandbox', 'Sandbox');
+  seedConfirmedSharedGoal('parent_notice_reply_inbox', 'adam', 'sandbox');
+  writeFile(
+    path.join(hubRoot, 'parent_notice_reply_inbox', 'from_sandbox', 'outbox.log.md'),
+    '2026-07-03T17:47:40Z | publish | 20260703T174740Z__parent_notice_draft_reply v1 | to:adam | items:3\n',
+  );
+  writeFile(
+    path.join(hubRoot, 'parent_notice_reply_inbox', 'from_sandbox', 'packets', '20260703T174740Z__parent_notice_draft_reply__v1', 'packet.md'),
+    `---\npacket_id: 20260703T174740Z__parent_notice_draft_reply\nversion: 1\nfrom: sandbox\nto: adam\nproject: parent_notice_reply_inbox\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-07-03T17:47:40Z\nssot_refs: []\nscope: \"parent_notice_draft_reply\"\nitems:\n  - id: \"審閱通知草稿是否符合社區中心口吻\"\n  - id: \"補上或修正實際日期、時間和查詢方式\"\n  - id: \"確認是否需要家長預先留名\"\n---\n\n# parent_notice_draft_reply\n\n共同目標\n\n我們正在為六月尾社區中心開放日準備一版給家長看的通知草稿。\n\n本方任務\n\nsandbox 已根據 adam 發出的 parent_notice_draft v1 和已確認的 shared_goal_and_roles v1，寫出一版家長通知草稿。\n\n對方任務\n\n請 adam 審閱以下草稿，按實際日期、時間、是否需要留名和中心口徑再修改。\n\n交叉點\n\nsandbox 只負責通知文字第一版；adam 負責核實活動安排、時間、留名方式和最終可否對外發出。\n\n請對方做的事\n\n1. 審閱通知草稿是否符合社區中心口吻。\n2. 補上或修正實際日期、時間和查詢方式。\n3. 確認是否需要家長預先留名。\n\n家長通知草稿\n\n各位家長好：\n\n社區中心計劃於六月尾一個星期六下午舉行開放日，歡迎附近家庭到中心走走，看看環境，了解日常活動空間和基本安排。當日中心會開放閱讀角，並設有簡短介紹區，讓家長認識中心的服務方向。手作桌會視當日人手及材料安排開放，適合小朋友輕鬆參與。\n\n這次開放日主要是讓街坊和家長多了解中心，不是正式試堂，也不需要即場報名。小學低年級家庭可優先留意，但其他有興趣的家庭亦歡迎查詢。活動確實時間及是否需要預先留名，中心會稍後再公布。如有問題，可向中心職員查詢。\n\n不應誤解的事\n\n這不是最終公告；草稿內沒有承諾茶點、免費禮物、優惠、正式試堂或拍照安排。\n\n真源指標\n\n- APS 普通交接包：from_adam/packets/20260702T115748Z__parent_notice_draft__v1/packet.md。\n- APS 共同基準包：from_adam/packets/20260703T111210Z__shared_goal_and_roles__v1/packet.md。\n\n接收方開工條件\n\nadam 可直接審閱這版草稿；如要對外發出，仍須先確認活動實際時間、是否需要留名、查詢方式和中心最終口徑。\n\n風險 / 未決事項\n\n- 開始時間仍未最後確認。\n- 是否需要家長預先留名仍未確認。\n- 手作桌形式、人手和材料仍未完全確認。\n`,
+  );
+  writePeerCard('multi_pending_inbox', 'jay', 'Jay');
+  writePeerCard('multi_pending_inbox', 'mira', 'Mira');
+  writeFile(
+    path.join(hubRoot, 'multi_pending_inbox', '_ack', 'adam.ack.json'),
+    `${JSON.stringify({ agent: 'adam', project: 'multi_pending_inbox', consumed: [], declined: [], open_questions: [] }, null, 2)}\n`,
+  );
+  writeFile(
+    path.join(hubRoot, 'multi_pending_inbox', 'from_jay', 'outbox.log.md'),
+    '2026-07-03T18:00:00Z | publish | 20260703T180000Z__first_notice v1 | to:adam | items:1\n',
+  );
+  writeFile(
+    path.join(hubRoot, 'multi_pending_inbox', 'from_jay', 'packets', '20260703T180000Z__first_notice__v1', 'packet.md'),
+    `---\npacket_id: 20260703T180000Z__first_notice\nversion: 1\nfrom: jay\nto: adam\nproject: multi_pending_inbox\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-07-03T18:00:00Z\nssot_refs: []\nscope: \"first_notice\"\nitems:\n  - id: \"審閱第一件交接\"\n---\n\n# first_notice\n\n正文\n\n第一件待處理交接正文：請先核對家長通知草稿語氣。\n`,
+  );
+  writeFile(
+    path.join(hubRoot, 'multi_pending_inbox', 'from_mira', 'outbox.log.md'),
+    '2026-07-03T18:01:00Z | publish | 20260703T180100Z__second_notice v1 | to:adam | items:1\n',
+  );
+  writeFile(
+    path.join(hubRoot, 'multi_pending_inbox', 'from_mira', 'packets', '20260703T180100Z__second_notice__v1', 'packet.md'),
+    `---\npacket_id: 20260703T180100Z__second_notice\nversion: 1\nfrom: mira\nto: adam\nproject: multi_pending_inbox\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-07-03T18:01:00Z\nssot_refs: []\nscope: \"second_notice\"\nitems:\n  - id: \"審閱第二件交接\"\n---\n\n# second_notice\n\n正文\n\n第二件待處理交接正文：請先確認開放日時間是否可公開。\n`,
   );
   inboxPacket('context_add', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary');
   inboxPacket('context_add_exact', 'jay', 'adam', '20260531T120000Z__daily_summary', 'daily_summary', 1);
@@ -4328,6 +4449,8 @@ try {
     '沒有正式交接卡點；但有 1 件 APS Live 討論已交給本機 AI，應先處理這個待辦。',
     '先整理 1 件 APS Live 待辦，避免重複使用舊討論。',
     '已合併 1 件重複 Live 待辦；不需要重複整理相同內容。',
+    '最新待辦可先閱讀的最近對話',
+    'jay: 共同目標 v1 需要補充驗收標準。',
     '本機 AI 整理成草稿後，應封存已整理的 Live 待辦',
     '幫我整理剛才 APS Live 的討論，先列出共識、分歧、待決定事項和缺口；需要正式動作時先給我草稿，不要直接寫入 Drive。整理成草稿後，請封存已整理的 APS Live 待辦，避免下次重複使用舊材料；不要改正式 APS 紀錄。',
     '已有 APS Live 討論等本機 AI 整理與判斷',
@@ -4377,6 +4500,8 @@ try {
     '整理成草稿後，請執行 `npx aps live-queue --mark-reviewed`',
     '重複提交: 已合併 2 次相同待辦。',
     '整理共識、分歧、待決定事項',
+    '可先閱讀的最近對話',
+    'jay: 共同目標 v1 需要補充驗收標準。',
     '幫我整理剛才 APS Live 的討論，先列出共識、分歧、待決定事項和缺口；需要正式動作時先給我草稿，不要直接寫入 Drive。整理成草稿後，請封存已整理的 APS Live 待辦，避免下次重複使用舊材料；不要改正式 APS 紀錄。',
   ]) {
     assert(liveQueueText.includes(text), `aps live-queue: missing ${text}`, liveQueueText);
@@ -4528,10 +4653,12 @@ try {
     [
       '共同目標與分工確認',
       '這不是普通任務',
+      '📖 可先閱讀的正文',
       '用 APS 建立 Jay 首輪共同基準',
       'adam 負責發出基準；jay 負責確認、部分同意或提出異議。',
       'Jay 的 check Drive 清楚顯示共同目標、分工、驗收標準與可選確認動作。',
       'Jay 仍未 consume 或 decline 這一版共同目標。',
+      'AI 不應只給抽取摘要而不讓你看內容',
       'Jay 確認共同目標與分工',
       '同意:',
       '部分同意，需要修改',
@@ -4556,14 +4683,78 @@ try {
       '收到共同目標與分工包，但摘要生成不足，請讀完整 packet 後再決定。',
       '可直接貼給 AI',
       '整理共同目標、角色分工、第一輪範圍、驗收標準和未決事項',
+      '📖 可先閱讀的正文',
+      'Project: incomplete_placeholder',
       '未在基準包內摘出共同目標',
       'Jay 確認共同目標與分工',
       '不要把它標成普通 done',
     ],
     [
       '對方交了甚麼',
-      'Project: incomplete_placeholder',
     ],
+  );
+  expectCheckDriveCase(
+    'check-drive shows reply draft body and APS Live entry for active inbox packet',
+    ['--hub-root', hubRoot, '--project', 'parent_notice_reply_inbox', '--agent-id', 'adam', '--from', 'sandbox'],
+    0,
+    [
+      'adam 有 1 個待處理項目',
+      'parent_notice_draft_reply',
+      '📖 可先閱讀的正文',
+      '各位家長好：',
+      '社區中心計劃於六月尾一個星期六下午舉行開放日',
+      'AI 不應只給判斷而不讓你看內容',
+      '✅ 我該不該做',
+      '可以先讀,但不要因為看到這件交接就立即開工或標記已處理。',
+      '📡 APS Live 交接追蹤工作台',
+      'APS Live:',
+      '可點擊開啟: file:///',
+    ],
+    [
+      '未列明共同目標',
+      '未列明真源指標或來源位置',
+      '未列明接收方開工條件',
+      '需退回補資料',
+    ],
+  );
+  expectCheckApsCase(
+    'check-aps shows pending reply draft body before asking for user decision',
+    ['--hub-root', hubRoot, '--project', 'parent_notice_reply_inbox', '--agent-id', 'adam'],
+    0,
+    [
+      'APS 整體狀態',
+      'parent_notice_draft_reply',
+      '📖 待你查看的內容',
+      '以下是正式交接包內可先閱讀的正文摘錄',
+      '各位家長好：',
+      '社區中心計劃於六月尾一個星期六下午舉行開放日',
+      'AI 不應只給判斷而不讓你看內容',
+      '下一句可對 AI 說',
+    ],
+    [
+      '未列明共同目標',
+      '未列明真源指標或來源位置',
+      '未列明接收方開工條件',
+      '需退回補資料',
+    ],
+  );
+  expectCheckDriveCase(
+    'check-drive shows multiple pending packet selection and each readable excerpt',
+    ['--hub-root', hubRoot, '--project', 'multi_pending_inbox', '--agent-id', 'adam', '--all'],
+    0,
+    [
+      'adam 有 2 個待處理項目',
+      '收件總覽',
+      '1. jay / first_notice / v1',
+      '2. mira / second_notice / v1',
+      '📦 新交接 1/2',
+      '📦 新交接 2/2',
+      '第一件待處理交接正文',
+      '第二件待處理交接正文',
+      '這是對方交來內容的可讀摘錄',
+      '📡 APS Live 交接追蹤工作台',
+    ],
+    [],
   );
 
   console.log('Project Context Index regression checks passed.');

@@ -1590,7 +1590,7 @@ function clipWithEllipsis(value, maxLength) {
 function isBodySectionLabel(line) {
   const text = String(line || '').trim();
   if (!text || text.length > 80) return false;
-  return /^(common goal|own-side task|counterpart task|crossing point|requested action|do not misunderstand|evidence|risks and open items|participants?|roles?|first round|first step|acceptance|ready to start|start condition|open items?|共同目標|參與者與用戶名稱|參與者|每人角色|角色|第一個可做小步|第一輪分工|第一輪範圍|第一輪交接對象|第一個邀請對象|最小驗收方式|驗收標準|驗收方式|完成標準|接收方開工條件|開工條件|開始前條件|可開工條件|待確認|本方任務|對方任務|交叉點|請對方做的事|不應誤解|真源指標|必讀檔案|證據|風險與未決事項|風險|未決|摘要|目標|注意事項)\s*[:：]$/i.test(text);
+  return /^(common goal|own-side task|counterpart task|crossing point|requested action|do not misunderstand|evidence|risks and open items|participants?|roles?|first round|first step|acceptance|ready to start|start condition|open items?|共同目標|參與者與用戶名稱|參與者|每人角色|角色|第一個可做小步|第一輪分工|第一輪範圍|第一輪交接對象|第一個邀請對象|最小驗收方式|驗收標準|驗收方式|完成標準|接收方開工條件|開工條件|開始前條件|可開工條件|待確認|本方任務|對方任務|交叉點|請對方做的事|不應誤解(?:的事)?|真源指標|必讀檔案|證據|風險與未決事項|風險\s*\/\s*未決事項|風險|未決|摘要|目標|注意事項|可使用資料|不可做的事|家長通知草稿|通知草稿|草稿|回覆內容|交回內容|成果|正文)\s*[:：]?$/i.test(text);
 }
 
 function firstBodyContentLine(body) {
@@ -1760,6 +1760,55 @@ function inboxActionLines(item) {
 
 function inboxAttentionText(item) {
   return noticeAttentionFromBody(item.body);
+}
+
+function packetSectionText(body, headingPattern, maxLength = 1400) {
+  const lines = String(body || '').split(/\r?\n/);
+  let inside = false;
+  const collected = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const inlineLabel = trimmed.match(/^([^:：]{1,80})[:：]\s*(.+)$/);
+    if (inlineLabel && headingPattern.test(inlineLabel[1])) {
+      inside = true;
+      collected.push(inlineLabel[2].trim());
+      continue;
+    }
+    if (/^#+\s+/.test(trimmed) || isBodySectionLabel(trimmed)) {
+      if (inside && collected.some((value) => String(value || '').trim())) break;
+      inside = headingPattern.test(trimmed);
+      continue;
+    }
+    if (inside) collected.push(line);
+  }
+  const text = collected.join('\n').trim();
+  return clipWithEllipsis(text, maxLength);
+}
+
+function packetUserVisibleExcerpt(item) {
+  const body = String(item && item.body ? item.body : '').trim();
+  if (!body) return '';
+  const deliverable = packetSectionText(body, /(家長通知草稿|通知草稿|草稿|回覆內容|交回內容|成果|正文|draft|reply)/i, 1600);
+  if (deliverable) return deliverable;
+  return clipWithEllipsis(
+    body
+      .split(/\r?\n/)
+      .map((line) => line.trimEnd())
+      .filter((line) => !/^#\s+/.test(line.trim()))
+      .join('\n')
+      .trim(),
+    1400
+  );
+}
+
+function decisionSurfaceBodyExcerpt(body, fallback = '(沒有正文)') {
+  const excerpt = packetUserVisibleExcerpt({ body });
+  return excerpt || clipWithEllipsis(String(body || '').trim(), 1200) || fallback;
+}
+
+function printDirectCliWriteBoundary(actionLabel) {
+  console.log('⚠️ 命令列直接寫入只作熟悉 CLI / 排錯備用；新手主流程應先用 check Drive / Check APS / 本機 AI 看見正文、回覆或退回理由。');
+  console.log(`🔎 正式邊界:${actionLabel} 已改正式 APS 紀錄；請用 check Drive / Check APS / status 讀回，不要只靠這行成功訊息。`);
 }
 
 function isSharedGoalInboxItem(item) {
@@ -1962,11 +2011,19 @@ function renderHumanInboxItem(item, sourceId, index, total) {
       actionability.next || '先處理缺口；需要正式動作時，先讓 AI 出草稿給你確認。',
       `可直接貼給 AI：「${actionabilityPromptFor(item, sourceId)}」`,
     ];
+  const visibleExcerpt = packetUserVisibleExcerpt(item);
   return [
     heading,
     '',
     '🔎 對方交了甚麼',
     inboxWhatSummary(item),
+    ...(visibleExcerpt ? [
+      '',
+      '📖 可先閱讀的正文',
+      visibleExcerpt,
+      '',
+      '這是對方交來內容的可讀摘錄；AI 不應只給判斷而不讓你看內容。要全文時，請叫 AI 讀下面的本機交接檔。',
+    ] : []),
     '',
     '📌 對方請你做',
     ...inboxActionLines(item),
@@ -1994,6 +2051,7 @@ function renderSharedGoalInboxItem(item, sourceId, index, total) {
   const details = sharedGoalInboxDetails(item);
   const topic = packetTopic(item.packetId);
   const receiverLabel = item.to || '本方';
+  const visibleExcerpt = packetUserVisibleExcerpt(item);
   const lines = [
     heading,
     '',
@@ -2012,6 +2070,13 @@ function renderSharedGoalInboxItem(item, sourceId, index, total) {
     `- 第一輪範圍: ${details.summary.firstRound}`,
     `- 驗收標準: ${details.summary.acceptance}`,
     `- 未決事項: ${details.openItems}`,
+    ...(visibleExcerpt ? [
+      '',
+      '📖 可先閱讀的正文',
+      visibleExcerpt,
+      '',
+      '這是共同基準原文摘錄；AI 不應只給抽取摘要而不讓你看內容。要全文時，請叫 AI 讀下面的本機交接檔。',
+    ] : []),
     '',
     `✅ 需要 ${receiverLabel} 確認`,
     `- ${compactNoticeText(details.requested, details.requested, 260)}`,
@@ -2030,6 +2095,24 @@ function renderSharedGoalInboxItem(item, sourceId, index, total) {
     `本機交接檔: ${item.packetPath}`,
   );
   return lines.join('\n');
+}
+
+function renderPendingPacketExcerpts(pendingItems, limit = 3) {
+  const lines = [];
+  for (const item of pendingItems.slice(0, limit)) {
+    const excerpt = packetUserVisibleExcerpt(item);
+    if (!excerpt) continue;
+    const source = item.from || item.fromId || item.summary && item.summary.from || '(未知來源)';
+    const topic = packetTopic(item.packetId);
+    lines.push(`- ${source} / ${topic} v${item.version}`);
+    lines.push(excerpt);
+    lines.push('');
+  }
+  if (pendingItems.length > limit) {
+    lines.push(`- 另有 ${pendingItems.length - limit} 件待處理交接；請用 check Drive 逐件閱讀。`);
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
 }
 
 function parsePacketHeader(packetPath) {
@@ -3073,12 +3156,14 @@ function buildLiveFormalActions(dashboard) {
     const topic = packetTopic(item.packetId);
     const isSharedGoalPacket = isSharedGoalTopicName(topic);
     if (isSharedGoalPacket) {
+      const visibleExcerpt = packetUserVisibleExcerpt(item);
       const report = liveAcceptanceReportFor({
         state: 'clarify_goal',
         reason: actionability.reason,
         packetId: item.packetId,
         version: Number(item.version),
       });
+      if (visibleExcerpt) report.checks = [`交接正文摘錄：${visibleExcerpt}`, ...(report.checks || [])].slice(0, 6);
       actions.push({
         type: 'confirm-shared-goal',
         label: '確認共同基準',
@@ -3111,6 +3196,7 @@ function buildLiveFormalActions(dashboard) {
       continue;
     }
     if (actionability.state === 'clarify_goal') {
+      const visibleExcerpt = packetUserVisibleExcerpt(item);
       const report = liveAcceptanceReportFor({
         state: 'return',
         reason: actionability.reason,
@@ -3118,6 +3204,7 @@ function buildLiveFormalActions(dashboard) {
         packetId: item.packetId,
         version: Number(item.version),
       });
+      if (visibleExcerpt) report.checks = [`交接正文摘錄：${visibleExcerpt}`, ...(report.checks || [])].slice(0, 6);
       actions.push({
         type: 'decline-packet',
         label: '先退回補共同基準',
@@ -3138,12 +3225,14 @@ function buildLiveFormalActions(dashboard) {
       continue;
     }
     if (actionability.state === 'actionable') {
+      const visibleExcerpt = packetUserVisibleExcerpt(item);
       const report = liveAcceptanceReportFor({
         state: 'actionable',
         reason: actionability.reason,
         packetId: item.packetId,
         version: Number(item.version),
       });
+      if (visibleExcerpt) report.checks = [`交接正文摘錄：${visibleExcerpt}`, ...(report.checks || [])].slice(0, 6);
       actions.push({
         type: 'consume-packet',
         label: 'AI 建議：接受並繼續',
@@ -3157,6 +3246,7 @@ function buildLiveFormalActions(dashboard) {
         report,
       });
     } else if (actionability.state === 'return') {
+      const visibleExcerpt = packetUserVisibleExcerpt(item);
       const missing = String(actionability.reason || '').split('；').filter(Boolean);
       const report = liveAcceptanceReportFor({
         state: 'return',
@@ -3165,6 +3255,7 @@ function buildLiveFormalActions(dashboard) {
         packetId: item.packetId,
         version: Number(item.version),
       });
+      if (visibleExcerpt) report.checks = [`交接正文摘錄：${visibleExcerpt}`, ...(report.checks || [])].slice(0, 6);
       actions.push({
         type: 'decline-packet',
         label: 'AI 建議：退回補資料',
@@ -3192,6 +3283,9 @@ function buildLiveFormalActions(dashboard) {
     ));
   for (const item of closeableOutgoing.slice(0, 6)) {
     if (item.state !== 'consumed' && item.state !== 'declined') continue;
+    const receiverReplyText = item.state === 'declined'
+      ? String(item.declined && item.declined.reason || '').trim()
+      : String(item.consumed && item.consumed.result || '').trim();
     actions.push({
       type: 'close-packet',
       label: item.state === 'declined' ? '收結已退回交接' : '收結已回覆交接',
@@ -3207,9 +3301,12 @@ function buildLiveFormalActions(dashboard) {
       report: {
         verdict: item.state === 'declined' ? '⚠️ AI 檢查結果：對方已退回' : '✅ AI 檢查結果：對方已回覆',
         summary: item.state === 'declined'
-          ? '對方已明確退回，這條交接可先收結，後續用修訂或新交接處理。'
-          : '對方已有正式回覆，這條交接可收結。',
-        checks: ['已看到對方正式回覆', '此動作只收結本方發出的交接線'],
+          ? `對方已明確退回：${receiverReplyText || '(未記錄原因)'}`
+          : `對方已有正式回覆：${receiverReplyText || '(未記錄結果)'}`,
+        checks: [
+          `對方回覆內容：${receiverReplyText || '(未記錄)'}`,
+          '此動作只收結本方發出的交接線',
+        ],
         next: '如你同意 AI 檢查結果，按下方按鈕會先重新讀取最新正式狀態，再讓你確認收結。',
       },
     });
@@ -3826,6 +3923,39 @@ function checkApsLiveRoutingLines({ pendingItems, outgoingPackets, riskRecords, 
   return lines;
 }
 
+function checkDriveLiveLines({ hubRoot, projectSlug, agentId, livePath: generatedLivePath = null, liveGenerated = false, liveError = null, total = 0 }) {
+  const livePath = path.join(contextDir(hubRoot, projectSlug), apsLiveFileNameForAgent(agentId));
+  const lines = [
+    '📡 APS Live 交接追蹤工作台',
+  ];
+  if (generatedLivePath) {
+    lines.push(`APS Live: ${generatedLivePath}`);
+    lines.push(`可點擊開啟: ${localFileHref(generatedLivePath)}`);
+    lines.push(liveGenerated
+      ? '頁面已由 check Drive 按目前收件狀態自動生成 / 更新；要即時對齊或看階段，可直接打開。'
+      : '本機已找到 APS Live 頁；要即時對齊或看階段，可直接打開。');
+  } else if (liveError) {
+    lines.push(`APS Live 暫時未能更新：${safeLiveDiagnosticText(liveError.message || liveError, '寫入失敗')}`);
+    lines.push(`預期位置: ${livePath}`);
+    if (fs.existsSync(livePath)) {
+      lines.push(`既有頁面: ${localFileHref(livePath)}`);
+      lines.push('注意：既有頁面可能不是最新；正式狀態以上方 check Drive 讀到的內容為準。');
+    }
+    lines.push('先關閉已開啟的 APS Live HTML 或解除 Drive 寫入鎖，再重跑 check Drive / Check APS。');
+  } else if (fs.existsSync(livePath)) {
+    lines.push(`APS Live: ${livePath}`);
+    lines.push(`可點擊開啟: ${localFileHref(livePath)}`);
+    lines.push('本機已找到 APS Live 頁；要即時對齊或看階段，可直接打開。');
+  } else {
+    lines.push(`目前未生成 APS Live HTML；預期位置會是 ${livePath}`);
+    lines.push(total > 0
+      ? '這不應阻止你閱讀上方交接；如要即時對齊，請讓 AI 執行 Check APS 或 aps live 生成。'
+      : '目前沒有待處理交接；需要即時對齊時再打開 APS Live。');
+  }
+  lines.push('邊界：APS Live 只協助即時對齊與看階段；正式進度仍以上方收件、packet、outbox、ack 為準。');
+  return lines;
+}
+
 function checkApsCurrentJourneyStage({ pendingItems, outgoingPackets, riskRecords, sharedGoal = null, peers = [], agentId = '' }) {
   const confirmedPeerCount = peers.filter((peer) => peer.agent_id && peer.agent_id !== agentId && peer.peer_state === 'confirmed' && peer.status !== 'inactive').length;
   const pendingByState = pendingItems.reduce((map, item) => {
@@ -4155,6 +4285,13 @@ function renderProjectDashboardSummary(dashboard, options = {}) {
     lines.push('📡 APS Live 即時協作');
     for (const line of liveRoutingLines) lines.push(`- ${line}`);
   }
+  const pendingExcerptLines = renderPendingPacketExcerpts(pendingItems);
+  if (pendingExcerptLines.length > 0) {
+    lines.push('');
+    lines.push('📖 待你查看的內容');
+    lines.push('以下是正式交接包內可先閱讀的正文摘錄；AI 不應只給判斷而不讓你看內容。');
+    lines.push(...pendingExcerptLines);
+  }
   if (liveQueueItems.length > 0) {
     const latestQueue = liveQueueItems[0];
     const latestPayload = latestQueue.payload || {};
@@ -4164,6 +4301,13 @@ function renderProjectDashboardSummary(dashboard, options = {}) {
     lines.push(`- 最新一件: ${latestPayload.task_mode || '請 AI 判斷下一步'}。來源: ${latestPayload.agent_id || latestPayload.snapshot && latestPayload.snapshot.agent_id || '(未記錄)'}`);
     const duplicateTotal = liveQueueItems.reduce((sum, item) => sum + Math.max(0, Number(item.duplicate_count || 1) - 1), 0);
     if (duplicateTotal > 0) lines.push(`- 已合併 ${duplicateTotal} 件重複 Live 待辦；不需要重複整理相同內容。`);
+    const queueMessageLines = apsLiveQueueRecentMessageLines(latestPayload);
+    if (queueMessageLines.length > 0) {
+      lines.push('- 最新待辦可先閱讀的最近對話:');
+      lines.push(...queueMessageLines);
+    } else {
+      lines.push('- 最新待辦未見可直接顯示的文字訊息；仍可交給本機 AI 整理。');
+    }
     lines.push('- 這只是本機待辦材料；是否寫回共同目標、交接包、補資料或確認紀錄，仍要等你批准。');
     lines.push('- 本機 AI 整理成草稿後，應封存已整理的 Live 待辦，避免下次 Check APS 重複使用舊材料；這不改正式 APS 紀錄。');
   }
@@ -7939,6 +8083,24 @@ function apsLiveQueuePlainSummary(payload = {}) {
   );
 }
 
+function apsLiveQueueMessageText(message = {}) {
+  const data = message && typeof message.data === 'object' ? message.data : {};
+  return apsLiveQueueTextDigest(data.text || data.message || message.text || message.message || '', 220);
+}
+
+function apsLiveQueueRecentMessageLines(payload = {}, limit = 3) {
+  const recentMessages = Array.isArray(payload.recent_messages) ? payload.recent_messages : [];
+  const lines = [];
+  for (const message of recentMessages.slice(-limit)) {
+    const text = apsLiveQueueMessageText(message);
+    if (!text) continue;
+    const source = message.source || message.agent_id || message.from || '對話';
+    lines.push(`  - ${source}: ${text}`);
+  }
+  if (recentMessages.length > limit) lines.unshift(`  - 只顯示最近 ${limit} 則；另有 ${recentMessages.length - limit} 則已保留給本機 AI 整理。`);
+  return lines;
+}
+
 function renderApsLiveQueueReport(items, { full = false } = {}) {
   const lines = [
     '📥 APS Live 待本機 AI 整理',
@@ -7964,6 +8126,13 @@ function renderApsLiveQueueReport(items, { full = false } = {}) {
     lines.push(`- 來源代理: ${payload.agent_id || payload.snapshot && payload.snapshot.agent_id || '(未記錄)'}`);
     lines.push(`- 訊息數量: ${recentMessages.length}`);
     lines.push(`- 整理重點: ${apsLiveQueuePlainSummary(payload)}`);
+    const messageLines = apsLiveQueueRecentMessageLines(payload);
+    if (messageLines.length > 0) {
+      lines.push('- 可先閱讀的最近對話:');
+      lines.push(...messageLines);
+    } else {
+      lines.push('- 可先閱讀的最近對話: 未見文字訊息；如有疑問，請打開 APS Live 或用 --full 排錯。');
+    }
     if (full) {
       lines.push('- AI 內部整理材料（排錯用，不給一般用戶照讀）:');
       lines.push('```text');
@@ -8981,11 +9150,12 @@ if (!subcommand || subcommand === '--help' || subcommand === '-h') {
   npx aps peer starter --agent-id <id>
                                   維護 / 兼容:重新產生給指定 peer 的 starter pack
   npx aps publish --to <id> --topic <snake> --body <text>
-  npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff]
+  npx aps publish --to <id> --topic <snake> --body-file <path> [--items "甲;乙" | --items-file <path>] [--strict-handoff] [--dry-run]
                                   發佈 v1 交接包並追加 outbox;--items 由發送方申報「請對方做的事」,CLI 逐字記錄(分號分隔;項目本身含分號時改用 --items-file)
                                   --strict-handoff 會阻止缺少或內容不足的共同目標、雙方任務、交叉點、--items、真源指標或風險
-  npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items]
+  npx aps revise --packet-id <id> --body-file <path> --reason <text> [--items "甲;乙" | --items-file <path> | --clear-items] [--dry-run]
                                   為自己發出的交接包建立下一個不可變版本;未指定 items 時沿用上一版
+                                  直接寫入命令只作熟悉 CLI / 排錯備用；新手主流程應先用 check Drive / Check APS / 本機 AI 看見正文、回覆、退回理由或確認卡
   npx aps inbox
   npx aps inbox --all
   npx aps inbox --from <agent_id>
@@ -9648,9 +9818,16 @@ if (subcommand === 'publish') {
       if (strictHandoff || handoffReport.ready) {
         printHandoffReadiness(handoffReport);
       }
+      console.log('📋 發送前確認卡');
       console.log(`收件人: ${toId}`);
       console.log(`主題: ${topic}`);
       console.log(`📋 已申報項目: ${itemsInput.items.length ? itemsInput.items.join(' / ') : '(無 — 如要列明請對方做的事,可加 --items "甲;乙")'}`);
+      console.log('正文摘錄:');
+      console.log(decisionSurfaceBodyExcerpt(body));
+      console.log('🔎 正式邊界:這只是 dry-run,未寫入 packet / outbox；取得用戶確認並移除 `--dry-run` 後才會正式發佈。');
+      if (/(^|_)(reply|response)($|_)/i.test(topic)) {
+        console.log('🔁 回覆邊界:這會成為新的正式交接包；不等於 consume、close 或 APS Live chat。');
+      }
       console.log('下一步: 取得用戶確認後，移除 `--dry-run` 再正式發佈。');
     } else {
       // Participation self-confirms: when we publish as the locally configured agent (identity
@@ -9677,6 +9854,7 @@ if (subcommand === 'publish') {
       }
       console.log(`📦 交接包: ${result.packetDir}`);
       console.log(`📋 已申報項目: ${result.items.length ? result.items.join(' / ') : '(無 — 如要列明請對方做的事,可加 --items "甲;乙")'}`);
+      printDirectCliWriteBoundary('publish');
       console.log('');
       console.log('📣 可直接複製貼上的通知訊息:');
       console.log(notice);
@@ -9713,6 +9891,7 @@ if (subcommand === 'revise') {
     process.exit(1);
   }
   const clearItems = hasFlag('--clear-items');
+  const dryRun = hasFlag('--dry-run');
   if (itemsInput.provided && clearItems) {
     console.error('❌ 修訂失敗:--items / --items-file 與 --clear-items 不可同時使用。');
     process.exit(1);
@@ -9735,6 +9914,26 @@ if (subcommand === 'revise') {
     errorPrefix: '❌ 修訂失敗',
   });
   try {
+    if (dryRun) {
+      const current = latestOwnPacketVersion({ hubRoot, projectSlug, agentId, packetId });
+      const currentSummary = readPacketSummary(hubRoot, projectSlug, agentId, packetId, current.latest.version);
+      const finalItemsPreview = itemsInput.provided
+        ? itemsInput.items
+        : clearItems
+          ? []
+          : Array.isArray(currentSummary.items) ? currentSummary.items : [];
+      console.log('✅ dry-run 通過：修訂預檢完成，未寫入共用 Drive。');
+      console.log('📋 修訂前確認卡');
+      console.log(`交接包: ${packetId} v${current.latest.version} -> v${current.latest.version + 1}`);
+      console.log(`收件人: ${currentSummary.to || current.latest.kv.to || '(未記錄)'}`);
+      console.log(`修訂理由: ${reason}`);
+      console.log(`項目: ${finalItemsPreview.length ? finalItemsPreview.join(' / ') : '(無)'}`);
+      console.log('新正文摘錄:');
+      console.log(decisionSurfaceBodyExcerpt(body));
+      console.log('🔎 正式邊界:dry-run 未建立新版本、未寫 outbox；取得用戶確認並移除 `--dry-run` 後才會正式修訂。');
+      console.log('⚠️ 決策前請先確認用戶已看見原交接、對方回覆或退回理由，以及這版修訂正文。');
+      process.exit(0);
+    }
     const output = revisePacket({ hubRoot, projectSlug, agentId, packetId, body, reason, items: itemsInput.items, itemsProvided: itemsInput.provided, clearItems });
     const notice = receiverNotice({
       projectSlug,
@@ -9750,6 +9949,7 @@ if (subcommand === 'revise') {
     console.log(`✅ 已修訂 ${packetId}: v${output.previousVersion} -> v${output.version}`);
     console.log(`📦 交接包: ${output.packetDir}`);
     console.log(`📋 項目: ${output.items.length ? output.items.join(' / ') : '(無)'}${(itemsInput.provided || clearItems) ? '' : ' (沿用上一版)'}`);
+    printDirectCliWriteBoundary('revise');
     console.log('');
     console.log('📣 可直接複製貼上的通知訊息:');
     console.log(notice);
@@ -9801,6 +10001,16 @@ if (subcommand === 'inbox') {
       contextReport = null;
     }
     const total = groups.reduce((count, group) => count + group.pending.length, 0);
+    let liveResult = null;
+    let liveGenerationError = null;
+    if (total > 0) {
+      try {
+        const dashboard = buildDashboardData({ hubRoot, projectSlug, agentId, config: { ...config, hubRoot, projectSlug, agentId, otherAgentId } });
+        liveResult = writeApsLiveHtml({ hubRoot, projectSlug, agentId, config: { ...config, hubRoot, projectSlug, agentId, otherAgentId }, dashboard });
+      } catch (err) {
+        liveGenerationError = err;
+      }
+    }
     console.log(renderInboxDailyBrief({ agentId, total, groups, contextReport }));
     console.log('');
     if (total === 0) {
@@ -9835,6 +10045,16 @@ if (subcommand === 'inbox') {
       } else {
         console.log('✅ 通過檢查後,可以叫 AI 標記已處理。排錯時才需要用命令:npx aps consume --packet-id <id> --version <n> --result "<具體處理結果>"');
       }
+      console.log('');
+      console.log(checkDriveLiveLines({
+        hubRoot,
+        projectSlug,
+        agentId,
+        livePath: liveResult ? liveResult.livePath : null,
+        liveGenerated: Boolean(liveResult),
+        liveError: liveGenerationError,
+        total,
+      }).join('\n'));
     }
   } catch (err) {
     console.error(`❌ 收件檢查失敗:${err.message}`);
@@ -10238,6 +10458,7 @@ if (subcommand === 'consume') {
     }
     console.log(output.already ? `✅ 已標記過 ${packetId} v${version}` : `✅ 已標記處理 ${packetId} v${version}`);
     console.log(`📄 已寫入本機收件確認紀錄: ${output.ackPath}`);
+    printDirectCliWriteBoundary('consume');
     console.log('');
     console.log('🚀 下一步:如需要回覆對方,請優先在 AI 工具中說「幫我回覆這個 APS 交接」。命令列備用做法是 `npx aps publish ...`;如事情已完成,請原發包方收結原交接。');
     process.exit(0);
@@ -10280,6 +10501,7 @@ if (subcommand === 'decline') {
     }
     console.log(output.already ? `✅ 已退回過 ${packetId} v${version}` : `✅ 已退回 ${packetId} v${version}`);
     console.log(`📄 已寫入本機收件確認紀錄: ${output.ackPath}`);
+    printDirectCliWriteBoundary('decline');
     console.log('');
     console.log('🚀 下一步:通知原發包方用 `revise` 修訂、`withdraw` 撤回,或在確認不用再跟進時 `close` 收結。');
     process.exit(0);
@@ -10320,6 +10542,7 @@ if (subcommand === 'withdraw') {
     const output = withdrawPacket({ hubRoot, projectSlug, agentId, packetId, version, reason });
     console.log(`✅ 已撤回 ${packetId} v${output.version}`);
     console.log(`📄 已寫入本機發件紀錄: ${output.outboxPath}`);
+    printDirectCliWriteBoundary('withdraw');
     console.log('');
     console.log(`🔎 已在可用時檢查接收方確認紀錄: ${output.ackPath}`);
     console.log('🚀 下一步:請通知對方在自己電腦的 AI 工具中說「check Drive」。這個版本不應再顯示為待處理項目。');
@@ -10358,6 +10581,7 @@ if (subcommand === 'close') {
     const output = closePacket({ hubRoot, projectSlug, agentId, packetId, reason });
     console.log(`✅ 已收結 ${packetId} v${output.version}`);
     console.log(`📄 已寫入本機發件紀錄: ${output.outboxPath}`);
+    printDirectCliWriteBoundary('close');
     console.log('');
     console.log('🚀 下一步:雙方可再說「check Drive」核對正式狀態；已收結的交接不應再顯示為待處理項目。');
     process.exit(0);
