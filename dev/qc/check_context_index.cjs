@@ -4008,8 +4008,9 @@ try {
     '未能直接交給本機 AI',
     '請先整理，不要直接套用',
     '未能直接交給本機 AI',
-    'local-browser-preview',
-    'local-browser-preview',
+    'function handleLocalChannelEvent',
+    "postLocalLiveMessage('status', livePayload('status'))",
+    "postLocalLiveMessage('project-message', payload)",
   ]) {
     assert(liveDemoHtml.includes(text), `aps live demo html: missing ${text}`, liveDemoHtml);
   }
@@ -4375,6 +4376,13 @@ try {
   assert(liveProjectHtml.includes('function bindPeerEvent'), 'aps live project html: should include Trystero peer-event compatibility binding');
   assert(liveProjectHtml.includes("bindPeerEvent(room, 'onPeerJoin'"), 'aps live project html: should bind onPeerJoin through compatibility layer');
   assert(liveProjectHtml.includes("bindPeerEvent(room, 'onPeerLeave'"), 'aps live project html: should bind onPeerLeave through compatibility layer');
+  assert(liveProjectHtml.includes("const localPageId = 'page-'"), 'aps live project html: should create a per-tab local page id for same-browser peer detection');
+  assert(liveProjectHtml.includes("postLocalLiveMessage('status', livePayload('status'))"), 'aps live project html: should announce APS identity through BroadcastChannel fallback');
+  assert(liveProjectHtml.includes("postLocalLiveMessage('project-message', payload)"), 'aps live project html: project messages should use BroadcastChannel fallback before transport send');
+  assert(liveProjectHtml.includes("function handleLocalChannelEvent"), 'aps live project html: should handle same-browser local channel events');
+  assert(liveProjectHtml.includes("button.dataset.formalAction = action.type || ''"), 'aps live project html: formal action buttons should expose a stable browser-test selector');
+  assert(!liveProjectHtml.includes("window.confirm('只清除本頁顯示的對話記錄"), 'aps live project html: clear messages should not rely on native confirm dialogs');
+  assert(liveProjectHtml.includes('再次按下清空本頁紀錄'), 'aps live project html: clear messages should use a page-visible two-step confirmation');
   for (const text of [
     'project',
     'agent_id',

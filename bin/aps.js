@@ -5887,6 +5887,7 @@ ${advancedActionsHtml}
     const messageHistory = [];
     let lastPeerJoinAt = 0;
     const channel = 'BroadcastChannel' in window ? new BroadcastChannel('aps-live-local-preview:' + roomId) : null;
+    const localPageId = 'page-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
     const messages = document.getElementById('messages');
     const systemMessages = document.getElementById('systemMessages');
     const liveNotice = document.getElementById('liveNotice');
@@ -7318,6 +7319,7 @@ ${advancedActionsHtml}
       roomHandle[eventName] = handler;
     }
     async function sendProjectMessageWithWarmupRetry(payload) {
+      postLocalLiveMessage('project-message', payload);
       if (!sendProjectMessageAction) return;
       await sendProjectMessageAction(payload);
       for (const delayMs of [3000, 7000, 12000]) {
@@ -7512,6 +7514,9 @@ ${advancedActionsHtml}
         button.type = 'button';
         button.className = action.tone === 'warn' ? 'secondary' : action.tone === 'danger' ? 'danger-action' : '';
         button.textContent = action.button_label || liveActionButtonLabel(action);
+        button.dataset.formalAction = action.type || '';
+        button.dataset.packetId = action.packet_id || '';
+        button.dataset.packetVersion = String(action.version || '');
         button.addEventListener('click', () => previewFormalAction({ ...action, text: textarea.value }));
         main.append(title, body, next, textarea, button);
         reportPanel.append(reportTitle);
@@ -7751,6 +7756,10 @@ ${advancedActionsHtml}
         updateSendButtonState();
         markJourney('journeyConnect');
         await sendStatus(livePayload('status'));
+        postLocalLiveMessage('status', livePayload('status'));
+        flushPendingProjectMessages().catch(error => {
+          addMessage('⚠️ 待送草稿補送失敗', { error: error.message });
+        });
         for (const delayMs of [1500, 4000, 8000]) {
           window.setTimeout(() => {
             if (!sendStatus) return;
@@ -7950,13 +7959,46 @@ ${advancedActionsHtml}
         }
       }
     }
-    function sendSnapshot() {
-      const data = { ...snapshot, sent_at: new Date().toISOString(), transport: 'local-browser-preview' };
-      addMessage('本頁送出', data);
-      if (channel) channel.postMessage(data);
+    function postLocalLiveMessage(kind, payload) {
+      if (!channel) return;
+      channel.postMessage({
+        kind,
+        room_id: roomId,
+        sender_page_id: localPageId,
+        agent_id: snapshot.agent_id,
+        payload,
+        sent_at: new Date().toISOString(),
+      });
+    }
+    function handleLocalProjectMessage(data) {
+      const payload = data && data.payload ? data.payload : {};
+      if (!payload.text) return;
+      if (payload.message_id) {
+        if (receivedLiveMessageIds.has(payload.message_id)) return;
+        receivedLiveMessageIds.add(payload.message_id);
+      }
+      if (latestProjectMessage) latestProjectMessage.textContent = payload.text;
+      addMessage('💬 收到核對訊息 ' + (data.agent_id || '協作者'), payload);
+      activateTab('collaborationTab');
+      showNotice('🔔 收到對方 APS Live 訊息，已打開「對話記錄」。');
+      updateSendButtonState();
+      setDiscussionStatus('💬 已收到對方訊息。可以回覆，或交給本機 AI 整理。');
+    }
+    function handleLocalChannelEvent(event) {
+      const data = event && event.data ? event.data : null;
+      if (!data || data.room_id !== roomId || data.sender_page_id === localPageId) return;
+      if (data.kind === 'status') {
+        const peerKey = 'local:' + data.sender_page_id;
+        const knownBefore = peerAgents.has(peerKey) && peerAgents.get(peerKey) && peerAgents.get(peerKey).agent_id;
+        recordPeerStatus(peerKey, data.payload || data);
+        if (!knownBefore) postLocalLiveMessage('status', livePayload('status'));
+        return;
+      }
+      if (data.kind === 'project-message') handleLocalProjectMessage(data);
     }
     if (channel) {
-      channel.onmessage = (event) => addMessage('收到同機頁面訊息', event.data);
+      channel.onmessage = handleLocalChannelEvent;
+      window.setTimeout(() => postLocalLiveMessage('status', livePayload('status')), 250);
     } else {
       addMessage('⚠️ 提示', { blocker: '這個瀏覽器不支援頁面互傳；仍可複製狀態摘要給本機 AI 使用。' });
     }
@@ -8032,9 +8074,9 @@ ${advancedActionsHtml}
         nextTerminalLine: 'Check APS，處理 APS Live 待辦；先整理下一輪目標、收件人、交回物和缺口。資料足夠時給我正式交接草稿，不要直接寫入 Drive。',
       }));
     }
-    document.getElementById('clearMessages').addEventListener('click', () => {
-      const confirmed = window.confirm('只清除本頁顯示的對話記錄，不會刪除正式 APS 紀錄。確定要清除嗎？');
-      if (!confirmed) return;
+    let clearMessagesArmed = false;
+    let clearMessagesTimer = null;
+    function clearVisibleMessages() {
       if (messages) messages.textContent = '';
       if (systemMessages) systemMessages.textContent = '';
       if (liveNotice) liveNotice.className = 'notice-banner';
@@ -8051,6 +8093,24 @@ ${advancedActionsHtml}
         });
       }
       setDiscussionStatus('⏳ 本次頁面記錄已清空。正式 APS 紀錄沒有改變。');
+    }
+    document.getElementById('clearMessages').addEventListener('click', () => {
+      const button = document.getElementById('clearMessages');
+      if (!clearMessagesArmed) {
+        clearMessagesArmed = true;
+        if (button) button.textContent = '再次按下清空本頁紀錄';
+        setDiscussionStatus('⚠️ 只會清空本頁顯示的對話記錄，不會刪除正式 APS 紀錄。若確定，請再按一次。');
+        if (clearMessagesTimer) window.clearTimeout(clearMessagesTimer);
+        clearMessagesTimer = window.setTimeout(() => {
+          clearMessagesArmed = false;
+          if (button) button.textContent = '清空紀錄';
+        }, 8000);
+        return;
+      }
+      clearMessagesArmed = false;
+      if (clearMessagesTimer) window.clearTimeout(clearMessagesTimer);
+      if (button) button.textContent = '清空紀錄';
+      clearVisibleMessages();
     });
     restoreMessages();
     restoreLocalAiActionFeedback();
