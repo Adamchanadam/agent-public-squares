@@ -2051,6 +2051,60 @@ try {
   assert(!packetText.includes('\nto: noah\n'), 'one-to-one packet: must not target noah', packetText);
   console.log('PASS one project supports multiple confirmed peers while each packet stays one-to-one');
 
+  const jayLeadProject = 'jay_leads_multi_peer_handoff';
+  writeTempApsConfig(jayLeadProject, 'jay');
+  for (const peerId of ['adam', 'jay', 'fanny']) {
+    writeFile(path.join(hubRoot, jayLeadProject, `from_${peerId}`, 'outbox.log.md'), '');
+    writeFile(
+      path.join(hubRoot, jayLeadProject, '_ack', `${peerId}.ack.json`),
+      `${JSON.stringify({ agent: peerId, project: jayLeadProject, consumed: [], declined: [], open_questions: [] }, null, 2)}\n`,
+    );
+    writePeerCard(jayLeadProject, peerId, peerId);
+  }
+  const jayPeers = runApsProcess(['peers', '--hub-root', hubRoot, '--project', jayLeadProject, '--agent-id', 'jay']);
+  const jayPeersOutput = outputOf(jayPeers);
+  assert(jayPeers.status === 0, `jay-led peers: expected exit 0, got ${jayPeers.status}`, jayPeersOutput);
+  for (const text of ['adam', 'jay (本機)', 'fanny', 'active / confirmed']) {
+    assert(jayPeersOutput.includes(text), `jay-led peers: missing ${text}`, jayPeersOutput);
+  }
+  const jayToAdam = runApsProcess([
+    'publish',
+    '--hub-root', hubRoot,
+    '--project', jayLeadProject,
+    '--agent-id', 'jay',
+    '--to', 'adam',
+    '--topic', 'jay_selected_review',
+    '--body', 'Jay 主導多人工作小組，但這份正式交接只交給 Adam；Fanny 只可協調，不是正式收件人。',
+    '--items', 'Adam 審閱 Jay 指定的交接內容',
+  ]);
+  const jayToAdamOutput = outputOf(jayToAdam);
+  assert(jayToAdam.status === 0, `jay-led publish to adam: expected exit 0, got ${jayToAdam.status}`, jayToAdamOutput);
+  const jayToAdamPacketId = extractPublishedPacketId(jayToAdamOutput, 'jay-led publish to adam');
+  const jayToAdamPacket = fs.readFileSync(path.join(hubRoot, jayLeadProject, 'from_jay', 'packets', `${jayToAdamPacketId}__v1`, 'packet.md'), 'utf8');
+  assert(jayToAdamPacket.includes('\nfrom: jay\n'), 'jay-led packet: expected from jay', jayToAdamPacket);
+  assert(jayToAdamPacket.includes('\nto: adam\n'), 'jay-led packet: expected selected receiver adam', jayToAdamPacket);
+  assert(!jayToAdamPacket.includes('\nto: fanny\n'), 'jay-led packet: must not target non-selected fanny', jayToAdamPacket);
+  const adamInboxFromJay = runCheckDrive(['--hub-root', hubRoot, '--project', jayLeadProject, '--agent-id', 'adam', '--from', 'jay']);
+  const adamInboxFromJayOutput = outputOf(adamInboxFromJay);
+  assert(adamInboxFromJay.status === 0, `jay-led adam check-drive: expected exit 0, got ${adamInboxFromJay.status}`, adamInboxFromJayOutput);
+  for (const text of ['adam 收到 1 個新交接', '來源: jay', 'jay_selected_review', 'Jay 主導多人工作小組']) {
+    assert(adamInboxFromJayOutput.includes(text), `jay-led adam check-drive: missing ${text}`, adamInboxFromJayOutput);
+  }
+  const fannyInboxFromJay = runCheckDrive(['--hub-root', hubRoot, '--project', jayLeadProject, '--agent-id', 'fanny', '--from', 'jay']);
+  const fannyInboxFromJayOutput = outputOf(fannyInboxFromJay);
+  assert(fannyInboxFromJay.status === 0, `jay-led fanny check-drive: expected exit 0, got ${fannyInboxFromJay.status}`, fannyInboxFromJayOutput);
+  assert(fannyInboxFromJayOutput.includes('fanny 目前沒有新的交接要處理。'), 'jay-led fanny check-drive: non-selected peer should have no pending inbox', fannyInboxFromJayOutput);
+  assert(!fannyInboxFromJayOutput.includes('jay_selected_review'), 'jay-led fanny check-drive: non-selected peer must not see adam-targeted packet topic', fannyInboxFromJayOutput);
+  assert(!fannyInboxFromJayOutput.includes('Jay 主導多人工作小組'), 'jay-led fanny check-drive: non-selected peer must not see adam-targeted packet body', fannyInboxFromJayOutput);
+  const jayWaitingForAdam = runCheckAps(['--hub-root', hubRoot, '--project', jayLeadProject, '--agent-id', 'jay']);
+  const jayWaitingForAdamOutput = outputOf(jayWaitingForAdam);
+  assert(jayWaitingForAdam.status === 0, `jay-led check-aps waiting: expected exit 0, got ${jayWaitingForAdam.status}`, jayWaitingForAdamOutput);
+  for (const text of ['交給 adam', 'jay selected review', '等待對方 check Drive']) {
+    assert(jayWaitingForAdamOutput.includes(text), `jay-led check-aps waiting: missing ${text}`, jayWaitingForAdamOutput);
+  }
+  assert(!jayWaitingForAdamOutput.includes('交給 fanny'), 'jay-led check-aps waiting: must not claim packet was sent to fanny', jayWaitingForAdamOutput);
+  console.log('PASS jay-led three-person group keeps formal handoff one-to-one');
+
   writeFile(
     path.join(hubRoot, 'duplicate_join', '_peers', 'agents', 'alex.json'),
     `${JSON.stringify({
