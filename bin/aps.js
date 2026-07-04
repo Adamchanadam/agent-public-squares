@@ -5205,7 +5205,7 @@ function apsLiveRoomId(snapshot) {
   const basis = [
     snapshot.project || 'project',
     participants,
-    snapshot.live_focus || 'aps-live',
+    'aps-live-v1',
   ].join('|');
   const digest = crypto.createHash('sha256').update(basis).digest('hex').slice(0, 16);
   return `aps:${project}:${participants}:${digest}`.replace(/[^a-zA-Z0-9:_-]+/g, '_').slice(0, 120);

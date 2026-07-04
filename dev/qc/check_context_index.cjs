@@ -4179,6 +4179,52 @@ try {
   const livePeerOutputText = outputOf(livePeerOutput);
   assert(livePeerOutput.status === 0, `aps live peer page: expected exit 0, got ${livePeerOutput.status}`, livePeerOutputText);
   const livePeerHtml = fs.readFileSync(path.join(hubRoot, 'dashboard_daily', '_context', 'aps-live_jay.html'), 'utf8');
+  const liveFocusDivergedProject = 'live_focus_diverged_room';
+  writeTempApsConfig(liveFocusDivergedProject, 'adam');
+  writePeerCard(liveFocusDivergedProject, 'adam', 'Adam');
+  writePeerCard(liveFocusDivergedProject, 'sandbox', 'Sandbox');
+  seedConfirmedSharedGoal(liveFocusDivergedProject, 'adam', 'sandbox');
+  writeFile(
+    path.join(hubRoot, liveFocusDivergedProject, 'from_adam', 'outbox.log.md'),
+    [
+      '2026-06-01T00:00:00Z | publish | 20260601T000000Z__shared_goal_and_roles v1 | to:sandbox | items:1',
+      '2026-06-01T00:10:00Z | publish | 20260601T001000Z__transport_probe v1 | to:sandbox | items:1',
+      '',
+    ].join('\n'),
+  );
+  writeFile(
+    path.join(hubRoot, liveFocusDivergedProject, 'from_adam', 'packets', '20260601T001000Z__transport_probe__v1', 'packet.md'),
+    `---\npacket_id: 20260601T001000Z__transport_probe\nversion: 1\nfrom: adam\nto: sandbox\nproject: ${liveFocusDivergedProject}\nlevel: L2-aps-packet\nsupersedes: null\ncreated_at: 2026-06-01T00:10:00Z\nssot_refs: []\nscope: \"transport_probe\"\nitems:\n  - id: \"驗證 APS Live 房間不受目前焦點分叉影響\"\n---\n\n# transport_probe\n\n## 共同目標\n驗證同一項目同一組協作者即使正式狀態視角不同，APS Live 仍進入同一即時房間。\n`,
+  );
+  const divergedAdamOutput = runLive(['--hub-root', hubRoot, '--project', liveFocusDivergedProject, '--agent-id', 'adam']);
+  const divergedAdamText = outputOf(divergedAdamOutput);
+  assert(divergedAdamOutput.status === 0, `aps live diverged sender page: expected exit 0, got ${divergedAdamOutput.status}`, divergedAdamText);
+  writeAck(liveFocusDivergedProject, 'sandbox', [
+    {
+      packet_id: '20260601T000000Z__shared_goal_and_roles',
+      version: 1,
+      result: 'Confirmed shared goal and roles fixture',
+      at: '2026-06-01T00:05:00Z',
+    },
+    {
+      packet_id: '20260601T001000Z__transport_probe',
+      version: 1,
+      result: 'Consumed transport probe fixture',
+      at: '2026-06-01T00:20:00Z',
+    },
+  ]);
+  const divergedSandboxOutput = runLive(['--hub-root', hubRoot, '--project', liveFocusDivergedProject, '--agent-id', 'sandbox']);
+  const divergedSandboxText = outputOf(divergedSandboxOutput);
+  assert(divergedSandboxOutput.status === 0, `aps live diverged receiver page: expected exit 0, got ${divergedSandboxOutput.status}`, divergedSandboxText);
+  const divergedAdamHtml = fs.readFileSync(path.join(hubRoot, liveFocusDivergedProject, '_context', 'aps-live_adam.html'), 'utf8');
+  const divergedSandboxHtml = fs.readFileSync(path.join(hubRoot, liveFocusDivergedProject, '_context', 'aps-live_sandbox.html'), 'utf8');
+  const divergedAdamRoom = divergedAdamHtml.match(/const roomId = "([^"]+)"/);
+  const divergedSandboxRoom = divergedSandboxHtml.match(/const roomId = "([^"]+)"/);
+  const divergedAdamFocus = divergedAdamHtml.match(/"live_focus": "([^"]+)"/);
+  const divergedSandboxFocus = divergedSandboxHtml.match(/"live_focus": "([^"]+)"/);
+  assert(divergedAdamRoom && divergedSandboxRoom, 'aps live diverged focus: both generated pages should expose room ids for QC');
+  assert(divergedAdamFocus && divergedSandboxFocus && divergedAdamFocus[1] !== divergedSandboxFocus[1], `aps live diverged focus: fixture should prove different formal focus, got ${divergedAdamFocus && divergedAdamFocus[1]} and ${divergedSandboxFocus && divergedSandboxFocus[1]}`);
+  assert(divergedAdamRoom[1] === divergedSandboxRoom[1], `aps live diverged focus: same participants must keep one Trystero room despite formal-focus drift, got ${divergedAdamRoom[1]} and ${divergedSandboxRoom[1]}`);
   const liveNoBaselineOutput = runLive(['--hub-root', hubRoot, '--project', 'dashboard_no_baseline', '--agent-id', 'adam']);
   const liveNoBaselineOutputText = outputOf(liveNoBaselineOutput);
   assert(liveNoBaselineOutput.status === 0, `aps live no-baseline page: expected exit 0, got ${liveNoBaselineOutput.status}`, liveNoBaselineOutputText);
